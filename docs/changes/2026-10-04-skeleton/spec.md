@@ -390,7 +390,7 @@ docs/
   changes/2026-10-04-skeleton/spec.md      esta spec (+ plan.md)
   research/architecture-analysis.md        análisis previo (movido desde brainstorming/)
   guides/{setup,testing,release}.md
-  features/                                docs funcionales vivas por feature (vacía en spec 0)
+  features/{device-setup,monitoring}.md   docs funcionales vivas (tarea de cierre)
   wiki/brands/ingeteam/
     README.md                              fuentes, revisión, SHA-256, fecha de obtención
     AAA0030IMB03_N.pdf                     comandos, genérico de marca (rev. N, 20/05/24)
@@ -419,6 +419,19 @@ ADR (un fichero por decisión):
 5. `0005-poll-tiers.md`: tiers 5/60/3600 s editables en reconfigure, mínimo del perfil.
 6. `0006-vendor-docs-official-only.md`: solo PDF oficiales en el repo.
 7. `0007-tests-ci-only.md`: tests solo en GitHub Actions.
+
+**Tarea de cierre (paso 4 del flujo de `docs/`).** Al terminar la implementación, antes de
+marcar esta spec como `status: done`:
+- `features/device-setup.md`: alta de la marca y del equipo, campos del formulario,
+  errores (`cannot_connect`, `endpoint_in_use`, `invalid_response`), reconfigure e
+  intervalos.
+- `features/monitoring.md`: los 3 sensores con su unidad y tier, disponibilidad,
+  recuperación, uso en el panel de Energía y diagnostics.
+- `architecture/` y `guides/` reflejan el código final.
+- `README.md` marca este cambio como cerrado.
+
+Flujo de `docs/`: `research/` → `decisions/` → `changes/` → al cerrar, `features/`,
+`architecture/` y `guides/`. `wiki/` es la fuente de datos de fabricantes.
 
 ## 10. Riesgos y pendientes
 
