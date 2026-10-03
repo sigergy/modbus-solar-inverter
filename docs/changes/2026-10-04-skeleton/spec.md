@@ -23,7 +23,7 @@ probado de punta a punta con **tres registros** del Ingeteam 1Play Storage.
 - Sondeo por tiers (`fast` / `normal` / `slow`).
 - Errores tipados, disponibilidad y `diagnostics`.
 - Tests y CI en GitHub Actions; release zip para HACS.
-- Documentación según la plantilla de `docs/` y 7 ADR.
+- Documentación según la plantilla de `docs/` y 8 ADR.
 
 **Fuera (specs posteriores):**
 - Spec 1: perfil Ingeteam completo de lectura (resto de registros, MPPT, strings, eventos).
@@ -417,7 +417,7 @@ Dependencias del job `test`, verificadas en PyPI y en el core:
 | `integration_manifest` | manifest con `codeowners`, `documentation`, `domain`, `issue_tracker`, `name` y `version` (`utils/validate.py`, `INTEGRATION_MANIFEST_JSON_SCHEMA`) |
 | `issues` | issues habilitadas en el repositorio (`issues.py`) |
 | `topics` | al menos un topic en el repositorio (`topics.py`) |
-| `license` | **ignorado**. Exige licencia aprobada por OSI (`license.py`); el repo usa PolyForm Strict 1.0.0 (`LICENSE:1`), que no lo es. La licencia es una decisión del proyecto |
+| `license` | **ignorado**. Exige licencia aprobada por OSI (`license.py`); el repo usa PolyForm Noncommercial 1.0.0 (`LICENSE:3`), que no lo es. La licencia es una decisión del proyecto |
 | `images` | no aplica: solo `plugin` y `theme` (`images.py`) |
 
 `description`, `issues` y `topics` son ajustes del repositorio `sigergy/modbus-solar-inverter`
@@ -473,7 +473,7 @@ docs/
   architecture/overview.md                 capas, reglas de dependencia, flujo de datos
   architecture/{domain,application,ports}.md
   architecture/adapters/{inbound,outbound}.md
-  decisions/0001..0007-*.md                ADR (abajo)
+  decisions/0001..0008-*.md                ADR (abajo)
   changes/2026-10-04-skeleton/spec.md      esta spec (+ plan.md)
   research/architecture-analysis.md        análisis previo (movido desde brainstorming/)
   guides/{setup,testing,release}.md
@@ -506,6 +506,9 @@ ADR (un fichero por decisión):
 5. `0005-poll-tiers.md`: tiers 5/60/3600 s editables en reconfigure, mínimo del perfil.
 6. `0006-vendor-docs-official-only.md`: solo PDF oficiales en el repo.
 7. `0007-tests-ci-only.md`: tests solo en GitHub Actions.
+8. `0008-license-polyform-noncommercial.md`: PolyForm Noncommercial 1.0.0 con `Required Notice`;
+   se puede relajar a AGPL-3.0 más adelante, pero no endurecer (las versiones publicadas
+   conservan su licencia). Por eso `hacs/action` ignora el check `license`.
 
 **Tarea de cierre (paso 4 del flujo de `docs/`).** Al terminar la implementación, antes de
 marcar esta spec como `status: done`:
