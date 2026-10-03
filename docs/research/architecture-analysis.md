@@ -62,57 +62,64 @@ frontend/src/  card/, panel/, shared/, api.ts, store.ts, i18n.ts     ← Lit + V
 
 ### Corrección de nombres
 
-En arquitectura hexagonal, **«adapters» significa I/O**: Modbus TCP, HA, Store. Las definiciones por marca y modelo son **perfiles de dispositivo**. Usar la misma palabra para las dos cosas confunde el diseño. Propuesta: llamarlos `profiles/`.
+En arquitectura hexagonal, **«adapters» significa I/O**: Modbus TCP, HA, Store. Las definiciones por marca y modelo son **perfiles de dispositivo**. Usar la misma palabra para las dos cosas confunde el diseño. Por eso van en `profiles/`.
 
-### Estructura propuesta
+### Estructura
 
 ```
-custom_components/<domain>/
-  __init__.py  config_flow.py  manifest.json  diagnostics.py  strings.json  translations/
-  sensor.py binary_sensor.py number.py select.py switch.py button.py   ← finos: delegan en factoría
-  core/                 ← PURO: sin HA, sin pymodbus. Testeable en Windows.
+custom_components/modbus_solar/
+  __init__.py  config_flow.py  manifest.json  diagnostics.py  strings.json  translations/  const.py
+  sensor.py             ← fino: delega en la factoría de entidades
+                          (binary_sensor, number, select, switch, button llegan en fases posteriores)
+  domain/               ← solo stdlib: sin HA ni modbus_connection
+    types.py            DataType, RegisterKind, PollTier, Role, Platform, WordOrder
     profile.py          RegisterSpec, EntitySpec, DeviceProfile (dataclasses frozen)
-    codec.py            decode/encode: u16/s16/u32/s32/f32, word/byte order, escala, valores centinela
-    planner.py          agrupa registros contiguos en lecturas de ≤125 registros
-    calc.py             sensores derivados (eficiencia, potencia neta, energía integrada…)
-    enums.py            código de estado → clave de traducción
-    ports.py            Protocol ModbusPort, Clock
-  engine/               ← orquestación async. Depende de core + ports.
-    hub.py              una conexión por host:port, cola de peticiones, lock, backoff, reconexión
-    poller.py           coordinadores por nivel de frecuencia
-    commands.py         escritura: valida rango → escribe → relee → confirma
-    profiles.py         registro, carga y validación de perfiles
+    decode.py           u16/s16/u32/s32, word order, escala, offset, enum
+    errors.py           DeviceUnavailable, DeviceProtocolError, DecodeError
+    validate.py         validación de perfiles
+  ports/
+    device.py           Protocol DeviceGateway
+  application/          ← casos de uso: domain + ports; sin homeassistant ni modbus_connection
+    poller.py           lee y decodifica un tier
+    probe.py            prueba del equipo en el config flow
+    catalog.py          perfiles por marca e id
   adapters/
-    modbus_tcp.py       implementa ModbusPort con pymodbus async
-    entities/           base CoordinatorEntity + factoría EntitySpec → entidad HA
-    websocket.py        metadatos para el front (no estados)
-  profiles/
+    inbound/            lado HA: config flow, coordinators, entidades, diagnostics
+    outbound/
+      modbus_gateway.py implementa DeviceGateway sobre ModbusUnit de modbus-connection
+  profiles/             ← solo domain
     ingeteam/
       oneplay_storage.py   familia 1Play Storage; variantes 3TL/6TL si comparten mapa
   frontend/             bundle (generado en release, no commiteado)
 frontend/src/           TS fuente
-tests/
-  unit/                 core/ sin HA
+tests/                  fuera del paquete
+  unit/                 domain, application, profiles y gateway con el mock de modbus-connection
   ha/                   pytest-homeassistant-custom-component
-  fixtures/dumps/       volcados reales de registros por modelo
 ```
 
-### Qué va en `engine` (lógica compartida)
+**Reglas de dependencia**, verificadas con `import-linter` en CI:
 
-- **Hub de conexión.** Una sola conexión TCP por `host:port`, compartida entre varios `unit_id`. Por ejemplo, un meter colgado del RS485 del inversor por pasarela. Las peticiones se serializan con un lock.
-- **Planificador de lecturas.** Usa el `planner` de `core`. Solo lee los registros de **entidades habilitadas**, y así reduce el tráfico.
-- **Coordinadores por nivel de frecuencia:**
-  - rápido (5-10 s): potencias;
-  - medio (30-60 s): energías y temperaturas;
-  - estático (al arrancar y cada hora): número de serie, firmware, modelo.
-- **Pipeline de escritura:**
+- capas `adapters > application > ports > domain`;
+- `domain`, `ports`, `application` y `profiles` no importan `homeassistant` ni `modbus_connection`;
+- `adapters.inbound` y `adapters.outbound` son independientes. Solo las raíces de composición (`__init__.py` y `config_flow.py`) los conectan.
+
+### Lógica compartida
+
+- **Conexión compartida.** Cada equipo obtiene su `ModbusUnit` con `homeassistant.components.modbus.async_get_unit`, que comparte una conexión por endpoint entre varios `unit_id`. Por ejemplo, un meter colgado del RS485 del inversor por pasarela. La librería es `modbus-connection` 4.10.0, la que fija el core en HA 2026.9.0. No se usa pymodbus directo.
+- **Espaciado de peticiones.** Lo aplica la librería por unit con `ModbusUnit.set_message_spacing`, con el mínimo que declara el perfil (≥ 1 s en el Ingeteam).
+- **Agrupado de lecturas.** El gateway agrupa los registros contiguos en bloques y hace una lectura por bloque.
+- **Coordinadores por tier de sondeo:**
+  - `fast` (5 s): potencias y estado;
+  - `normal` (60 s): energías y temperaturas;
+  - `slow` (3600 s): número de serie, firmware, modelo.
+- **Pipeline de escritura** (control, sobre el protocolo de comandos AAA0030IMB03):
   1. comprobar los límites del perfil;
   2. escribir;
   3. releer y confirmar;
   4. refrescar el coordinador;
   5. dejar constancia en el logbook.
-- **Disponibilidad y backoff.** Tras N fallos el dispositivo pasa a `unavailable`. No se reintenta en bucle cerrado.
-- **Diagnóstico.** Estadísticas de comunicación (latencia, errores, timeouts) y `diagnostics.py` con un volcado de registros. Ese volcado sirve después como fixture de tests.
+- **Disponibilidad.** Si falla la lectura de un tier, sus entidades pasan a `unavailable` y se reintenta en el siguiente tick. No se reintenta en bucle cerrado. Un equipo caído no bloquea la entry de su marca.
+- **Diagnóstico.** `diagnostics.py` muestra por entidad el raw y el valor decodificado, y por tier el último éxito y el último error. Sirve para verificar escala y word order en la VM.
 
 ### Opción a) frente a b)
 
@@ -126,11 +133,11 @@ tests/
 **Opción a), con estos ajustes:**
 
 - **No usar `adapters/{brand}/{device_type}/{model}`.** Esos tres niveles de carpetas acaban duplicando código entre modelos de una misma familia. Mejor `profiles/{brand}/{family}.py`, con `device_type` como campo y variantes por modelo.
-- **Perfil declarativo, no código.** Cada perfil es una lista de `EntitySpec`, al estilo de las `EntityDescription` de HA: registro, tipo, escala, unidad, `device_class`, `state_class`, `entity_category`, rol semántico y límites de escritura. Toda la lógica la resuelve el engine genérico.
+- **Perfil declarativo, no código.** Cada perfil es una lista de `EntitySpec`, al estilo de las `EntityDescription` de HA: registro, tipo, escala, unidad, `device_class`, `state_class`, `entity_category`, rol semántico, tier de sondeo y límites de escritura. Toda la lógica la resuelve la capa `application`, que es genérica.
 - **Ganchos solo para rarezas.** Si un modelo necesita una función especial (un cálculo raro, una secuencia de escritura), se añade como función nombrada en el perfil. No hace falta una clase por modelo.
-- **Esquema serializable.** Así queda abierta una **opción b) recortada** en una fase muy posterior: «importar perfil JSON», **solo lectura y sin escrituras**.
+- **Esquema serializable.** Así queda abierta una **opción b) recortada** en la última fase: export/import de perfiles en JSON.
 
-Se recomiendan perfiles **en Python** frente a YAML. Dan tipado, IDE, ruff y tests, y encajan con el estilo de HA.
+Los perfiles van **en Python**, no en YAML. Dan tipado, IDE, ruff y tests, y encajan con el estilo de HA.
 
 ### Front: alcance
 
@@ -147,29 +154,25 @@ El problema es que cada modelo expone un número distinto de entidades. Propuest
    - Así la misma tarjeta sirve para cualquier modelo.
 4. **Una tarjeta genérica de dispositivo** que pinta los grupos que declara el perfil, por ejemplo «Red», «Batería», «FV», «Control».
 5. **Panel lateral:**
-   - *Ajustes generales:* conexiones (hubs), intervalos de sondeo, control habilitado o no.
+   - *Ajustes generales:* marcas, equipos y control habilitado o no.
    - *Resumen:* dispositivos, estado de comunicación, alarmas activas, último error.
 
 **Diferencia clave con irrigation:** las tarjetas leen los estados de `hass.states`, que HA ya empuja. El WS propio sirve solo para **metadatos**: rol → entity_id, grupos y límites. No hay que repetir el snapshot completo a cada cambio, porque con muchas entidades a 5 s sería un cuello de botella.
 
 ### Async y velocidad con HA
 
-- **pymodbus asíncrono.** En `manifest.json` hay que fijar la misma versión de `pymodbus` que exige la integración `modbus` del core en la versión de HA objetivo. Si no coinciden, hay conflicto de dependencias. **Pendiente de verificar antes de fijarla.**
+- **Sin dependencias propias.** `manifest.json` declara `dependencies: ["modbus"]` y no tiene `requirements` propios: usa `modbus-connection` tal como la fija el core en la versión mínima de HA (2026.9.0). Así no hay conflicto de versiones.
 - **`DataUpdateCoordinator(always_update=False)`.** Así, si el valor no cambia, no hay escritura de estado ni recorder.
-- **`CoordinatorEntity`, `_attr_should_poll = False`.** Las entidades secundarias se crean **deshabilitadas por defecto**: no se leen ni llenan el recorder.
+- **`CoordinatorEntity`, `_attr_should_poll = False`.** Las entidades secundarias se crean **deshabilitadas por defecto** para no llenar el recorder.
 - **Timeouts en cada petición.** Las tareas se crean con `entry.async_create_background_task` y se cancelan al descargar.
 - **Coalescer escrituras.** Si una automatización manda diez cambios seguidos de consigna, se escribe solo el último.
 
 ### Config flow
 
-- Pasos del flujo:
-  1. `host`, `port`, `unit_id`;
-  2. prueba de conexión;
-  3. elegir el perfil, o autodetectarlo si el modelo expone un registro de identificación;
-  4. crear la entry.
-- **Una entry por conexión física.** Los equipos detrás de ella (meter, célula de irradiancia) van como dispositivos hijos con `via_device`.
-- Valorar *config subentries* para añadir dispositivos a un hub existente. Hay que verificar que lo soporta la versión mínima de HA que se fije.
-- Options flow para intervalos y para habilitar el control.
+- **Config entry = marca (hub).** El paso `user` elige la marca del catálogo. No guarda datos de conexión.
+- **Config subentry = equipo.** Campos: nombre, `host`, `port`, `unit_id` y perfil (filtrado por la marca). Antes de crearla se prueba el equipo leyendo un registro del perfil. Errores del formulario: `cannot_connect`, `invalid_response`, `endpoint_in_use`.
+- Cada equipo es un dispositivo que cuelga del dispositivo de la marca con `via_device`.
+- **Intervalos de sondeo** por tier (`fast` / `normal` / `slow`, por defecto 5/60/3600 s), editables en el paso `reconfigure` de la subentry junto con `host` y `port`. Cada intervalo respeta el mínimo del perfil. Las subentries no tienen options flow.
 
 ### Seguridad del control
 
@@ -177,19 +180,19 @@ El problema es que cada modelo expone un número distinto de entidades. Propuest
 - Límites `min`/`max`/`step` en el perfil. Fuera de rango, `ServiceValidationError`.
 - **Memoria no volátil.** Hay inversores que guardan las consignas en EEPROM, y las escrituras frecuentes desde automatizaciones la desgastan. Hay que comprobarlo en el manual de Ingeteam registro a registro y, si aplica, limitar la frecuencia.
 
+### Tests
+
+- Todos los tests se ejecutan **solo en GitHub Actions**, nunca en Windows.
+- Sin simulador pymodbus: se usa el mock en memoria de `modbus-connection` (`mock_modbus_unit`).
+- `tests/unit` y `tests/ha` viven en la raíz del repo, fuera del paquete que instala HACS.
+
 ### Alcance realista por fases
 
-1. **MVP solo lectura.** Hub, coordinator, perfil 1Play Storage 6TL, sensores, panel de Energía y diagnostics. Tests con volcados reales y simulador pymodbus en CI.
-2. **Control.** `number`, `select`, `switch` con pipeline de escritura y guardas.
-3. **Más dispositivos.** Meter y célula de irradiancia. Valorar un perfil **SunSpec** genérico con autodescubrimiento, porque muchos inversores y meters lo implementan. Habría que confirmar si Ingeteam lo soporta.
-4. **Front.** Tarjetas por rol, tarjeta genérica de dispositivo, panel.
-5. *(Opcional)* Importar perfiles JSON de solo lectura.
+0. **Esqueleto.** Capas hexagonales, config flow (marca + equipo), sondeo por tiers, diagnostics, CI y empaquetado HACS, probado de punta a punta con 3 registros del 1Play Storage.
+1. **Lectura completa Ingeteam.** Resto de registros, MPPT, strings y eventos.
+2. **Control.** `number`, `select`, `switch` con pipeline de escritura y guardas, mediante el protocolo de comandos AAA0030IMB03.
+3. **Más dispositivos.** Meter y célula de irradiancia; perfil **SunSpec** genérico con autodescubrimiento.
+4. **Front.** Tarjetas por rol, tarjeta genérica de dispositivo y panel lateral.
+5. **Perfiles JSON.** Export/import de perfiles (última fase).
 
----
-
-## Preguntas abiertas
-
-1. **Mapa Modbus oficial del Ingeteam 1Play Storage 6TL** (PDF o ruta). No se define ningún registro sin él.
-2. **`domain` de la integración**, por ejemplo `modbus_solar`. No se puede cambiar después sin romper los `unique_id`.
-3. **Versión mínima de HA.** irrigation usa `2026.9.0` (`hacs.json:3`).
-4. **Ruta para specs y planes** de las fases siguientes.
+Los sensores derivados (`calc`: eficiencia, potencia neta, energía integrada…) quedan como fase futura, sin spec asignada.

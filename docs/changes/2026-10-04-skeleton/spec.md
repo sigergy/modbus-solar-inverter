@@ -1,7 +1,7 @@
 ---
 type: feature
 area: core
-layers: [domain, application, ports, adapters]
+layers: [domain, application, ports, adapters, profiles]
 status: draft
 date: 2026-10-04
 ---
@@ -39,7 +39,8 @@ probado de punta a punta con **tres registros** del Ingeteam 1Play Storage.
 2. Aparecen 3 sensores con valor; la energía es válida para el panel de Energía.
 3. Con el equipo apagado, las entidades pasan a `unavailable` y se recuperan solas.
 4. El diagnostics del dispositivo muestra raw y valor decodificado de cada entidad.
-5. CI en verde: ruff, import-linter, tests unit, tests HA, hassfest, validación HACS.
+5. CI en verde en GitHub Actions: jobs `lint` (ruff, import-linter, `compileall`) y
+   `test` (pytest sobre `tests/unit` y `tests/ha`), hassfest y validación HACS.
 
 ## 2. Contexto técnico verificado
 
@@ -88,11 +89,13 @@ Versión mínima de HA: **2026.9.0** (`hacs.json`).
 
 ```
 custom_components/modbus_solar/
-  __init__.py              setup/unload de la entry; un runtime por subentry
-  config_flow.py           delega en adapters/inbound/flow.py
+  __init__.py              raíz de composición: setup/unload de la entry; un runtime por subentry
+  config_flow.py           raíz de composición: abre async_get_temporary_unit, construye
+                           ModbusGateway y lo inyecta (gateway_factory) en adapters/inbound/flow.py
   diagnostics.py           delega en adapters/inbound/diagnostics.py
   sensor.py                delega en adapters/inbound/entities/factory.py
   manifest.json  strings.json  translations/{es,en}.json
+  brand/icon.png           icono de la integración (ver §8)
   const.py                 DOMAIN y claves de config
 
   domain/                  solo stdlib
@@ -108,6 +111,7 @@ custom_components/modbus_solar/
 
   application/             domain + ports; sin homeassistant ni modbus_connection
     poller.py              read_tier(tier, gateway, profile) -> TierResult
+    probe.py               probe_device(gateway, profile): lee profile.probe_key
     catalog.py             Catalog: perfiles por marca e id
 
   adapters/
@@ -124,7 +128,7 @@ custom_components/modbus_solar/
     ingeteam/oneplay_storage.py
 
 tests/
-  unit/                    sin HA (domain, application, profiles, gateway con mock)
+  unit/                    sin fixture `hass`: domain, application, profiles, gateway con mock
   ha/                      con pytest-homeassistant-custom-component
 ```
 
@@ -141,6 +145,9 @@ tests/
 Contratos: `layers` (adapters > application > ports > domain), `forbidden`
 (`domain`, `ports`, `application` y `profiles` no importan `homeassistant` ni
 `modbus_connection`), e `independence` entre `adapters.inbound` y `adapters.outbound`.
+Las raíces de composición (`__init__.py` y `config_flow.py` del paquete) quedan fuera de
+los contratos: son los únicos módulos que conectan `adapters.inbound` con
+`adapters.outbound`.
 
 ### 3.3 Modelo de dominio
 
@@ -177,12 +184,13 @@ class DeviceProfile:
     min_request_interval_s: float
     default_port: int
     default_unit_id: int
+    probe_key: str                    # entidad de prueba del config flow ("inverter_state", 0x101D)
     entities: tuple[EntitySpec, ...]
 ```
 
-`validate_profile` comprueba: claves únicas, rangos de registro sin solaparse, `enum`
-solo con `device_class == "enum"`, `scale != 0`, tamaño de `dtype` coherente con
-`word_order`.
+`validate_profile` comprueba: claves únicas, `probe_key` presente entre las claves del
+perfil, rangos de registro sin solaparse, `enum` solo con `device_class == "enum"`,
+`scale != 0`, tamaño de `dtype` coherente con `word_order`.
 
 ### 3.4 Puerto
 
@@ -202,6 +210,11 @@ class DeviceGateway(Protocol):
 
 `TierResult` contiene `values: dict[key, value | None]`, `raw: dict[key, tuple[int, ...]]`
 y `decode_errors: dict[key, str]`.
+
+`async probe_device(gateway: DeviceGateway, profile: DeviceProfile) -> None`
+(`application/probe.py`) lee la entidad `profile.probe_key` y la decodifica. Propaga
+`DeviceUnavailable` y `DeviceProtocolError` del gateway, y `DecodeError` si el valor no
+es válido (por ejemplo, fuera del `enum`). La usa el config flow para validar el equipo.
 
 ### 3.6 Gateway saliente
 
@@ -229,21 +242,28 @@ y `decode_errors: dict[key, str]`.
 - Paso `user`, campos: `name`, `host`, `port` (por defecto `profile.default_port`),
   `unit_id` (por defecto `profile.default_unit_id`), `profile` (catálogo filtrado por la
   marca de la entry).
-- Validación: `async with async_get_temporary_unit(hass, ModbusTcpParams(host=..., port=...), unit_id)`
-  lee el primer registro `fast` con `enum` del perfil (`0x101D` en Ingeteam).
+- Validación: el flow recibe del `config_flow.py` raíz una `gateway_factory`. Esta abre
+  `async with async_get_temporary_unit(hass, ModbusTcpParams(host=..., port=...), unit_id)`
+  y entrega un `ModbusGateway` sobre esa unit. El flow llama a
+  `application.probe_device(gateway, profile)`, que lee `profile.probe_key`
+  (`inverter_state`, `0x101D` en Ingeteam). El flow solo ve errores de dominio y el
+  `HomeAssistantError` de la apertura:
 
   | Fallo | Error del formulario |
   |---|---|
-  | `ModbusConnectionError`, `ModbusTimeoutError` | `cannot_connect` |
-  | `HomeAssistantError` (endpoint en uso con otros parámetros) | `endpoint_in_use` |
-  | `ModbusExceptionError`, `ModbusProtocolError`, valor fuera del `enum` | `invalid_response` |
+  | `DeviceUnavailable` | `cannot_connect` |
+  | `DeviceProtocolError`, `DecodeError` (valor fuera del `enum`) | `invalid_response` |
+  | `HomeAssistantError` de `async_get_temporary_unit`: endpoint en uso con otros parámetros de enlace (`connection.py:62-65`) | `endpoint_in_use` |
 
 - `unique_id = f"{host}:{port}:{unit_id}"` (host en minúsculas); si se repite en la
   entry, aborta con `already_configured`.
 - `data = {host, port, unit_id, profile, intervals: {fast: 5, normal: 60, slow: 3600}}`.
 - Paso `reconfigure`: cambia `host`, `port` e `intervals`. Cada intervalo ≥
-  `profile.min_request_interval_s`. Guarda con `async_update_and_abort(data_updates=...)`.
-  No hay options flow, porque las subentries no tienen `options`.
+  `profile.min_request_interval_s`. Recalcula el `unique_id` con el nuevo `host` y
+  `port`; si choca con otra subentry de la misma entry, aborta con `already_configured`.
+  Guarda con `async_update_and_abort(entry, subentry, unique_id=..., title=..., data_updates=...)`
+  (`config_entries.py:3814-3822`). No hay options flow, porque las subentries no tienen
+  `options`.
 
 ### 4.3 Ciclo de vida
 
@@ -317,7 +337,11 @@ Uso: verificar en la VM los supuestos de escala y `word_order` del §2.
 
 ### 7.1 Tests
 
-`tests/unit/` (sin HA; con `modbus-connection[tmodbus]==4.10.0` instalado para el mock):
+Las dos carpetas son organización, no entornos distintos: ambas corren en el mismo job
+`test` (§7.3) con HA instalado, porque importar `custom_components.modbus_solar.<capa>`
+ejecuta antes `custom_components/modbus_solar/__init__.py`, que importa `homeassistant`.
+
+`tests/unit/` (sin fixture `hass`; lógica pura de domain, application, profiles y gateway):
 - `decode`: u16, s16, u32, s32, ambos `word_order`, `scale`, `offset`, `enum`, valor fuera
   del enum.
 - `validate_profile`: cada regla del §3.3, y que el perfil Ingeteam pasa.
@@ -328,7 +352,7 @@ Uso: verificar en la VM los supuestos de escala y `word_order` del §2.
 - Formatos de `unique_id` estables (patrón de `irrigation-scheduler`,
   `entities/tests/test_entities.py:7-11`).
 
-`tests/ha/` (con `pytest-homeassistant-custom-component`):
+`tests/ha/` (con fixture `hass` de `pytest-homeassistant-custom-component`):
 - Flow de marca: alta y duplicado.
 - Subentry: alta OK, `cannot_connect`, `endpoint_in_use`, `invalid_response`, duplicado,
   reconfigure con intervalo inferior al mínimo.
@@ -357,25 +381,88 @@ Basados en `irrigation-scheduler/.github/workflows/tests.yml:1-23` (Ubuntu, Pyth
 
 | Job | Pasos |
 |---|---|
-| `lint` | `ruff check .`, `ruff format --check .`, `lint-imports`, `python -m compileall -q custom_components` |
-| `unit` | instala `pytest`, `pytest-asyncio` y `modbus-connection[tmodbus]==4.10.0`; `pytest tests/unit` |
-| `ha` | instala `pytest-homeassistant-custom-component==0.13.367`; `pytest tests/ha` |
+| `lint` | instala `ruff` e `import-linter`; `ruff check .`, `ruff format --check .`, `lint-imports`, `python -m compileall -q custom_components` |
+| `test` | instala `pytest-homeassistant-custom-component==0.13.367`, `pymodbus==3.13.1`, `modbus-connection[tmodbus]==4.10.0` y `tmodbus==0.6.2`; `pytest` (recorre `tests/unit` y `tests/ha`) |
 
-`validate.yml` (push y pull_request): `home-assistant/actions/hassfest` y `hacs/action`
-con `category: integration`.
+Dependencias del job `test`, verificadas en PyPI y en el core:
+- `pytest-homeassistant-custom-component==0.13.367` fija `homeassistant==2026.9.4`
+  (metadatos `requires_dist`, https://pypi.org/pypi/pytest-homeassistant-custom-component/0.13.367/json).
+  Cumple el mínimo 2026.9.0 de `hacs.json`.
+- `homeassistant==2026.9.4` no arrastra `modbus-connection` (ningún `requires_dist` contiene
+  `modbus`, https://pypi.org/pypi/homeassistant/2026.9.4/json). Los requisitos de una
+  integración del core no se instalan con el paquete; por eso el job instala a mano los tres
+  pines del manifest de `modbus` (HA 2026.9.4 `homeassistant/components/modbus/manifest.json:8-11`).
+  Sin ellos, `homeassistant/components/modbus/connection.py:9-16` no importa y el mock de
+  `modbus_connection` no existe.
 
-`release.yml` (tag `v*.*.*`): empaqueta `custom_components/modbus_solar` en
-`modbus_solar.zip` y lo adjunta a la release de GitHub.
+`validate.yml` (push y pull_request), dos jobs:
+- `hassfest`: `home-assistant/actions/hassfest`. Valida el manifest con
+  `CUSTOM_INTEGRATION_MANIFEST_SCHEMA` (core `script/hassfest/manifest.py`, commit
+  `743b1489`): `domain`, `name`, `documentation` (https y fuera de `home-assistant.io`) y
+  `codeowners` obligatorios (`:207-208`, `:309`, `:151-161`, `:350-352`); `version` obligatorio
+  en custom integrations (`:360-366`, `:422-423`) y con formato válido (`:180-194`); `iot_class`
+  obligatorio (`:393-398`); `domain` igual al nombre de la carpeta (`:382-383`); claves en orden
+  `domain`, `name` y resto alfabético (`:426-447`).
+- `hacs`: `hacs/action` con `category: integration` e `ignore: license`. Checks que aplican a
+  una integración (hacs/integration `custom_components/hacs/validate/`, commit `4b64080f`;
+  lista en https://hacs.xyz/docs/publish/action/):
 
-Si el plan detecta que el pin `0.13.367` no corresponde a HA 2026.9.x, se corrige allí con
-la fuente citada.
+| Check | Cómo se satisface |
+|---|---|
+| `archived` | repositorio no archivado (`archived.py`) |
+| `brands` | `custom_components/modbus_solar/brand/icon.png` en el repo; el check lo busca en `<ruta del contenido>/brand/icon.png` antes de consultar home-assistant/brands (`brands.py`). Ver §8 |
+| `description` | descripción del repositorio en GitHub (`description.py`); ajuste del repo, no fichero |
+| `hacsjson` | `hacs.json` del §8; con `zip_release: true` exige `filename` (`hacsjson.py`) |
+| `information` | `README.md` en la raíz (`information.py`) |
+| `integration_manifest` | manifest con `codeowners`, `documentation`, `domain`, `issue_tracker`, `name` y `version` (`utils/validate.py`, `INTEGRATION_MANIFEST_JSON_SCHEMA`) |
+| `issues` | issues habilitadas en el repositorio (`issues.py`) |
+| `topics` | al menos un topic en el repositorio (`topics.py`) |
+| `license` | **ignorado**. Exige licencia aprobada por OSI (`license.py`); el repo usa PolyForm Strict 1.0.0 (`LICENSE:1`), que no lo es. La licencia es una decisión del proyecto |
+| `images` | no aplica: solo `plugin` y `theme` (`images.py`) |
+
+`description`, `issues` y `topics` son ajustes del repositorio `sigergy/modbus-solar-inverter`
+en GitHub; el plan los incluye como tarea manual previa al primer push de `validate.yml`.
+
+`release.yml` (tag `v*.*.*`): comprueba que `version` del manifest coincide con el tag,
+empaqueta `custom_components/modbus_solar` en `modbus_solar.zip` y lo adjunta a la release de
+GitHub.
 
 ## 8. Empaquetado HACS
 
 - `hacs.json`: `{"name": "Modbus Solar", "zip_release": true, "filename": "modbus_solar.zip", "homeassistant": "2026.9.0"}`.
-- `manifest.json`: `domain: modbus_solar`, `dependencies: ["modbus"]`, `config_flow: true`,
-  `integration_type: hub`, `iot_class: local_polling`, `requirements: []` (usa los del
-  core `modbus`), `version` según el tag.
+  Todas las claves están en `HACS_MANIFEST_JSON_SCHEMA` (hacs/integration
+  `custom_components/hacs/utils/validate.py`, commit `4b64080f`).
+- `manifest.json` (claves en el orden que exige hassfest; requisitos en §7.3):
+
+```json
+{
+  "domain": "modbus_solar",
+  "name": "Modbus Solar",
+  "codeowners": ["@Carlosjcfr"],
+  "config_flow": true,
+  "dependencies": ["modbus"],
+  "documentation": "https://github.com/sigergy/modbus-solar-inverter",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/sigergy/modbus-solar-inverter/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
+```
+
+  `requirements: []` porque usa los del core `modbus`. `version` coincide con el tag de la
+  release (`release.yml`, §7.3). Mismo patrón que
+  `irrigation-scheduler/custom_components/irrigation_scheduler/manifest.json`.
+- Brand: `custom_components/modbus_solar/brand/icon.png` dentro del paquete, sin PR a
+  home-assistant/brands. Desde HA 2026.3 una custom integration sirve sus imágenes desde
+  `brand/` y tienen prioridad sobre el repositorio de brands
+  (https://developers.home-assistant.io/docs/core/integration/brand_images, sección «Custom
+  integrations»; código en HA 2026.9.0 `homeassistant/components/brands/__init__.py:136-156`
+  y `homeassistant/loader.py:898-900`). HACS lo acepta en el check `brands` (§7.3) y lo pide
+  en https://hacs.xyz/docs/publish/integration/ («Brand assets»). Nombres admitidos:
+  `icon.png`, `logo.png`, variantes `@2x` y `dark_` (`brands/const.py`, `ALLOWED_IMAGES`).
+  Punto a verificar en el plan: tamaño y formato exigidos para `icon.png` (las fuentes leídas
+  no los fijan).
 - Sin frontend en esta spec.
 
 ## 9. Documentación
