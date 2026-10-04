@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modbus Solar · Nombres de entidad: corto en su dispositivo</title>
+<style>
+  :root {
+    --bg: #111; --card: #1c1c1c; --line: #2e2e2e; --text: #e6e6e6; --muted: #9a9a9a;
+    --primary: #03a9f4; --ok: #4caf50; --err: #ef5350; --warn: #ffb300;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Roboto, system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 40px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  p, li { color: #cfcfcf; }
+  a { color: var(--primary); }
+  code { background: #262626; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .card-title { padding: 14px 16px 6px; font-size: 16px; font-weight: 500; }
+  .sub { padding: 8px 16px 2px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 8px 16px; min-height: 46px; }
+  .row + .row { border-top: 1px solid #242424; }
+  .icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; flex: 0 0 34px; background: #2a2a2a; color: var(--muted); }
+  .icon.on { color: var(--warn); background: #3a321a; }
+  .name { flex: 1; }
+  .name small { display: block; color: var(--muted); font-size: 12px; }
+  .state { color: #fff; text-align: right; white-space: nowrap; }
+  .vague { background: #3a321a; color: #ffe082; border-radius: 3px; padding: 0 2px; }
+  .phone { background: #222; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+  .phone .app { font-size: 12px; color: var(--muted); }
+  .phone .t { font-weight: 500; margin: 2px 0; }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  .legend span { margin-right: 16px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Nombres de entidad: corto en su dispositivo</h1>
+<p class="lead">Patrón de §5.4 de la <a href="spec.md">spec</a>, decidido el 5 de octubre de 2026.
+Valores de ejemplo. Borrador: nada está implementado.</p>
+
+<p><b>Regla:</b> la entidad no repite su dispositivo. Ejemplo: Batería · <b>Estado de carga</b>.</p>
+<p class="legend"><span><span class="vague">ámbar</span> nombre que solo, sin dispositivo, no dice de qué es</span></p>
+
+<p>Cómo compone HA el nombre (<code>has_entity_name</code>, <code>adapters/inbound/entities/base.py:16</code>):
+nombre visible = «dispositivo» + «entidad». Unas vistas muestran solo la entidad; otras, el nombre completo.
+Qué vista muestra cuál depende de la versión de HA: está marcado como pendiente de verificar en la VM al final.</p>
+<p>El nombre del dispositivo lleva el Device ID de la entry detrás (spec §5.6): «Batería 0». De ahí sale el
+<code>entity_id</code>: <code>sensor.bateria_0_potencia</code>. Un segundo equipo con ID 1 da «Batería 1» y
+<code>sensor.bateria_1_potencia</code>, sin sufijo <code>_2</code>. Una entry creada antes de v2 no tiene Device ID:
+su dispositivo se llama «Batería», sin número.</p>
+
+<!-- 1 -->
+<h2>1. Página del dispositivo</h2>
+<p>HA quita el nombre del dispositivo: ya está en la cabecera. Muestra solo la entidad.</p>
+<div class="card">
+  <div class="card-title">Batería 0</div>
+  <div class="sub">Sensores</div>
+  <div class="row"><div class="icon">⚡</div><div class="name">Tensión</div><div class="state">52,1 V</div></div>
+  <div class="row"><div class="icon">⚡</div><div class="name">Corriente</div><div class="state">-8,4 A</div></div>
+  <div class="row"><div class="icon">⚡</div><div class="name">Potencia</div><div class="state">-437 W</div></div>
+  <div class="row"><div class="icon">▮</div><div class="name">Estado de carga</div><div class="state">78 %</div></div>
+  <div class="row"><div class="icon">♥</div><div class="name">Estado de salud</div><div class="state">98 %</div></div>
+  <div class="row"><div class="icon">⚙</div><div class="name">Estado</div><div class="state">Descargando</div></div>
+  <div class="sub">Diagnóstico</div>
+  <div class="row"><div class="icon">!</div><div class="name">Alarma: tensión alta</div><div class="state">Correcto</div></div>
+  <div class="row"><div class="icon on">↻</div><div class="name">Calibración de SOC pendiente</div><div class="state">Activado</div></div>
+</div>
+
+<!-- 2 -->
+<h2>2. Panel con una tarjeta de entidades que mezcla dispositivos</h2>
+<p>Tarjeta típica de resumen. Con el nombre completo:</p>
+<div class="card">
+  <div class="card-title">Resumen</div>
+  <div class="row"><div class="icon">☀</div><div class="name">Campo solar 0 Potencia FV1</div><div class="state">1.240 W</div></div>
+  <div class="row"><div class="icon">⚡</div><div class="name">Batería 0 Potencia</div><div class="state">-437 W</div></div>
+  <div class="row"><div class="icon">⚡</div><div class="name">Red 0 Potencia</div><div class="state">120 W</div></div>
+  <div class="row"><div class="icon">⌂</div><div class="name">Consumo 0 Potencia</div><div class="state">923 W</div></div>
+  <div class="row"><div class="icon">▮</div><div class="name">Batería 0 Estado de carga</div><div class="state">78 %</div></div>
+  <div class="row"><div class="icon">☀</div><div class="name">Campo solar 0 Energía FV</div><div class="state">8,2 kWh</div></div>
+</div>
+<p>Si el usuario edita la tarjeta y pone solo el nombre de la entidad (o su versión de HA lo hace):</p>
+<div class="card">
+  <div class="row"><div class="icon">⚡</div><div class="name"><span class="vague">Potencia</span></div><div class="state">-437 W</div></div>
+  <div class="row"><div class="icon">⚡</div><div class="name"><span class="vague">Potencia</span></div><div class="state">120 W</div></div>
+  <div class="row"><div class="icon">⌂</div><div class="name"><span class="vague">Potencia</span></div><div class="state">923 W</div></div>
+</div>
+<p>Tres «Potencia» que no se distinguen. El usuario puede renombrarlas en la tarjeta.</p>
+
+<!-- 3 -->
+<h2>3. Notificación en el móvil</h2>
+<p>Automatización del usuario con <code>{{ trigger.to_state.name }}</code>, que da el nombre completo.</p>
+<div class="phone"><div class="app">Home Assistant · ahora</div><div class="t">Batería 0 Alarma: tensión alta</div><div>Activada a las 14:32</div></div>
+<div class="phone"><div class="app">Home Assistant · ahora</div><div class="t">Batería 0 Estado de carga</div><div>Ha bajado del 20 %</div></div>
+<p>Si la plantilla usa solo el nombre de la entidad, se pierde el contexto: «Estado de carga ha bajado del 20 %» se
+entiende, pero «<span class="vague">Potencia</span> supera 3 kW» no.</p>
+
+<!-- 4 -->
+<h2>4. Selector de entidades (automatizaciones, tarjetas)</h2>
+<p>El usuario escribe para buscar. Se ve el nombre completo y el <code>entity_id</code>. Busca «potencia»:</p>
+<div class="card">
+  <div class="row"><div class="name">Batería 0 Potencia<small class="mono">sensor.bateria_0_potencia</small></div></div>
+  <div class="row"><div class="name">Batería 1 Potencia<small class="mono">sensor.bateria_1_potencia</small></div></div>
+  <div class="row"><div class="name">Red 0 Potencia<small class="mono">sensor.red_0_potencia</small></div></div>
+  <div class="row"><div class="name">Consumo 0 Potencia<small class="mono">sensor.consumo_0_potencia</small></div></div>
+  <div class="row"><div class="name">Campo solar 0 Potencia FV1<small class="mono">sensor.campo_solar_0_potencia_fv1</small></div></div>
+</div>
+<p>«Batería 1» es la batería de un segundo inversor, con Device ID 1. Los bits del BMS son <code>binary_sensor</code>:
+<code>binary_sensor.bateria_0_alarma_tension_alta</code>.</p>
+<p>El <code>entity_id</code> se genera una vez al crear la entidad (spec §5.4). Solo cambia si el usuario cambia el
+Device ID en «Reconfigurar» (spec §4.5). El idioma del <code>entity_id</code> está por verificar.</p>
+
+<!-- 5 -->
+<h2>5. Historial y registro</h2>
+<div class="card">
+  <div class="row"><div class="name">Batería 0 Estado cambió a Cargando<small>14:05</small></div></div>
+  <div class="row"><div class="name">Batería 0 Calibración de SOC pendiente se activó<small>14:10</small></div></div>
+  <div class="row"><div class="name">Inversor 0 Estado cambió a Conectado<small>14:12</small></div></div>
+</div>
+
+<!-- 6 -->
+<h2>6. Tabla de ejemplos</h2>
+<p>Lista completa en §5.4 de la spec. Las filas marcadas ✓ son nombres ya decididos.</p>
+<table>
+  <tr><th>Dispositivo</th><th>Clave</th><th>Nombre</th></tr>
+  <tr><td>Inversor</td><td><code>inverter_state</code></td><td>Estado</td></tr>
+  <tr><td>Inversor</td><td><code>inverter_temperature</code></td><td>Temperatura</td></tr>
+  <tr><td>Inversor</td><td><code>power_reduction_ratio</code></td><td>Ratio de reducción de potencia ✓</td></tr>
+  <tr><td>Campo solar</td><td><code>pv1_voltage</code></td><td>Tensión FV1 ✓ (igual en FV2, corriente y potencia)</td></tr>
+  <tr><td>Campo solar</td><td><code>solar_energy</code></td><td>Energía FV ✓</td></tr>
+  <tr><td>Batería</td><td><code>battery_voltage</code></td><td>Tensión</td></tr>
+  <tr><td>Batería</td><td><code>battery_current</code></td><td>Corriente</td></tr>
+  <tr><td>Batería</td><td><code>battery_power</code></td><td>Potencia</td></tr>
+  <tr><td>Batería</td><td><code>battery_soc</code></td><td>Estado de carga</td></tr>
+  <tr><td>Batería</td><td><code>battery_soh</code></td><td>Estado de salud</td></tr>
+  <tr><td>Batería</td><td><code>battery_state</code></td><td>Estado</td></tr>
+  <tr><td>Batería</td><td><code>battery_temperature</code></td><td>Temperatura</td></tr>
+  <tr><td>Batería</td><td><code>battery_charge_limit_reason</code></td><td>Motivo de limitación de carga</td></tr>
+  <tr><td>Batería</td><td><code>bms_calibration</code></td><td>Calibración de SOC pendiente ✓</td></tr>
+  <tr><td>Batería</td><td><code>bms_forced_charge_soc</code></td><td>Carga forzada por SOC bajo ✓</td></tr>
+  <tr><td>Red</td><td><code>grid_voltage</code></td><td>Tensión</td></tr>
+  <tr><td>Red</td><td><code>grid_power</code></td><td>Potencia</td></tr>
+  <tr><td>Red</td><td><code>grid_import_energy</code></td><td>Energía importada</td></tr>
+  <tr><td>Vatímetro interno</td><td><code>internal_meter_power</code></td><td>Potencia</td></tr>
+  <tr><td>Cargas críticas</td><td><code>critical_load_power</code></td><td>Potencia</td></tr>
+  <tr><td>Consumo</td><td><code>load_power</code></td><td>Potencia</td></tr>
+  <tr><td>Cargador VE</td><td><code>ev_charger_power</code></td><td>Potencia</td></tr>
+</table>
+
+<h2>Balance</h2>
+<table>
+  <tr><th>Sitio</th><th>Resultado</th></tr>
+  <tr><td>Página del dispositivo</td><td>limpio, sin repetir el dispositivo</td></tr>
+  <tr><td>Tarjeta con nombre completo</td><td>claro</td></tr>
+  <tr><td>Tarjeta o plantilla con solo la entidad</td><td>ambiguo («Potencia» ×3)</td></tr>
+  <tr><td>Notificación con nombre completo</td><td>claro</td></tr>
+  <tr><td>Selector y <code>entity_id</code></td><td>corto</td></tr>
+  <tr><td>Historial</td><td>claro</td></tr>
+</table>
+<p>Es la convención de HA para integraciones con <code>has_entity_name</code>: la entidad no repite el dispositivo.</p>
+
+<h2>Pendiente de verificar en la VM</h2>
+<ul>
+  <li>Qué tarjetas de la versión de HA instalada muestran el nombre completo y cuáles solo la entidad.</li>
+  <li>Idioma del <code>entity_id</code> generado (<code>bateria_…</code> o <code>battery_…</code>).</li>
+</ul>
+</main>
+</body>
+</html>
