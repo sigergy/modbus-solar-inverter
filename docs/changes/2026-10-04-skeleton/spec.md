@@ -65,6 +65,8 @@ Versión mínima de HA: **2026.9.0** (`hacs.json`).
 **Datos del Ingeteam 1Play Storage** (PDF `ACL2010IMB05`, págs. 4-5 y Nota 3 pág. 7):
 - FC03 (holding), solo lectura; un único cliente Modbus en el puerto 502; periodo entre
   peticiones ≥ 1 s.
+- Dirección Modbus (unit id) 1 por defecto; de 1 a 124 registros por lectura (pág. 4,
+  tabla de la función 3).
 - Registros de esta spec:
 
 | Dirección | Clave | Tipo | Escala doc | `scale` | Unidad | `device_class` | `state_class` | Tier |
@@ -103,6 +105,7 @@ custom_components/modbus_solar/
                            PollTier (fast, normal, slow), Role, Platform, WordOrder
     profile.py             RegisterSpec, EntitySpec, DeviceProfile
     decode.py              decode(spec, words) -> int | float | str
+    blocks.py              plan_blocks(registers, max_gap, max_count) -> list[Block]
     errors.py              DeviceUnavailable, DeviceProtocolError, DecodeError
     validate.py            validate_profile(profile) -> list[str]
 
@@ -150,6 +153,11 @@ Las raíces de composición (`__init__.py` y `config_flow.py` del paquete) queda
 los contratos: son los únicos módulos que conectan `adapters.inbound` con
 `adapters.outbound`.
 
+`custom_components` es un namespace package (sin `__init__.py`). Para no depender de que
+import-linter lo resuelva, `root_package = "modbus_solar"` y el job `lint` ejecuta
+`cd custom_components && lint-imports --config ../pyproject.toml`: `lint-imports` añade el
+directorio actual a `sys.path`. El paquete usa solo imports relativos.
+
 ### 3.3 Modelo de dominio
 
 ```python
@@ -183,6 +191,7 @@ class DeviceProfile:
     device_type: str
     models: tuple[str, ...]
     min_request_interval_s: float
+    max_block_registers: int = 125   # 125 = límite de FC03/FC04; Ingeteam: 124
     default_port: int
     default_unit_id: int
     probe_key: str                    # entidad de prueba del config flow ("inverter_state", 0x101D)
@@ -227,10 +236,12 @@ es válido (por ejemplo, fuera del `enum`). La usa el config flow para validar e
 
 ### 3.6 Gateway saliente
 
-`ModbusGateway(unit: ModbusUnit)`:
+`ModbusGateway(unit: ModbusUnit, profile: DeviceProfile)`:
 - Agrupa las direcciones contiguas en bloques (hueco máximo configurable, 0 por defecto)
-  de como máximo 125 registros, el límite de FC03/FC04 en Modbus, y lanza una lectura
-  `read_holding_registers` / `read_input_registers` por bloque.
+  de como máximo `profile.max_block_registers` registros, y lanza una lectura
+  `read_holding_registers` / `read_input_registers` por bloque. El agrupado es la función
+  pura `domain/blocks.py: plan_blocks(registers, max_gap, max_count)`; la usan el gateway y
+  la validación de intervalos del §4.2.
 - Traduce excepciones: `ModbusConnectionError` y `ModbusTimeoutError` a
   `DeviceUnavailable`; `ModbusExceptionError` y `ModbusProtocolError` a
   `DeviceProtocolError`.
@@ -304,7 +315,8 @@ ModbusSolarEntity(CoordinatorEntity).native_value = result.values[key]
 ```
 
 - Las claves habilitadas que el coordinator pasa a `read_tier` se leen del entity
-  registry en el setup de la entry.
+  registry en el setup de la entry. Al habilitar o deshabilitar una entidad, HA recarga la
+  entry a los 30 s (`config_entries.py:241`, `:4073`), y con ella las claves.
 - Coordinators con `always_update=False`: HA solo escribe estado si el valor cambia.
 - Identificadores estables: device `(DOMAIN, subentry_id)`; entity
   `unique_id = f"{subentry_id}_{key}"`. Se basan en el `subentry_id` (ULID) para que
@@ -323,8 +335,9 @@ ModbusSolarEntity(CoordinatorEntity).native_value = result.values[key]
 - Un tier es todo o nada: si falla un bloque, falla el tier.
 - `DecodeError` afecta a una entidad: su valor es `None` (`unknown`) y se registra un
   `warning` una vez por clave hasta que se recupere.
-- Log según la quality scale: un `warning` al perder el equipo y un `info` al recuperarlo;
-  nada en cada tick.
+- Log de disponibilidad: lo hace el propio `DataUpdateCoordinator`, un `error` al perder
+  el equipo y un `info` al recuperarlo, nada en cada tick (HA 2026.9.4
+  `helpers/update_coordinator.py:472-475`, `:575`).
 - Arranque: un equipo caído **no** bloquea la entry de marca. No se lanza
   `ConfigEntryNotReady`. El primer refresh de cada coordinator se lanza en segundo plano
   con `entry.async_create_background_task(hass, coordinator.async_refresh(), name)`
@@ -364,8 +377,8 @@ ejecuta antes `custom_components/modbus_solar/__init__.py`, que importa `homeass
 - `validate_profile`: cada regla del §3.3, y que el perfil Ingeteam pasa.
 - `read_tier` con un `DeviceGateway` falso: éxito, error del gateway, `DecodeError`
   parcial, claves fuera de `keys` no se leen, `keys` vacío no llama al gateway.
-- `ModbusGateway` con `mock_modbus_unit`: agrupado en bloques, corte a 125 registros,
-  traducción de cada
+- `plan_blocks`: contiguos, hueco, corte en `max_count`, tipos de registro separados.
+- `ModbusGateway` con `mock_modbus_unit`: una lectura por bloque, traducción de cada
   excepción (`fail_read`), y que llama a `set_message_spacing`.
 - Formatos de `unique_id` estables (patrón de `irrigation-scheduler`,
   `entities/tests/test_entities.py:7-11`).
@@ -399,7 +412,7 @@ Basados en `irrigation-scheduler/.github/workflows/tests.yml:1-23` (Ubuntu, Pyth
 
 | Job | Pasos |
 |---|---|
-| `lint` | instala `ruff` e `import-linter`; `ruff check .`, `ruff format --check .`, `lint-imports`, `python -m compileall -q custom_components` |
+| `lint` | instala `ruff` e `import-linter`; `ruff check .`, `ruff format --check .`, `lint-imports` desde `custom_components/` (ver §3.2), `python -m compileall -q custom_components` |
 | `test` | instala `pytest-homeassistant-custom-component==0.13.367`, `pymodbus==3.13.1`, `modbus-connection[tmodbus]==4.10.0` y `tmodbus==0.6.2`; `pytest` (recorre `tests/unit` y `tests/ha`) |
 
 Dependencias del job `test`, verificadas en PyPI y en el core:
@@ -479,8 +492,10 @@ GitHub.
   y `homeassistant/loader.py:898-900`). HACS lo acepta en el check `brands` (§7.3) y lo pide
   en https://hacs.xyz/docs/publish/integration/ («Brand assets»). Nombres admitidos:
   `icon.png`, `logo.png`, variantes `@2x` y `dark_` (`brands/const.py`, `ALLOWED_IMAGES`).
-  Punto a verificar en el plan: tamaño y formato exigidos para `icon.png` (las fuentes leídas
-  no los fijan).
+  Formato de `icon.png`: PNG cuadrado de 256×256 px (512×512 para `icon@2x.png`),
+  preferiblemente con transparencia y recortado sin márgenes; prohibidas las imágenes con
+  marca de Home Assistant (README de home-assistant/brands, «Image specification» e «Icon
+  image requirements»).
 - Sin frontend en esta spec.
 
 ## 9. Documentación
