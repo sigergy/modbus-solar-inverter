@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from .control import GatedLimitSpec
 from .energy import EnergySpec
 from .types import DataType, Platform, PollTier, RegisterKind, Role, WordOrder
 
@@ -46,3 +47,4 @@ class DeviceProfile:
     probe_key: str  # entidad que lee el config flow para validar el equipo
     entities: tuple[EntitySpec, ...]
     energies: tuple[EnergySpec, ...] = ()  # contadores calculados por la integración
+    controls: tuple[GatedLimitSpec, ...] = ()  # parámetros escribibles del equipo
