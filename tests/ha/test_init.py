@@ -25,8 +25,8 @@ async def test_setup_builds_runtime_and_devices(
     assert ingeteam_unit.message_spacing == 1.0
 
     devices = dr.async_get(hass)
-    brand = devices.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
-    device = devices.async_get_device(identifiers={(DOMAIN, DEVICE_ID)})
+    brand = devices.async_get_device_by_identifier((DOMAIN, entry.entry_id), entry.entry_id)
+    device = devices.async_get_device_by_identifier((DOMAIN, DEVICE_ID), entry.entry_id)
     assert brand is not None
     assert (brand.name, brand.manufacturer, brand.entry_type) == ("Ingeteam", "Ingeteam", dr.DeviceEntryType.SERVICE)
     assert device is not None
@@ -72,4 +72,4 @@ async def test_removing_subentry_reloads_entry(hass: HomeAssistant, patch_unit: 
     await hass.async_block_till_done(wait_background_tasks=True)
     assert entry.state is ConfigEntryState.LOADED
     assert entry.runtime_data == {}
-    assert dr.async_get(hass).async_get_device(identifiers={(DOMAIN, DEVICE_ID)}) is None
+    assert dr.async_get(hass).async_get_device_by_identifier((DOMAIN, DEVICE_ID), entry.entry_id) is None
