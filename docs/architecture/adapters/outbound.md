@@ -8,14 +8,15 @@ Implementa [`DeviceGateway`](../ports.md) sobre una `ModbusUnit` compartida de l
 
 ### Constructor (`modbus_gateway.py:20-25`)
 
-`ModbusGateway(unit, profile, max_gap=0)`.
+`ModbusGateway(unit, profile)`.
 
+- `max_gap = profile.max_gap` (`modbus_gateway.py:22`).
 - `max_count = profile.max_block_registers` (`modbus_gateway.py:23`).
-- Llama a `unit.set_message_spacing(profile.min_request_interval_s)`: la librería espacia las peticiones de esa unit dentro de la conexión compartida (`modbus_gateway.py:24-25`). Para el Ingeteam son 1,0 s (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:12`).
+- Llama a `unit.set_message_spacing(profile.min_request_interval_s)`: la librería espacia las peticiones de esa unit dentro de la conexión compartida (`modbus_gateway.py:24-25`). Para los dos perfiles Ingeteam son 1,0 s (`custom_components/modbus_solar/profiles/ingeteam/oneplay.py:12`, `custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:96`).
 
 ### `read` (`modbus_gateway.py:27-44`)
 
-1. **Bloques.** `plan_blocks(specs, max_gap, max_count)` agrupa los registros (`modbus_gateway.py:29`). Una petición por bloque. Con `max_gap=0` solo se fusionan registros contiguos o solapados.
+1. **Bloques.** `plan_blocks(specs, max_gap, max_count)` agrupa los registros (`modbus_gateway.py:29`). Una petición por bloque. Con `max_gap=0` solo se fusionan registros contiguos o solapados. El STORAGE usa `max_gap=9` y `max_block_registers=10` (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:97-99`).
 2. **Petición.** Un bloque `HOLDING` usa `read_holding_registers`; uno `INPUT`, `read_input_registers` (`modbus_gateway.py:30-35`).
 3. **Longitud.** Si la respuesta no trae `block.count` registros, lanza `DeviceProtocolError` (`modbus_gateway.py:40-41`).
 4. **Reparto.** Guarda cada palabra por `(kind, dirección)` (`modbus_gateway.py:42-43`) y devuelve, por cada `RegisterSpec`, sus `dtype.words` palabras (`modbus_gateway.py:44`).

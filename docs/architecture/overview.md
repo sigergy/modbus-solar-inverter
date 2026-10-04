@@ -19,7 +19,8 @@ Documento vivo. Describe el código de `custom_components/modbus_solar/`. Decisi
  ports      │ DeviceGateway (Protocol)                     │
             └───────────────┬──────────────────────────────┘
             ┌───────────────▼──────────────────────────────┐
- domain     │ tipos · perfil · errores · decode · blocks   │
+ domain     │ tipos · perfil · energía · errores · decode  │
+            │ blocks · validate                            │
             └──────────────────────────────────────────────┘
 
  profiles   datos de cada equipo; solo importan domain
@@ -52,23 +53,25 @@ Dos reglas más, sin contrato propio:
 async_setup_entry
   └─ async_get_unit(hass, entry, ModbusTcpParams, unit_id)        __init__.py:37-39
        └─ ModbusGateway(unit, profile)                             __init__.py:40
-            └─ build_runtime → un TierCoordinator por tier         __init__.py:42, runtime.py:57-70
+            └─ build_runtime → un TierCoordinator por tier         __init__.py:42, runtime.py:57-82
 
-TierCoordinator._async_update_data                                 coordinator.py:51
-  └─ read_tier(tier, gateway, profile, keys)                       coordinator.py:53, poller.py:21
+TierCoordinator._async_update_data                                 coordinator.py:53
+  └─ read_tier(tier, gateway, profile, keys)                       coordinator.py:55, poller.py:21
        ├─ ModbusGateway.read(specs)                                poller.py:31, modbus_gateway.py:27
        │    └─ ModbusUnit.read_holding_registers / read_input_registers (un bloque por petición)
        └─ decode(spec, words)                                      poller.py:38, decode.py:10
   ◄─ TierResult(values, raw, decode_errors)                        poller.py:14-18
 
-ModbusSolarSensor.native_value = result.values[key]                factory.py:26-30
+ModbusSolarSensor.native_value = result.values[key]                factory.py:27-31
+ModbusSolarEnergySensor._handle_coordinator_update                 entities/energy.py:37-43
+  └─ EnergyAccumulator.add(t, suma de sources)                     domain/energy.py:38
 ```
 
-Rutas completas bajo `custom_components/modbus_solar/` (`adapters/inbound/` para `runtime.py`, `coordinator.py` y `entities/factory.py`; `application/` para `poller.py`; `domain/` para `decode.py`).
+Rutas completas bajo `custom_components/modbus_solar/` (`adapters/inbound/` para `runtime.py`, `coordinator.py`, `entities/factory.py` y `entities/energy.py`; `application/` para `poller.py`; `domain/` para `decode.py`).
 
 - El primer refresh de cada coordinator se lanza en segundo plano: un equipo caído no retrasa el arranque de HA ni bloquea la entry (`custom_components/modbus_solar/__init__.py:45-48`).
-- Con `always_update=False` HA solo escribe estado si cambia el `TierResult` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:40-41`).
-- Las claves habilitadas se leen del entity registry en el setup (`custom_components/modbus_solar/__init__.py:41`, `custom_components/modbus_solar/adapters/inbound/runtime.py:35-45`). Habilitar o deshabilitar una entidad recarga la entry y con ella las claves (`docs/changes/2026-10-04-skeleton/spec.md:323-325`).
+- `always_update` va por tier. Por defecto es `False` y HA solo escribe estado si cambia el `TierResult` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:33`, `:41-43`). Los tiers con fuentes de energía usan `True` para que la integral avance con potencia constante (`custom_components/modbus_solar/adapters/inbound/runtime.py:67`, `:78`).
+- Las claves habilitadas se leen del entity registry en el setup (`custom_components/modbus_solar/__init__.py:41`, `custom_components/modbus_solar/adapters/inbound/runtime.py:44-54`). Una energía habilitada añade sus `sources` aunque su sensor de potencia esté deshabilitado (`custom_components/modbus_solar/adapters/inbound/runtime.py:50-53`). Habilitar o deshabilitar una entidad recarga la entry y con ella las claves (`docs/changes/2026-10-04-skeleton/spec.md:323-325`).
 
 ## Composición
 

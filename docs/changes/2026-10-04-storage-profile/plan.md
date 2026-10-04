@@ -2,7 +2,7 @@
 type: feature
 area: profiles
 layers: [domain, application, adapters, profiles]
-status: in-progress
+status: done
 date: 2026-10-04
 ---
 
@@ -63,7 +63,7 @@ import-linter, GitHub Actions.
 | `adapters/outbound/modbus_gateway.py` | usa `profile.max_gap` | 1 |
 | `profiles/ingeteam/oneplay.py` | nuevo: mapa viejo, id `ingeteam.oneplay` | 2 |
 | `profiles/ingeteam/oneplay_storage.py` | reescrito: mapa `ABH2010IMB08` y energías | 3, 4 |
-| `profiles/__init__.py` | `ALL_PROFILES = (ONEPLAY_STORAGE, ONEPLAY)` | 2, 3 |
+| `profiles/__init__.py` | `ALL_PROFILES = (ONEPLAY, ONEPLAY_STORAGE)` | 2, 3 |
 | `domain/types.py` | roles nuevos | 3, 4 |
 | `strings.json`, `translations/en.json`, `translations/es.json` | entidades nuevas | 3, 4 |
 | `domain/energy.py` | nuevo: `SignFilter`, `EnergySpec`, `EnergyAccumulator` | 4 |
@@ -197,7 +197,7 @@ ALL_PROFILES: tuple[DeviceProfile, ...] = (ONEPLAY,)
 - Create: `profiles/ingeteam/oneplay_storage.py`, `tests/unit/test_storage_profile.py`
 - Modify: `domain/types.py:33-38`, `profiles/__init__.py`, `strings.json`,
   `translations/en.json`, `translations/es.json`, `tests/unit/test_translations.py`,
-  `tests/unit/test_profiles.py` (catálogo)
+  `tests/unit/test_profiles.py` (catálogo), `tests/unit/test_types.py` (valores de `Role`)
 
 **Interfaces:**
 - Consumes: `DeviceProfile.max_gap` (Tarea 1).
@@ -205,7 +205,9 @@ ALL_PROFILES: tuple[DeviceProfile, ...] = (ONEPLAY,)
   `PV_CURRENT`, `PV_POWER`, `BATTERY_VOLTAGE`, `BATTERY_CURRENT`, `BATTERY_POWER`,
   `BATTERY_SOC`, `BATTERY_SOH`, `BATTERY_STATE`, `BATTERY_TEMPERATURE`, `GRID_VOLTAGE`,
   `GRID_FREQUENCY`, `GRID_POWER`, `LOAD_POWER`, `DIAGNOSTIC`.
-  `ALL_PROFILES = (ONEPLAY_STORAGE, ONEPLAY)`: el STORAGE es el valor por defecto del form.
+  `ALL_PROFILES = (ONEPLAY, ONEPLAY_STORAGE)`. El orden no decide el perfil por defecto del
+  formulario: `Catalog.for_brand` ordena por `id` (`application/catalog.py:19-20`) y el flow usa
+  `profiles[0]` (`adapters/inbound/flow.py:103`), que es `ingeteam.oneplay`.
 
 - [ ] **Step 1: tests que fallan.** `tests/unit/test_storage_profile.py`:
 
@@ -292,6 +294,22 @@ def test_sample_registers_match_pdf(
     assert (e.register.address, e.register.dtype, e.register.scale, e.unit, e.poll) == (
         address, dtype, scale, unit, poll,
     )
+
+
+@pytest.mark.parametrize(
+    ("key", "device_class", "state_class"),
+    [
+        ("inverter_state", "enum", None),
+        ("battery_soc", "battery", "measurement"),
+        ("battery_soh", None, "measurement"),
+        ("operation_time", "duration", "total_increasing"),
+        ("reactive_power", "reactive_power", "measurement"),
+        ("power_factor", None, "measurement"),
+        ("power_reduction_reason", None, None),
+    ],
+)
+def test_classes(key: str, device_class: str | None, state_class: str | None) -> None:
+    assert (entity(key).device_class, entity(key).state_class) == (device_class, state_class)
 
 
 def test_enums() -> None:
@@ -394,13 +412,15 @@ entidades de §3.2 y §3.3 en ese orden. Clases y unidades:
 from .ingeteam.oneplay import ONEPLAY
 from .ingeteam.oneplay_storage import ONEPLAY_STORAGE
 
-# el primero es el perfil por defecto del formulario de alta
-ALL_PROFILES: tuple[DeviceProfile, ...] = (ONEPLAY_STORAGE, ONEPLAY)
+ALL_PROFILES: tuple[DeviceProfile, ...] = (ONEPLAY, ONEPLAY_STORAGE)
 ```
 
 `strings.json` y `en.json` (copia literal), `entity.sensor`: nombre de cada clave nueva;
 `inverter_state.state` con la unión de los 3 estados viejos y los 11 nuevos; `battery_state.state`
 con sus 11. `es.json` con las mismas claves en español.
+
+`tests/unit/test_types.py`: `test_enum_values_are_stable` fija la lista completa de `Role`; se
+amplía con los roles nuevos en el mismo orden que `domain/types.py`.
 
 - [ ] **Step 4:** lint, commit `feat: STORAGE 1Play TL M profile (ABH2010IMB08)`, CI → verde.
 

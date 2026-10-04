@@ -18,13 +18,13 @@ Desde la entry de la marca, «Add device» (`strings.json:20`). Campos (`adapter
 | `host` | — | texto |
 | `port` | `profile.default_port` (502 en Ingeteam) | 1-65535 |
 | `unit_id` | `profile.default_unit_id` (1 en Ingeteam) | 1-247 |
-| `profile` | primer perfil de la marca | perfiles de la marca de la entry |
+| `profile` | primer perfil de la marca por `id`: `ingeteam.oneplay` en Ingeteam | perfiles de la marca de la entry |
 
-Rangos en `adapters/inbound/flow.py:40-42`. Los valores por defecto del Ingeteam, en `profiles/ingeteam/oneplay_storage.py:14-15`.
+Rangos en `adapters/inbound/flow.py:40-42`. El perfil por defecto es `profiles[0]` (`adapters/inbound/flow.py:103`), y `Catalog.for_brand` ordena por `id` (`application/catalog.py:19-20`). Para un STORAGE 1Play TL M hay que elegir `ingeteam.oneplay_storage` («STORAGE 1Play TL M»). Puerto y unidad por defecto de los dos perfiles Ingeteam: `profiles/ingeteam/oneplay.py:14-15` y `profiles/ingeteam/oneplay_storage.py:100-101`.
 
 ### Sonda
 
-Antes de guardar, el flow abre una unit temporal y lee la entidad `probe_key` del perfil (`inverter_state`, `0x101D` en Ingeteam: `profiles/ingeteam/oneplay_storage.py:16`, `:22`) con `probe_device` (`adapters/inbound/flow.py:167-171`, `application/probe.py:8-12`). Si el equipo no responde bien, no se crea la subentry.
+Antes de guardar, el flow abre una unit temporal y lee la entidad `probe_key` del perfil, `inverter_state` en los dos perfiles Ingeteam: input 30016 en el STORAGE (`profiles/ingeteam/oneplay_storage.py:102`, `:107`) y holding `0x101D` en el 1Play sin storage (`profiles/ingeteam/oneplay.py:16`, `:22`), con `probe_device` (`adapters/inbound/flow.py:167-171`, `application/probe.py:8-12`). Si el equipo no responde bien, no se crea la subentry.
 
 ### Errores del formulario
 
@@ -50,7 +50,17 @@ Paso `reconfigure` de la subentry (`adapters/inbound/flow.py:119-161`).
 - Guarda con `async_update_and_abort`; el update listener recarga la entry de marca (`__init__.py:52`).
 - `interval_too_short`: un intervalo es menor que el tiempo de lectura de su tier (`adapters/inbound/flow.py:127-128`). Ese tiempo es `nº de bloques × min_request_interval_s` (`application/poller.py:46-49`).
 
-Mínimos del Ingeteam 1Play Storage (`min_request_interval_s=1.0`, `profiles/ingeteam/oneplay_storage.py:12`):
+Mínimos del STORAGE 1Play TL M: 1,0 s por petición, bloques de 10 registros como máximo y huecos de hasta 9 registros leídos dentro del bloque (`profiles/ingeteam/oneplay_storage.py:96-99`):
+
+| Tier | Bloques (direcciones) | Mínimo |
+|---|---|---|
+| `fast` | 3 (15-20, 33-37, 71-78) | 3 s |
+| `normal` | 3 (17-26, 31-35, 69-70) | 3 s |
+| `slow` | 6 (6-7, 21-29, 38-46, 48-57, 59-60, 77-80) | 6 s |
+
+El mínimo cuenta todas las entidades del tier, también las deshabilitadas (`application/poller.py:46-49`).
+
+Mínimos del 1Play TL M sin storage (`min_request_interval_s=1.0`, `profiles/ingeteam/oneplay.py:12`):
 
 | Tier | Registros | Bloques | Mínimo |
 |---|---|---|---|
