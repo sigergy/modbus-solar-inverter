@@ -1,0 +1,77 @@
+"""Perfil Ingeteam 1Play Storage y catálogo de perfiles."""
+
+import pytest
+
+from custom_components.modbus_solar import CATALOG
+from custom_components.modbus_solar.application.catalog import Catalog
+from custom_components.modbus_solar.domain.types import DataType, PollTier, RegisterKind, Role, WordOrder
+from custom_components.modbus_solar.domain.validate import validate_profile
+from custom_components.modbus_solar.profiles import ALL_PROFILES
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
+
+
+def entity(key: str):
+    return next(e for e in ONEPLAY_STORAGE.entities if e.key == key)
+
+
+def test_all_profiles_are_valid() -> None:
+    for profile in ALL_PROFILES:
+        assert validate_profile(profile) == [], profile.id
+
+
+def test_ingeteam_identity_and_limits() -> None:
+    p = ONEPLAY_STORAGE
+    assert (p.id, p.brand, p.device_type, p.models) == (
+        "ingeteam.oneplay_storage",
+        "ingeteam",
+        "inverter",
+        ("1Play Storage",),
+    )
+    # PDF ACL2010IMB05 pág. 4: de 1 a 124 registros por lectura y >= 1 s entre peticiones
+    assert p.max_block_registers == 124
+    assert p.min_request_interval_s == 1.0
+    assert (p.default_port, p.default_unit_id) == (502, 1)
+    assert p.probe_key == "inverter_state"
+    assert [e.key for e in p.entities] == ["inverter_state", "active_power", "total_energy"]
+
+
+def test_all_registers_are_big_endian_holding() -> None:
+    for e in ONEPLAY_STORAGE.entities:
+        assert (e.register.kind, e.register.word_order, e.register.offset) == (RegisterKind.HOLDING, WordOrder.BIG, 0)
+
+
+def test_inverter_state() -> None:
+    e = entity("inverter_state")
+    assert (e.register.address, e.register.dtype, e.register.scale) == (0x101D, DataType.U16, 1.0)
+    assert (e.device_class, e.state_class, e.unit) == ("enum", None, None)
+    assert (e.poll, e.role) == (PollTier.FAST, Role.INVERTER_STATE)
+    # Nota 3 (pág. 7): solo tres estados documentados
+    assert dict(e.enum or {}) == {0: "factory_default", 1: "grid_disconnected", 3: "grid_connected"}
+
+
+def test_active_power() -> None:
+    e = entity("active_power")
+    assert (e.register.address, e.register.dtype, e.register.scale) == (0x1037, DataType.S32, 0.1)
+    assert (e.device_class, e.state_class, e.unit) == ("power", "measurement", "W")
+    assert (e.poll, e.role) == (PollTier.FAST, Role.AC_POWER)
+
+
+def test_total_energy() -> None:
+    e = entity("total_energy")
+    assert (e.register.address, e.register.dtype, e.register.scale) == (0x1021, DataType.U32, 0.1)
+    assert (e.device_class, e.state_class, e.unit) == ("energy", "total_increasing", "Wh")
+    assert (e.poll, e.role) == (PollTier.NORMAL, Role.ENERGY_PRODUCED_TOTAL)
+
+
+def test_catalog_lookup() -> None:
+    assert CATALOG.brands() == ["ingeteam"]
+    assert CATALOG.for_brand("ingeteam") == [ONEPLAY_STORAGE]
+    assert CATALOG.for_brand("other") == []
+    assert CATALOG.get("ingeteam.oneplay_storage") is ONEPLAY_STORAGE
+    with pytest.raises(KeyError):
+        CATALOG.get("missing")
+
+
+def test_catalog_rejects_duplicate_ids() -> None:
+    with pytest.raises(ValueError, match="duplicate profile id: ingeteam.oneplay_storage"):
+        Catalog([ONEPLAY_STORAGE, ONEPLAY_STORAGE])
