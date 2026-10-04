@@ -1,5 +1,6 @@
 """INGECON SUN STORAGE 1Play TL M. Fuente: PDF ABH2010IMB08 (docs/wiki/brands/ingeteam/storage-1-play-tl-m/)."""
 
+from ...domain.control import GatedLimitSpec, WriteSpec
 from ...domain.energy import EnergySpec, SignFilter
 from ...domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from ...domain.types import DataType, Platform, PollTier, RegisterKind, Role
@@ -38,6 +39,12 @@ BATTERY_STATES = {
 def _input(register: int, dtype: DataType = DataType.U16, scale: float = 1.0) -> RegisterSpec:
     # pág. 9: el registro 30001 es la dirección 0 (FC04); se escribe el número del PDF para cotejarlo
     return RegisterSpec(address=register - 30001, kind=RegisterKind.INPUT, dtype=dtype, scale=scale)
+
+
+def _command(code: int, data1: int) -> WriteSpec:
+    # AAA0030IMB03_N págs. 4 y 8: el comando va en los holding desde 1000 (0x03E8): código, dato 1 y
+    # dato 2. Con FC16 las tres palabras van en una escritura; aquí el prefijo, y el valor es el dato 2
+    return WriteSpec(address=1000, prefix=(code, data1))
 
 
 def _core(
@@ -238,6 +245,22 @@ ONEPLAY_STORAGE = DeviceProfile(
             role=Role.ENERGY_BATTERY_DISCHARGE,
             sources=("battery_power",),
             sign=SignFilter.POSITIVE,
+        ),
+    ),
+    controls=(
+        GatedLimitSpec(
+            key="export_limit",
+            switch_key="export_enabled",
+            role=Role.EXPORT_LIMIT,
+            switch_role=Role.EXPORT_ENABLED,
+            # CMD 26 (0x1A) «Battery Control Values», dato 1 0x0A «Grid power» (AAA0030IMB03_N págs. 7, 19-20)
+            write=_command(0x1A, 0x0A),
+            min_value=0,
+            max_value=6000,
+            step=1,
+            unit="W",
+            default=6000,
+            device_class="power",
         ),
     ),
 )
