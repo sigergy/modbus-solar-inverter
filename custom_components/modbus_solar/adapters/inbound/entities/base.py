@@ -14,7 +14,7 @@ class ModbusSolarEntity(CoordinatorEntity[TierCoordinator]):
     _attr_has_entity_name = True
 
     def __init__(
-        self, coordinator: TierCoordinator, runtime: DeviceRuntime, spec: EntitySpec, brand_entry_id: str
+        self, coordinator: TierCoordinator, runtime: DeviceRuntime, spec: EntitySpec, brand_device_id: str
     ) -> None:
         super().__init__(coordinator)
         self._spec = spec
@@ -29,8 +29,8 @@ class ModbusSolarEntity(CoordinatorEntity[TierCoordinator]):
             name=runtime.title,
             manufacturer=BRAND_TITLES[profile.brand],
             model=profile.models[0],
-            # cada equipo cuelga del dispositivo de marca
-            via_device=(DOMAIN, brand_entry_id),
+            # cada equipo cuelga del dispositivo de marca (id del device registry)
+            via_device_id=brand_device_id,
         )
 
     @property

@@ -64,7 +64,7 @@ Estado en memoria de un equipo mientras la entry está cargada: `subentry_id`, `
 - `ModbusSolarEntity(CoordinatorEntity[TierCoordinator])` (`entities/base.py:13-39`): `has_entity_name`, `translation_key = spec.key`, `unique_id`, habilitada por defecto según el perfil y `DeviceInfo` del equipo (`entities/base.py:14-34`). Nace `unavailable` hasta la primera lectura correcta (`entities/base.py:36-39`).
 - `ModbusSolarSensor` convierte las cadenas de `EntitySpec` a los enums de HA (`entities/factory.py:17-24`). `native_value` sale de `coordinator.data.values` (`entities/factory.py:26-30`).
 - `build_sensors` crea un sensor por `EntitySpec` con `platform is SENSOR` (`entities/factory.py:33-38`).
-- `sensor.py:10-14` añade las entidades de cada equipo con `config_subentry_id`.
+- `sensor.py:12-20` obtiene el `id` del dispositivo de marca en el device registry (`sensor.py:15-18`) y añade las entidades de cada equipo con `config_subentry_id` (`sensor.py:19-20`). `build_sensors` y las entidades reciben ese `id` como `brand_device_id`.
 
 ## Identificadores
 
@@ -76,7 +76,7 @@ Estado en memoria de un equipo mientras la entry está cargada: `subentry_id`, `
 | Dispositivo de marca | `(DOMAIN, entry_id)` | `custom_components/modbus_solar/__init__.py:24` |
 | `unique_id` de entidad | `f"{subentry_id}_{key}"` | `runtime.py:30-32` |
 
-Cada equipo cuelga del dispositivo de marca con `via_device` (`entities/base.py:32-33`). El `subentry_id` es un ULID: cambiar el host en reconfigure no duplica entidades (`runtime.py:31`).
+Cada equipo cuelga del dispositivo de marca con `via_device_id`, el `id` del dispositivo de marca en el device registry y no el `entry_id` (`entities/base.py:32-33`). HA 2026.9 deprecia `via_device` y lo retira en 2027.8.0. El `subentry_id` es un ULID: cambiar el host en reconfigure no duplica entidades (`runtime.py:31`).
 
 ## Diagnostics (`diagnostics.py`, `custom_components/modbus_solar/diagnostics.py`)
 

@@ -3,6 +3,7 @@
 from types import MappingProxyType
 from unittest.mock import MagicMock
 
+import pytest
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -14,10 +15,15 @@ from tests.ha.common import DEVICE, DEVICE_DATA, DEVICE_ID, brand_entry, setup_e
 
 
 async def test_setup_builds_runtime_and_devices(
-    hass: HomeAssistant, patch_unit: MagicMock, ingeteam_unit: MockModbusUnit
+    hass: HomeAssistant,
+    patch_unit: MagicMock,
+    ingeteam_unit: MockModbusUnit,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     entry = brand_entry(DEVICE)
     await setup_entry(hass, entry)
+    # HA avisa con este texto (device_registry.py:2314-2321) si se usa via_device en vez de via_device_id
+    assert "with a deprecated `via_device` parameter" not in caplog.text
     assert entry.state is ConfigEntryState.LOADED
     assert set(entry.runtime_data) == {DEVICE_ID}
     _, called_entry, params, unit_id = patch_unit.call_args.args

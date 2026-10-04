@@ -78,7 +78,7 @@ Solo `__init__.py` y `config_flow.py` conocen a la vez adaptadores de entrada, d
 
 - `CATALOG = Catalog(ALL_PROFILES)`: la raíz inyecta los perfiles al catálogo (`:17`).
 - `async_setup_entry` crea un `DeviceRuntime` por subentry de tipo `device` (`:31-42`), guarda `entry.runtime_data` (`:43`), lanza los primeros refresh (`:46-48`), reenvía las plataformas (`:50`) y registra el listener de recarga (`:52`).
-- `sensor.py:6-14` y `diagnostics.py:8-29` son delegaciones finas a `adapters/inbound/`.
+- `sensor.py:7-20` y `diagnostics.py:8-29` son delegaciones finas a `adapters/inbound/`.
 
 `custom_components/modbus_solar/config_flow.py`:
 
