@@ -198,3 +198,18 @@ def test_control_prefix_words_are_16_bit() -> None:
 
 def test_control_range_must_encode() -> None:
     assert validate_profile(with_controls(gated(max_value=40000, default=40000))) == ["limit: 40000 does not encode"]
+
+
+def test_serial_must_be_ascii_with_length() -> None:
+    good = RegisterSpec(address=100, dtype=DataType.ASCII, length=8)
+    assert validate_profile(replace(profile(ent("a", 0)), serial=good)) == []
+    bad_type = RegisterSpec(address=100, dtype=DataType.U16)
+    assert validate_profile(replace(profile(ent("a", 0)), serial=bad_type)) == ["serial: dtype must be ascii"]
+    no_length = RegisterSpec(address=100, dtype=DataType.ASCII)
+    assert validate_profile(replace(profile(ent("a", 0)), serial=no_length)) == ["serial: length must be >= 1"]
+
+
+def test_entity_cannot_be_ascii() -> None:
+    reg = RegisterSpec(address=0, dtype=DataType.ASCII, length=2)
+    problems = validate_profile(profile(replace(ent("a", 0), register=reg)))
+    assert problems == ["a: ascii only for serial"]

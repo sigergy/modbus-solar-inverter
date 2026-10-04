@@ -4,7 +4,7 @@ from collections.abc import Mapping
 
 import pytest
 
-from custom_components.modbus_solar.domain.decode import decode
+from custom_components.modbus_solar.domain.decode import decode, decode_text
 from custom_components.modbus_solar.domain.errors import DecodeError
 from custom_components.modbus_solar.domain.profile import EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import DataType, Platform, PollTier, Role, WordOrder
@@ -77,3 +77,14 @@ def test_wrong_word_count_raises() -> None:
 def test_word_out_of_range_raises() -> None:
     with pytest.raises(DecodeError, match="out of range"):
         decode(entity(DataType.U16), (0x10000,))
+
+
+def test_text_strips_nulls_and_trailing_spaces() -> None:
+    reg = RegisterSpec(address=0, dtype=DataType.ASCII, length=3)
+    assert decode_text(reg, (0x4142, 0x3120, 0x0000)) == "AB1"
+
+
+def test_text_wrong_word_count_raises() -> None:
+    reg = RegisterSpec(address=0, dtype=DataType.ASCII, length=3)
+    with pytest.raises(DecodeError, match="expected 3 words"):
+        decode_text(reg, (0x4142,))

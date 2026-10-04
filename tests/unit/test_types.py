@@ -120,3 +120,10 @@ def test_domain_errors_are_independent(error: type[Exception]) -> None:
     others = DOMAIN_ERRORS - {error}
     assert issubclass(error, Exception)
     assert not any(issubclass(error, other) for other in others)
+
+
+def test_ascii_words_come_from_register_length() -> None:
+    with pytest.raises(ValueError):
+        _ = DataType.ASCII.words
+    assert RegisterSpec(address=0, dtype=DataType.ASCII, length=5).words == 5
+    assert RegisterSpec(address=0, dtype=DataType.U32).words == 2
