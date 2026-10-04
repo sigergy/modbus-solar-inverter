@@ -63,8 +63,8 @@ Versión mínima de HA: **2026.9.0** (`hacs.json`).
 | `async_get_device_diagnostics`, `async_redact_data` | `components/diagnostics/__init__.py:101`, `diagnostics/util.py:24` |
 
 **Datos del Ingeteam 1Play Storage** (PDF `ACL2010IMB05`, págs. 4-5 y Nota 3 pág. 7):
-- FC03 (holding), solo lectura; un único cliente Modbus en el puerto 502; periodo entre
-  peticiones ≥ 1 s.
+- FC03 (holding), solo lectura; Ingeteam recomienda un único cliente en el puerto 502 y un
+  periodo entre peticiones ≥ 1 s (pág. 4). La guía genérica `AAX2023IPD02` admite varios clientes.
 - Dirección Modbus (unit id) 1 por defecto; de 1 a 124 registros por lectura (pág. 4,
   tabla de la función 3).
 - Registros de esta spec:
@@ -350,9 +350,9 @@ ModbusSolarEntity(CoordinatorEntity).native_value = result.values[key]
   con `entry.async_create_background_task(hass, coordinator.async_refresh(), name)`
   (`config_entries.py:1417`), para no retrasar el arranque de HA con un equipo que no
   responde. Las entidades nacen `unavailable` hasta su primera lectura correcta.
-- Si otro cliente ocupa el único puerto Modbus del Ingeteam (por ejemplo, el EMS), se ve
-  como `DeviceUnavailable`. Se documenta en `docs/guides/setup.md`. Sin reintento
-  agresivo: se reintenta en el siguiente tick.
+- Otro cliente en el puerto Modbus del Ingeteam (por ejemplo, el EMS) va contra la recomendación
+  del fabricante y su efecto no está verificado. Se documenta en `docs/guides/setup.md`. Si una
+  lectura falla, se ve como `DeviceUnavailable`; sin reintento agresivo: se reintenta en el siguiente tick.
 
 ## 6. Diagnostics
 
@@ -568,7 +568,7 @@ Flujo de `docs/`: `research/` → `decisions/` → `changes/` → al cerrar, `fe
 | Riesgo / pendiente | Mitigación |
 |---|---|
 | Escala `[X x 10]` y `word_order` sin verificar | diagnostics muestra raw y valor; verificación en la VM antes de spec 1 |
-| Un único cliente Modbus en el Ingeteam | documentado; si el EMS ocupa el puerto, el equipo sale `unavailable` |
+| Ingeteam recomienda un único cliente Modbus (`AAX2023IPD02` admite varios) | documentado; el efecto de un segundo cliente (EMS) se verifica en la VM |
 | Falta `ACL0000IMC01` (eventos) | eventos fuera de spec 0; se piden a Ingeteam |
 | Recargar la entry de marca reinicia todos sus equipos | aceptable: las altas y bajas de equipos son raras |
 | El pin de `pytest-homeassistant-custom-component` puede no casar con HA 2026.9 | se verifica en el plan |

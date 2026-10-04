@@ -12,7 +12,7 @@ Usa la conexión compartida de la integración `modbus` del core.
 ## Requisitos
 
 - Home Assistant 2026.9.0 o posterior.
-- El equipo accesible por Modbus TCP. El Ingeteam admite un solo cliente Modbus a la vez.
+- El equipo accesible por Modbus TCP. En el 1Play Storage, Ingeteam recomienda un único cliente Modbus y al menos 1 s entre peticiones.
 
 ## Instalación
 

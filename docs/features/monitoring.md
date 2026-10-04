@@ -21,7 +21,7 @@ La escala `[X x 10]` y el orden de palabras de los registros de 32 bits siguen s
 - Cada tier lee todos sus registros o falla entero (spec §5). Si la lectura falla (`DeviceUnavailable` o `DeviceProtocolError`), el coordinator lanza `UpdateFailed` y las entidades del tier pasan a `unavailable` (`adapters/inbound/coordinator.py:54-58`).
 - Vuelven en la siguiente lectura correcta, sin intervención. El log de pérdida (`error`) y de recuperación (`info`) lo emite `DataUpdateCoordinator`, una vez por cambio de estado y no en cada tick (`adapters/inbound/coordinator.py:57`).
 - Un equipo caído al arrancar no bloquea la entry: no se lanza `ConfigEntryNotReady` y el primer refresh va en segundo plano (`__init__.py:45-48`). Las entidades nacen `unavailable` hasta su primera lectura correcta (`adapters/inbound/entities/base.py:37-39`).
-- Si otro cliente ocupa el único puerto Modbus del equipo (por ejemplo, el EMS), el equipo sale `unavailable`. Ver [setup](../guides/setup.md).
+- Un segundo cliente Modbus (por ejemplo, el EMS) va contra la recomendación de Ingeteam para el 1Play y su efecto no está verificado. Ver [setup](../guides/setup.md).
 
 ## Valor fuera del enum
 
