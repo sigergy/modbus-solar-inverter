@@ -32,3 +32,10 @@ def temp_unit(ingeteam_unit: MockModbusUnit) -> Generator[MagicMock]:
 
     with patch("custom_components.modbus_solar.config_flow.async_get_temporary_unit", side_effect=fake) as mock:
         yield mock
+
+
+@pytest.fixture
+def patch_unit(ingeteam_unit: MockModbusUnit) -> Generator[MagicMock]:
+    """Sustituye la unit compartida del setup por ingeteam_unit."""
+    with patch("custom_components.modbus_solar.async_get_unit", return_value=ingeteam_unit) as mock:
+        yield mock
