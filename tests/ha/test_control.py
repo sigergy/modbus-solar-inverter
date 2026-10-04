@@ -15,6 +15,14 @@ from pytest_homeassistant_custom_component.common import mock_restore_cache_with
 from tests.ha.common import STORAGE_DATA, device_entry, entity_id_of, setup_entry, tick
 
 NUMBER = "number.inverter_grid_export_limit"
+# HA guarda las cinco claves de NumberExtraStoredData; si falta una, from_dict devuelve None y no se restaura
+RESTORED_NUMBER = {
+    "native_max_value": 6000.0,
+    "native_min_value": 0.0,
+    "native_step": 1.0,
+    "native_unit_of_measurement": "W",
+    "native_value": 2500.0,
+}
 
 
 @pytest.fixture
@@ -79,9 +87,7 @@ async def test_failed_write_raises_and_keeps_the_state(
 async def test_number_restored_without_writing(
     hass: HomeAssistant, patch_storage_unit: MagicMock, writes: list[WriteEvent]
 ) -> None:
-    mock_restore_cache_with_extra_data(
-        hass, [(State(NUMBER, "2500"), {"native_value": 2500.0, "native_unit_of_measurement": "W"})]
-    )
+    mock_restore_cache_with_extra_data(hass, [(State(NUMBER, "2500"), RESTORED_NUMBER)])
     await setup_entry(hass, device_entry(STORAGE_DATA))
     assert limit(hass) == 2500
     assert writes == []
