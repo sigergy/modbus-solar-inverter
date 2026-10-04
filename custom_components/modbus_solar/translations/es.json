@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "Elige el modelo",
-        "description": "Cada inversor es una entry independiente. Añade una entry por inversor.",
+        "description": "Cada equipo es una entry independiente. Añade una entry por equipo.",
         "data": {
           "profile": "Modelo"
         }
       },
       "connection": {
-        "title": "Conectar con el inversor",
-        "description": "Escribe la dirección IP o el nombre de host del inversor. La conexión se prueba antes de seguir.",
+        "title": "Conectar con el equipo",
+        "description": "Escribe la dirección IP o el nombre de host del equipo. La conexión se prueba antes de seguir.",
         "data": {
           "host": "Host"
         },
@@ -25,8 +25,8 @@
         }
       },
       "confirm": {
-        "title": "Inversor encontrado",
-        "description": "El inversor en {host} ha respondido:\n\n{readings}",
+        "title": "Equipo encontrado",
+        "description": "El equipo en {host} ha respondido:\n\n{readings}",
         "data": {
           "name": "Nombre"
         }
@@ -221,6 +221,18 @@
       },
       "battery_discharge_energy": {
         "name": "Energía de descarga de la batería"
+      },
+      "irradiance": {
+        "name": "Irradiancia"
+      },
+      "wind_speed": {
+        "name": "Velocidad del viento"
+      },
+      "cell_temperature": {
+        "name": "Temperatura de la célula"
+      },
+      "external_temperature": {
+        "name": "Temperatura externa"
       }
     },
     "number": {
