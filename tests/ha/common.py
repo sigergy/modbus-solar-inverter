@@ -16,7 +16,7 @@ DEVICE_DATA: dict[str, Any] = {
     "port": 502,
     "unit_id": 1,
     "profile": "ingeteam.oneplay",
-    "intervals": {"fast": 5, "normal": 60, "slow": 3600},
+    "intervals": {"instant": 5, "fast": 5, "normal": 60, "slow": 3600},
 }
 STORAGE_DATA: dict[str, Any] = {**DEVICE_DATA, "profile": "ingeteam.oneplay_storage"}
 

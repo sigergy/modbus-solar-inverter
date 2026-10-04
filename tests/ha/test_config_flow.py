@@ -81,7 +81,7 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
         "port": 502,
         "unit_id": 1,
         "profile": "ingeteam.oneplay",
-        "intervals": {"fast": 5, "normal": 60, "slow": 3600},
+        "intervals": {"instant": 5, "fast": 10, "normal": 60, "slow": 3600},
     }
     _, params, unit_id = temp_unit.call_args.args
     assert (params, unit_id) == (ModbusTcpParams(host="Inverter.LAN", port=502), 1)
@@ -148,7 +148,7 @@ async def test_form_recovers_after_error(
     assert result["step_id"] == "confirm"
 
 
-RECONFIGURE_INPUT = {"host": "192.168.1.60", "port": 1502, "fast": 10, "normal": 120, "slow": 3600}
+RECONFIGURE_INPUT = {"host": "192.168.1.60", "port": 1502, "instant": 5, "fast": 10, "normal": 120, "slow": 3600}
 
 
 async def reconfigure(hass: HomeAssistant, entry: MockConfigEntry, user_input: dict[str, Any]) -> dict[str, Any]:
@@ -168,7 +168,7 @@ async def test_reconfigure_updates_host_port_and_intervals(hass: HomeAssistant) 
         **DEVICE_DATA,
         "host": "192.168.1.60",
         "port": 1502,
-        "intervals": {"fast": 10, "normal": 120, "slow": 3600},
+        "intervals": {"instant": 5, "fast": 10, "normal": 120, "slow": 3600},
     }
 
 
@@ -176,7 +176,7 @@ async def test_reconfigure_rejects_interval_shorter_than_blocks(hass: HomeAssist
     entry = device_entry()
     entry.add_to_hass(hass)
     # fast necesita 2 bloques x 1 s; normal 1 bloque x 1 s; slow no tiene entidades
-    result = await reconfigure(hass, entry, {**RECONFIGURE_INPUT, "fast": 1, "normal": 1, "slow": 1})
+    result = await reconfigure(hass, entry, {**RECONFIGURE_INPUT, "instant": 1, "fast": 1, "normal": 1, "slow": 1})
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"fast": "interval_too_short"}
     assert dict(entry.data) == DEVICE_DATA

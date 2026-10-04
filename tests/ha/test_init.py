@@ -62,7 +62,7 @@ async def test_reconfigure_reloads_with_new_endpoint(hass: HomeAssistant, patch_
     await setup_entry(hass, entry)
     result = await entry.start_reconfigure_flow(hass)
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"host": "192.168.1.60", "port": 1502, "fast": 5, "normal": 60, "slow": 3600}
+        result["flow_id"], {"host": "192.168.1.60", "port": 1502, "instant": 5, "fast": 5, "normal": 60, "slow": 3600}
     )
     assert result["type"] is FlowResultType.ABORT
     await hass.async_block_till_done(wait_background_tasks=True)

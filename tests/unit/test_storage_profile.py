@@ -181,6 +181,7 @@ def test_no_block_over_ten_registers(tier: PollTier) -> None:
 def test_tiers_fit_default_intervals(tier: PollTier, expected: float) -> None:
     # fast: bloques 15-20, 33-37 y 71-78; normal: 17-26, 31-35 y 69-70 (spec §3.1)
     assert min_tier_interval(ONEPLAY_STORAGE, tier) == expected
+    assert min_tier_interval(ONEPLAY_STORAGE, PollTier.INSTANT) == 1.0
 
 
 def test_energies() -> None:

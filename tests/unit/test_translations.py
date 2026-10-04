@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from custom_components.modbus_solar.domain.types import PollTier
 from custom_components.modbus_solar.profiles import ALL_PROFILES
 
 ROOT = Path(__file__).parents[2] / "custom_components" / "modbus_solar"
@@ -91,3 +92,10 @@ def test_irradiance_sensor_entities_are_named() -> None:
     for name, names in expected.items():
         sensors = load(name)["entity"]["sensor"]
         assert {key: sensors[key]["name"] for key in names} == names, name
+
+
+def test_interval_fields_cover_every_tier() -> None:
+    for name in ("strings.json", "translations/es.json"):
+        data = load(name)["config"]["step"]["reconfigure"]["data"]
+        for tier in PollTier:
+            assert tier.value in data, (name, tier)

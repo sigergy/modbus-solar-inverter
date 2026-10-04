@@ -107,7 +107,7 @@ async def test_build_runtime_one_coordinator_per_tier_with_entities(hass: HomeAs
     writer = FakeWriter()
     runtime = build_runtime(hass, entry, ONEPLAY, gateway, writer, ALL_KEYS)
     assert (runtime.entry_id, runtime.title, runtime.profile.id) == (DEVICE_ID, "Inverter", ONEPLAY.id)
-    assert runtime.intervals == {"fast": 5, "normal": 60, "slow": 3600}
+    assert runtime.intervals == {"instant": 5, "fast": 5, "normal": 60, "slow": 3600}
     assert runtime.gateway is gateway
     assert runtime.writer is writer
     assert runtime.control_states == {}
