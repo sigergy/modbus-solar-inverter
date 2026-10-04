@@ -8,6 +8,7 @@ from custom_components.modbus_solar.domain.types import DataType, PollTier, Regi
 from custom_components.modbus_solar.domain.validate import validate_profile
 from custom_components.modbus_solar.profiles import ALL_PROFILES
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
 
 
 def entity(key: str):
@@ -65,9 +66,10 @@ def test_total_energy() -> None:
 
 def test_catalog_lookup() -> None:
     assert CATALOG.brands() == ["ingeteam"]
-    assert CATALOG.for_brand("ingeteam") == [ONEPLAY]
+    assert CATALOG.for_brand("ingeteam") == [ONEPLAY, ONEPLAY_STORAGE]
     assert CATALOG.for_brand("other") == []
     assert CATALOG.get("ingeteam.oneplay") is ONEPLAY
+    assert CATALOG.get("ingeteam.oneplay_storage") is ONEPLAY_STORAGE
     with pytest.raises(KeyError):
         CATALOG.get("missing")
 
