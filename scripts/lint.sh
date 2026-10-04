@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Gates estáticos locales (sin tests): ruff, import-linter y compileall.
 set -eu
+# Windows: el spinner de import-linter usa emoji; sin UTF-8 falla con la salida redirigida
+export PYTHONUTF8=1
 cd "$(dirname "$0")/.."
 bin=.venv/bin
 [ -d .venv/Scripts ] && bin=.venv/Scripts
