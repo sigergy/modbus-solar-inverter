@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modbus Solar · Propuesta: motivos con etiqueta</title>
+<style>
+  :root {
+    --bg: #111; --card: #1c1c1c; --line: #2e2e2e; --text: #e6e6e6; --muted: #9a9a9a;
+    --primary: #03a9f4; --ok: #4caf50; --err: #ef5350; --warn: #ffb300;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Roboto, system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 40px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 500; }
+  p, li { color: #cfcfcf; }
+  a { color: var(--primary); }
+  code { background: #262626; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #263238; color: #80deea; margin-left: 6px; vertical-align: middle; }
+  .tag.new { background: #0d47a1; color: #bbdefb; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .cols, .cols3 { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .card-title { padding: 14px 16px 6px; font-size: 16px; font-weight: 500; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 8px 16px; min-height: 46px; }
+  .row + .row { border-top: 1px solid #242424; }
+  .icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; flex: 0 0 34px; background: #2a2a2a; color: var(--muted); }
+  .icon.ok { color: var(--ok); }
+  .icon.on { color: var(--warn); background: #3a321a; }
+  .name { flex: 1; }
+  .state { color: var(--muted); text-align: right; }
+  .state.val { color: #fff; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+</style>
+</head>
+<body>
+<main>
+<h1>Motivos con etiqueta traducida y código delante</h1>
+<p class="lead">INGECON SUN STORAGE 1Play TL M. Fuente: <code>ABH2010IMB08</code> rev. _I (23/04/2025), págs. 7-8.
+Spec: <a href="spec.md">spec.md</a>. Los valores de las tarjetas son de ejemplo. Borrador para decidir: nada está implementado. 4 de octubre de 2026.</p>
+
+<h2>Hoy y propuesta</h2>
+<div class="cols">
+  <div>
+    <h3>Hoy · número crudo</h3>
+    <div class="card">
+      <div class="card-title">Diagnóstico</div>
+      <div class="row"><div class="icon">#</div><div class="name">Motivo de reducción de potencia</div><div class="state val">16</div></div>
+      <div class="row"><div class="icon">#</div><div class="name">Motivo de limitación de carga</div><div class="state val">6</div></div>
+      <div class="row"><div class="icon">#</div><div class="name">Motivo de limitación de descarga</div><div class="state val">0</div></div>
+    </div>
+  </div>
+  <div>
+    <h3>Propuesta · código y etiqueta <span class="tag new">nuevo</span></h3>
+    <div class="card">
+      <div class="card-title">Diagnóstico</div>
+      <div class="row"><div class="icon on">▼</div><div class="name">Motivo de reducción de potencia</div><div class="state val">16 - Excedente FV a red</div></div>
+      <div class="row"><div class="icon on">▼</div><div class="name">Motivo de limitación de carga</div><div class="state val">6 - SOC máximo configurado</div></div>
+      <div class="row"><div class="icon ok">✓</div><div class="name">Motivo de limitación de descarga</div><div class="state val">0 - Sin limitación</div></div>
+      <div class="row"><div class="icon">≈</div><div class="name">Tipo de consigna de reactiva <span class="tag new">nueva</span></div><div class="state val">0 - Cos φ por configuración</div></div>
+    </div>
+  </div>
+</div>
+<ul>
+  <li>Sensores <code>enum</code> traducidos (es/en), como <code>inverter_state</code>. El código delante permite cotejar con el PDF y con el soporte de Ingeteam.</li>
+  <li>Un código que no está en la tabla deja el sensor en «Desconocido» y el sondeo sigue (<code>application/poller.py:39-42</code>).</li>
+  <li>Las cuatro son extras: diagnóstico, desactivadas por defecto y en el tier lento. 30043 cae entre registros que ya se leen: no añade peticiones.</li>
+  <li><code>unique_id</code> y <code>entity_id</code> no cambian. El historial anterior conserva los números.</li>
+</ul>
+
+<h2>Tablas</h2>
+<div class="cols3">
+  <div>
+    <h3>Nota 7 · reducción de potencia (30042)</h3>
+    <table>
+      <tr><th>es</th></tr>
+      <tr><td>0 - Sin limitación</td></tr>
+      <tr><td>1 - Consigna por comunicación</td></tr>
+      <tr><td>2 - Temperatura de la placa</td></tr>
+      <tr><td>3 - Temperatura del disipador</td></tr>
+      <tr><td>4 - Algoritmo P-f (frecuencia de red)</td></tr>
+      <tr><td>5 - Arranque suave</td></tr>
+      <tr><td>6 - Potencia de carga configurada</td></tr>
+      <tr><td>7 - Excedente FV a cargas</td></tr>
+      <tr><td>8 - Algoritmo P-V (tensión de red)</td></tr>
+      <tr><td>9 - Potencia de batería limitada</td></tr>
+      <tr><td>10 - Potencia de red limitada</td></tr>
+      <tr><td>11 - Modo autoconsumo</td></tr>
+      <tr><td>12 - Protección por tensión alta del bus</td></tr>
+      <tr><td>13 - Hueco o sobretensión de red (LVRT/HVRT)</td></tr>
+      <tr><td>14 - Corriente AC nominal</td></tr>
+      <tr><td>15 - Protección de consumo de red</td></tr>
+      <tr><td>16 - Excedente FV a red</td></tr>
+    </table>
+  </div>
+  <div>
+    <h3>Nota 9 · limitación de carga y descarga (30078, 30030)</h3>
+    <table>
+      <tr><th>es</th></tr>
+      <tr><td>0 - Sin limitación</td></tr>
+      <tr><td>1 - Temperatura del disipador</td></tr>
+      <tr><td>2 - Temperatura de la batería (PT100)</td></tr>
+      <tr><td>3 - Protección por tensión baja del bus</td></tr>
+      <tr><td>4 - Ajustes de la batería</td></tr>
+      <tr><td>5 - Comunicación con el BMS</td></tr>
+      <tr><td>6 - SOC máximo configurado</td></tr>
+      <tr><td>7 - SOC mínimo configurado</td></tr>
+      <tr><td>8 - Potencia máxima de la batería</td></tr>
+      <tr><td>9 - Comando Modbus</td></tr>
+      <tr><td>10 - Entrada digital 2</td></tr>
+      <tr><td>11 - Entrada digital 3</td></tr>
+      <tr><td>12 - Programación de carga FV</td></tr>
+      <tr><td>13 - Estrategia EMS</td></tr>
+    </table>
+  </div>
+  <div>
+    <h3>Nota 8 · tipo de consigna de reactiva (30043)</h3>
+    <table>
+      <tr><th>es</th></tr>
+      <tr><td>0 - Cos φ por configuración</td></tr>
+      <tr><td>1 - Q por comunicación</td></tr>
+      <tr><td>2 - Cos φ por comunicación</td></tr>
+      <tr><td>3 - Algoritmo Q-V</td></tr>
+      <tr><td>4 - Algoritmo cos φ-P</td></tr>
+    </table>
+  </div>
+</div>
+<p>Texto del PDF y textos en inglés: <a href="../../wiki/brands/ingeteam/storage-1-play-tl-m/registers-storage-1-play-tl-m.md">wiki del modelo</a>, Notas 7, 8 y 9. Claves de opción: <a href="spec.md">spec.md</a>, §3.3.</p>
+
+<h2>Fuera de alcance</h2>
+<ul>
+  <li>Componentes por dispositivo y bits del BMS: <a href="../2026-10-04-setup-flow-v2/proposal.html">maqueta del flujo v2</a> y su <a href="../2026-10-04-setup-flow-v2/spec.md">spec</a>.</li>
+  <li>Paradas y alarmas (30010, 30011, 30013-30015): su tabla solo está en <code>ABH2010IMC14</code>, que no está en el repo.</li>
+</ul>
+
+<h2>Decidido</h2>
+<ul>
+  <li>Código delante de la etiqueta: «16 - Excedente FV a red».</li>
+  <li>La Nota 8 (30043) entra como entidad nueva.</li>
+</ul>
+
+<h2>Por decidir</h2>
+<ul>
+  <li>Textos es/en de las tablas: son propuesta. Del PDF solo sale el código.</li>
+  <li>Nota 9, código 2: «Temperatura de la batería (PT100)» o, literal, «Temperatura PT100».</li>
+</ul>
+</main>
+</body>
+</html>

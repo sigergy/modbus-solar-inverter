@@ -1,6 +1,6 @@
 # Ingeteam: documentación Modbus
 
-Solo PDF oficiales y públicos de Ingeteam (ADR 0006).
+PDF oficiales y públicos de Ingeteam (ADR 0006). Las copias de terceros van en su propia tabla y no son fuente (ADR 0014).
 
 | Fichero | Documento | Revisión | SHA-256 | Obtenido |
 |---|---|---|---|---|
@@ -11,6 +11,13 @@ Solo PDF oficiales y públicos de Ingeteam (ADR 0006).
 | `storage-1-play-tl-m/ABH2010IMB08.pdf` | Input registers INGECON SUN STORAGE 1Play TL M: 30001-30081, función 0x04 (obtenido de `ingeras.es/manual/`) | _I, 23/04/2025 | `35af7fa3537c2b9679ca36a71eda811af647bed3c95e9d074de61f134fc0050c` | 2026-10-04 |
 | `storage-1-play-tl-m/ABH2014IQM01.pdf` | Manual de instalación y uso INGECON SUN STORAGE 1Play TL M (obtenido de `ingeras.es/manual/`) | _I | `199be3dc1bfb2ba792a559a45c4f8cec18724fe2e54076eb23bc15d3d4cba1be` | 2026-10-04 |
 
+Copias de terceros, no oficiales (ADR 0014):
+
+| Fichero | Documento | Revisión | SHA-256 | Obtenido |
+|---|---|---|---|---|
+| `storage-1-play-tl-m/input_registers_ABH2010IMB08_D.pdf` | Input registers INGECON SUN STORAGE 1Play TL M, copia publicada por domotica.solar (original `registros_ingeteam.pdf`, de https://domotica.solar/wp-content/uploads/2021/07/registros_ingeteam.pdf) | _D, 17/05/2021 | `5474776c40431fc8fbb8aa09c585336ff8f4520d3df18e70ba1e0dc35c3245d9` | 2026-10-04 |
+
+- `ABH2010IMB08_D` es anterior a la _I y su numeración va desplazada una posición (por ejemplo, «Battery. BMS Alarms» es 30030 en la _D y 30029 en la _I). Solo referencia: manda la _I.
 - La revisión F de AAA0030IMB03 (09/02/18) es anterior y se descarta.
 - Falta `ACL0000IMC01` (estados y eventos). Se pide a Ingeteam. Según el manual `ACL2012IQM01` (INGECON SUN TL M2, apdo. 13.3) se descarga de www.ingeconsuntraining.info.
 - Clientes Modbus: `ACL2010IMB05` (pág. 4) recomienda un único cliente y ≥ 1 s entre peticiones; `AAX2023IPD02` (pág. 7) admite varios clientes simultáneos en el puerto 502. Los 100 ms entre peticiones de `AAX2023IPD02` son solo para inversores Legacy por RS-485 (apdo. 3.1.1).
@@ -19,5 +26,5 @@ Solo PDF oficiales y públicos de Ingeteam (ADR 0006).
 - No se incluye `ABH2010IMC14` (alarmas, eventos y estados del STORAGE 1Play TL M, rev. _F): el PDF va marcado «Restricted Information». Se descarga de https://www.ingeras.es/manual/ABH2010IMC14.pdf.
 - Tablas de registros extraídas:
   - 1Play/3Play sin storage: [1-play-tl-m/registers.md](1-play-tl-m/registers.md);
-  - STORAGE 1Play TL M: [storage-1-play-tl-m/registers.md](storage-1-play-tl-m/registers.md).
+  - STORAGE 1Play TL M: [storage-1-play-tl-m/registers-storage-1-play-tl-m.md](storage-1-play-tl-m/registers-storage-1-play-tl-m.md).
 - Vertido a red del STORAGE 1Play TL M: CMD 26, dato `0x0A` «Grid power» de `AAA0030IMB03_N` (págs. 7, 19-20). La potencia contratada («Hired Grid Power», `ABH2014IQM01` pág. 54) no tiene comando ni registro Modbus documentado.

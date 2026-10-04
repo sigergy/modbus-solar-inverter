@@ -14,7 +14,7 @@ El perfil `ingeteam.oneplay_storage` de la spec 0 lee registros de otro equipo. 
 `ACL2010IMB05`, es el mapa del INGECON SUN 1Play/3Play **sin storage**: holding `0x10xx`, FC03.
 El equipo real del proyecto es un **INGECON SUN STORAGE 1Play TL M**. Su mapa es
 `ABH2010IMB08`: input registers `30001-30081`, FC04
-(`docs/wiki/brands/ingeteam/storage-1-play-tl-m/registers.md`).
+(`docs/wiki/brands/ingeteam/storage-1-play-tl-m/registers-storage-1-play-tl-m.md`).
 
 Esta spec corrige el perfil y añade los contadores de energía que el mapa no trae.
 

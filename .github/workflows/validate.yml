@@ -18,5 +18,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # PolyForm Noncommercial no es una licencia aprobada por OSI (ADR 0008)
-          ignore: license

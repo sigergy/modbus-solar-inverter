@@ -35,6 +35,17 @@ Usa la conexión compartida de la integración `modbus` del core.
 Detalle: [docs/features/device-setup.md](docs/features/device-setup.md) y
 [docs/features/monitoring.md](docs/features/monitoring.md).
 
+## Fuentes externas
+
+- [domotica.solar](https://domotica.solar/): publicó una copia del mapa de registros Modbus del
+  INGECON SUN STORAGE 1Play TL M ([registros_ingeteam.pdf](https://domotica.solar/wp-content/uploads/2021/07/registros_ingeteam.pdf)).
+  Gracias por compartirla.
+- Ingeteam, «INGECON SUN STORAGE 1Play TL M. Input registers» (`ABH2010IMB08`): la rev. _D es la
+  copia de domotica.solar; el perfil sigue la rev. _I oficial. Ambas en
+  [docs/wiki/brands/ingeteam/storage-1-play-tl-m/](docs/wiki/brands/ingeteam/storage-1-play-tl-m/).
+
+El resto de documentos de fabricante y su procedencia: [docs/wiki/brands/ingeteam/README.md](docs/wiki/brands/ingeteam/README.md).
+
 ## Licencia
 
-[PolyForm Noncommercial License 1.0.0](LICENSE)
+[GNU AGPL-3.0](LICENSE)

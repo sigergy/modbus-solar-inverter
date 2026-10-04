@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modbus Solar · Propuesta v2 del flujo de configuración</title>
+<style>
+  :root {
+    --bg: #111; --card: #1c1c1c; --line: #2e2e2e; --text: #e6e6e6; --muted: #9a9a9a;
+    --primary: #03a9f4; --ok: #4caf50; --err: #ef5350; --warn: #ffb300;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Roboto, system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 40px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 500; }
+  h4 { font-size: 16px; margin: 28px 0 10px; color: var(--text); font-weight: 500; }
+  p, li { color: #cfcfcf; }
+  a { color: var(--primary); }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #263238; color: #80deea; margin-left: 6px; vertical-align: middle; }
+  .tag.now { background: #3e2723; color: #ffccbc; }
+  .tag.new { background: #0d47a1; color: #bbdefb; }
+  .flow { display: flex; gap: 16px; overflow-x: auto; padding: 8px 2px 16px; align-items: flex-start; }
+  .step { flex: 0 0 240px; }
+  .arrow { flex: 0 0 auto; align-self: center; color: var(--muted); font-size: 22px; }
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .dialog { background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 20px 18px 16px; display: flex; flex-direction: column; }
+  .dialog.before { opacity: .8; border-style: dashed; }
+  .dialog .title { font-size: 20px; margin-bottom: 4px; }
+  .dialog .progress { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .dialog .desc { font-size: 13px; color: #bdbdbd; margin-bottom: 12px; }
+  .field { border: 1px solid #555; border-radius: 6px; padding: 8px 10px 6px; margin-bottom: 4px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); }
+  .field .v { font-size: 15px; }
+  .field .v.ph { color: #666; }
+  .ddesc { font-size: 11px; color: var(--muted); margin: 0 0 6px 2px; }
+  details.ents { margin: 0 0 14px 2px; font-size: 12px; color: #cfcfcf; }
+  details.ents summary { cursor: pointer; color: var(--primary); font-size: 12px; }
+  details.ents ul { margin: 6px 0 4px; padding-left: 18px; columns: 2; column-gap: 18px; }
+  details.ents li { color: #cfcfcf; margin: 0 0 2px; break-inside: avoid; }
+  details.ents li.off { color: #6f6f6f; }
+  details.ents .sub { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-top: 6px; }
+  details.ents .pl { font-size: 10px; color: #80deea; background: #263238; border-radius: 6px; padding: 0 5px; }
+  .opt { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 8px; display: flex; gap: 10px; }
+  .opt.sel { border-color: var(--primary); background: #0b2a38; }
+  .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #777; flex: 0 0 auto; margin-top: 2px; }
+  .opt.sel .radio { border-color: var(--primary); box-shadow: inset 0 0 0 3px var(--card); background: var(--primary); }
+  .opt b { display: block; font-weight: 500; }
+  .opt small { color: var(--muted); }
+  .section { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; font-size: 13px; color: var(--muted); }
+  .readings { background: #141414; border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; }
+  .readings div { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+  .readings span:last-child { color: #fff; }
+  .readings .grp { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding-top: 8px; }
+  .plain { font-size: 13px; margin-bottom: 12px; color: #cfcfcf; }
+  .menu { border-top: 1px solid var(--line); }
+  .menu div { padding: 10px 4px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 14px; }
+  .menu div::after { content: "›"; color: var(--muted); }
+  .ok { color: var(--ok); font-weight: 500; }
+  .err { color: var(--err); font-weight: 500; }
+  .wrn { color: var(--warn); font-weight: 500; }
+  .alert { border-left: 3px solid var(--err); background: #2a1515; padding: 8px 10px; font-size: 13px; border-radius: 4px; margin-bottom: 12px; }
+  .alert.warn { border-color: var(--warn); background: #2a2310; }
+  .actions { margin-top: auto; display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+  .btn { color: var(--primary); font-weight: 500; padding: 6px 10px; }
+  .btn.fill { background: var(--primary); color: #00141e; border-radius: 18px; padding: 6px 16px; }
+  .note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  code { background: #262626; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  @media (max-width: 760px) { .cmp { grid-template-columns: 1fr; } }
+  /* casillas del paso de componentes */
+  .chk { display: flex; gap: 10px; padding: 8px 4px; border-bottom: 1px solid #242424; }
+  .box { width: 18px; height: 18px; border-radius: 3px; border: 2px solid #777; flex: 0 0 auto; margin-top: 2px; display: grid; place-items: center; font-size: 12px; color: #00141e; }
+  .box.on { background: var(--primary); border-color: var(--primary); }
+  .chk b { display: block; font-weight: 500; }
+  .chk small { color: var(--muted); }
+  /* página de la integración y del dispositivo */
+  .integ { background: #000; border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 20px; }
+  .integ-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .integ-logo { font-size: 34px; }
+  .integ-name { font-size: 22px; font-weight: 700; }
+  .integ-meta { font-size: 13px; color: var(--muted); }
+  .integ-sec { font-size: 13px; color: var(--muted); margin: 6px 4px 8px; font-weight: 500; }
+  .entry { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .entry-title { display: flex; align-items: center; gap: 12px; padding: 14px 16px; font-size: 15px; border-bottom: 1px solid var(--line); }
+  .entry-title .dots { margin-left: auto; color: var(--muted); }
+  .dev { display: flex; align-items: center; gap: 14px; padding: 10px 16px 10px 40px; }
+  .dev + .dev { border-top: 1px solid #1a1a1a; }
+  .dev .di { color: var(--muted); font-size: 18px; width: 22px; text-align: center; }
+  .dev .dn { flex: 1; font-size: 14px; }
+  .dev .dn small { display: block; color: var(--muted); font-size: 12px; }
+  .dev .chev { color: var(--muted); }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .cols3 { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .card-title { padding: 14px 16px 6px; font-size: 16px; font-weight: 500; }
+  .card-sub { padding: 0 16px 12px; font-size: 12px; color: var(--muted); }
+  .row { display: flex; align-items: center; gap: 14px; padding: 8px 16px; min-height: 42px; font-size: 14px; }
+  .row + .row { border-top: 1px solid #242424; }
+  .icon { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; flex: 0 0 30px; background: #2a2a2a; color: var(--muted); }
+  .icon.okc { color: var(--ok); }
+  .icon.bad { color: var(--err); background: #3a1f1f; }
+  .icon.on { color: var(--warn); background: #3a321a; }
+  .name { flex: 1; }
+  .state { color: var(--muted); text-align: right; }
+  .state.val { color: #fff; }
+  .state.bad { color: var(--err); font-weight: 500; }
+  .state.on { color: var(--warn); font-weight: 500; }
+  .link { color: var(--primary); }
+  .pros { margin: 12px 0 0; padding-left: 18px; }
+  .pros li.plus::marker { content: "＋ "; color: var(--ok); }
+  .pros li.minus::marker { content: "－ "; color: var(--err); }
+  pre { background: #181818; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 13px; overflow-x: auto; color: #d7d7d7; }
+</style>
+</head>
+<body>
+<main>
+<h1>Modbus Solar · Propuesta v2 del flujo de configuración, con componentes</h1>
+<p class="lead">Borrador para decidir. Mejora la opción A ya implementada (<a href="../2026-10-04-setup-flow/spec.md">spec 2</a>, <a href="../2026-10-04-setup-flow/setup-flow-proposal.html">mockup v1</a>, ADR 0010). Incluye los componentes por dispositivo (ADR 0015) y los bits del BMS. Spec: <a href="spec.md">spec.md</a>. Nada de esta v2 está implementado. 4 de octubre de 2026. Las lecturas son valores de ejemplo. Rutas bajo <code>custom_components/modbus_solar/</code>.</p>
+
+<h2>Qué falla hoy</h2>
+<table>
+  <tr><th>#</th><th>Problema</th><th>Dónde</th></tr>
+  <tr><td>1</td><td>La lista de modelos no explica la diferencia entre STORAGE y sin storage.</td><td><code>adapters/inbound/flow.py:89</code></td></tr>
+  <tr><td>2</td><td>Textos con jerga: «entry», «host», «endpoint».</td><td><code>translations/es.json</code></td></tr>
+  <tr><td>3</td><td>El campo de IP no dice dónde encontrarla. «Avanzado» no explica sus valores.</td><td><code>strings.json</code> · <code>config.step.connection</code></td></tr>
+  <tr><td>4</td><td>El error de conexión es genérico: no dice IP, puerto ni tiempo.</td><td><code>adapters/inbound/flow.py:110-111</code></td></tr>
+  <tr><td>5</td><td>Pide «revisa el modelo», pero el modelo no se puede cambiar sin cerrar el flujo.</td><td><code>adapters/inbound/flow.py:112-113</code></td></tr>
+  <tr><td>6</td><td>Lecturas en lista plana, sin agrupar ni separador de miles.</td><td><code>adapters/inbound/flow.py:55-70</code></td></tr>
+  <tr><td>7</td><td>En la confirmación no hay vuelta atrás si los valores no cuadran.</td><td><code>adapters/inbound/flow.py:139-155</code></td></tr>
+  <tr><td>8</td><td>Reconfigurar no prueba la conexión ni deja cambiar el Unit ID.</td><td><code>adapters/inbound/flow.py:157-200</code></td></tr>
+  <tr><td>9</td><td>Intervalos de sondeo mezclados con la conexión, sin el mínimo a la vista.</td><td><code>adapters/inbound/flow.py:163-165</code>, <code>:193</code></td></tr>
+  <tr><td>10</td><td>Mezcla «equipo» e «inversor». La integración vale para cualquier dispositivo de una instalación solar (inversor, batería, medidor, sensor), no solo inversores.</td><td><code>translations/es.json</code> · <code>error</code>, <code>abort</code></td></tr>
+  <tr><td>11</td><td>No hay paso de marca: marca y modelo van juntos en una lista que no sigue la estructura de <code>profiles/</code>.</td><td><code>adapters/inbound/flow.py:88-92</code></td></tr>
+  <tr><td>12</td><td>Un solo dispositivo con 47 entidades. No se puede quitar lo que la instalación no tiene (cargador VE, cargas críticas).</td><td><code>adapters/inbound/entities/base.py:36-41</code></td></tr>
+  <tr><td>13</td><td>Los bits del BMS (30029, 30069) no se leen.</td><td><code>profiles/ingeteam/oneplay_storage.py</code></td></tr>
+</table>
+
+<h2>Alta · hoy y propuesta</h2>
+
+<h4>Pasos 1 y 2 · Marca y modelo <span class="tag">puntos 1, 2, 11</span></h4>
+<div class="cmp">
+  <div>
+    <h3>Hoy · un solo paso <span class="tag now">actual</span></h3>
+    <div class="dialog before">
+      <div class="title">Elige el modelo</div>
+      <div class="desc">Cada inversor es una entry independiente. Añade una entry por inversor.</div>
+      <div class="opt"><div class="radio"></div><div><b>Ingeteam · 1Play TL M</b></div></div>
+      <div class="opt"><div class="radio"></div><div><b>Ingeteam · STORAGE 1Play TL M</b></div></div>
+      <div class="actions"><span class="btn fill">Enviar</span></div>
+    </div>
+    <p class="note">Marca y modelo en la misma lista (<code>adapters/inbound/flow.py:88-92</code>). Con varias marcas, la lista crece sin orden.</p>
+  </div>
+  <div>
+    <h3>Propuesta · paso 1, marca <span class="tag new">v2</span></h3>
+    <div class="dialog">
+      <div class="title">Elige la marca</div>
+      <div class="desc">Marca del dispositivo que quieres añadir. Suele estar en la etiqueta o en el frontal.</div>
+      <div class="opt sel"><div class="radio"></div><div><b>Ingeteam</b><small>2 modelos</small></div></div>
+      <div class="opt" style="opacity:.45;border-style:dashed"><div class="radio"></div><div><b>Otra marca</b><small>Ejemplo: aparece al añadir <code>profiles/&lt;marca&gt;/</code></small></div></div>
+      <div class="actions"><span class="btn fill">Siguiente</span></div>
+    </div>
+    <h3 style="margin-top:16px">Propuesta · paso 2, modelo de la marca <span class="tag new">v2</span></h3>
+    <div class="dialog">
+      <div class="title">¿Qué modelo de Ingeteam?</div>
+      <div class="desc">Busca el modelo en la etiqueta del dispositivo. Si tienes varios, añade uno y repite.</div>
+      <div class="opt"><div class="radio"></div><div><b>1Play TL M</b><small>Inversor · solo fotovoltaica, sin batería</small></div></div>
+      <div class="opt sel"><div class="radio"></div><div><b>STORAGE 1Play TL M</b><small>Inversor · híbrido, con batería</small></div></div>
+      <div class="actions"><span class="btn fill">Siguiente</span></div>
+    </div>
+    <p class="note">Sigue la estructura de <code>profiles/</code>: una carpeta por marca (hoy solo <code>profiles/ingeteam/</code>) y un fichero por perfil (<code>oneplay.py</code>, <code>oneplay_storage.py</code>). El paso 1 lista <code>catalog.brands()</code> (<code>application/catalog.py:16-17</code>), que sale del campo <code>brand</code> de cada perfil, con el nombre visible de <code>BRAND_TITLES</code> (<code>const.py:12</code>). El paso 2 lista <code>catalog.for_brand(marca)</code> (<code>application/catalog.py:19-20</code>). Hoy nada obliga a que <code>brand</code> coincida con la carpeta: un test de catálogo lo comprobaría.</p>
+    <p class="note"><b>Decidido:</b> la etiqueta de cada modelo se traduce con <code>translation_key</code> en el selector, una clave por id de perfil, en <code>strings.json</code>, <code>en.json</code> y <code>es.json</code>. El perfil no cambia. <code>SelectOptionDict</code> no tiene subtítulo: modelo y descripción van en la misma etiqueta («STORAGE 1Play TL M — inversor híbrido, con batería»).</p>
+    <p class="note"><b>Decidido:</b> el paso 1 se muestra siempre, aunque solo haya una marca.</p>
+  </div>
+</div>
+
+<h4>Paso 3 · Conexión <span class="tag">puntos 3, 4, 5</span></h4>
+<div class="cmp">
+  <div>
+    <h3>Hoy <span class="tag now">actual</span></h3>
+    <div class="dialog before">
+      <div class="title">Conectar con el inversor</div>
+      <div class="desc">Escribe la dirección IP o el nombre de host del inversor. La conexión se prueba antes de seguir.</div>
+      <div class="field"><label>Host</label><div class="v ph">&nbsp;</div></div>
+      <div class="section">▸ Avanzado</div>
+      <div class="actions"><span class="btn fill">Enviar</span></div>
+    </div>
+  </div>
+  <div>
+    <h3>Propuesta <span class="tag new">v2</span></h3>
+    <div class="dialog">
+      <div class="title">Conexión con el dispositivo</div>
+      <div class="desc">Ingeteam STORAGE 1Play TL M. La conexión se prueba antes de seguir (20 s como máximo).</div>
+      <div class="field"><label>Dirección IP</label><div class="v ph">192.168.1.50</div></div>
+      <div class="ddesc">Está en el menú de comunicaciones del dispositivo o en la lista de dispositivos de tu router.</div>
+      <div class="section">▸ Opciones avanzadas<br><small>Puerto 502 · Unit ID 1. Cámbialos solo si los cambiaste en el dispositivo.</small></div>
+      <div class="actions"><span class="btn fill">Conectar</span></div>
+    </div>
+    <p class="note">Ayuda por campo con <code>data_description</code> en <code>strings.json</code>. Modelo y tiempo máximo entran como <code>description_placeholders</code> (<code>PROBE_TIMEOUT_S</code>, <code>adapters/inbound/flow.py:48</code>).</p>
+  </div>
+</div>
+
+<h4>Errores del paso 3</h4>
+<div class="cmp">
+  <div>
+    <h3>Hoy <span class="tag now">actual</span></h3>
+    <div class="dialog before">
+      <div class="alert">El equipo no responde. Revisa host, puerto e ID de unidad, y que ningún otro cliente Modbus esté usando el equipo.</div>
+      <div class="alert">El equipo respondió con un valor inesperado. Revisa el modelo y el ID de unidad.</div>
+      <p class="note" style="margin:0">El modelo no se puede cambiar aquí: hay que cerrar y empezar de nuevo.</p>
+    </div>
+  </div>
+  <div>
+    <h3>Propuesta · campo «Modelo» tras el error <span class="tag new">v2 · decidido</span></h3>
+    <div class="dialog">
+      <div class="alert"><span class="err">No responde</span> en 192.168.1.50:502 tras 20 s.<br>
+        · Comprueba la IP.<br>
+        · Activa Modbus TCP en el dispositivo.<br>
+        · Cierra otros clientes Modbus, como el EMS.</div>
+      <div class="alert warn"><span class="wrn">Respuesta inesperada</span> de 192.168.1.50:502.<br>
+        Puede que el modelo o el Unit ID no sean los correctos.</div>
+      <div class="field"><label>Modelo</label><div class="v">Ingeteam · STORAGE 1Play TL M</div></div>
+      <div class="field"><label>Dirección IP</label><div class="v">192.168.1.50</div></div>
+      <div class="section">▸ Opciones avanzadas</div>
+      <div class="actions"><span class="btn fill">Reintentar</span></div>
+    </div>
+    <p class="note">Mensajes con placeholders <code>{host}</code>, <code>{port}</code> y <code>{timeout}</code>. HA no ofrece botones secundarios en un formulario. Para cambiar el modelo sin cerrar, el campo «Modelo» aparece en el formulario solo después de un error. Lista los modelos de la marca elegida. Para cambiar de marca hay que cerrar y empezar de nuevo.</p>
+  </div>
+</div>
+
+<h4>Paso 4 · Componentes <span class="tag new">nuevo · punto 12</span></h4>
+<div class="cmp">
+  <div>
+    <div class="dialog">
+      <div class="title">¿Qué tiene tu instalación?</div>
+      <div class="progress">Ingeteam · STORAGE 1Play TL M</div>
+      <div class="desc">Inversor se añade siempre. Marca el resto de partes que tiene tu instalación: cada una sale en Home Assistant como un dispositivo propio. Se puede cambiar después en «Reconfigurar».</div>
+      <div class="chk"><div class="box on">✓</div><div><b>Campo solar</b><small>FV1, FV2 y FV externa</small></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Batería</b><small>Carga, salud, motivos de limitación y alarmas del BMS</small></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Red (vatímetro externo)</b><small>Tensión, frecuencia, potencia y energías de red</small></div></div>
+      <div class="chk"><div class="box"></div><div><b>Vatímetro interno</b></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Cargas críticas</b><small>Salida de respaldo</small></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Consumo</b><small>Consumo total de la casa</small></div></div>
+      <div class="chk"><div class="box"></div><div><b>Cargador VE</b></div></div>
+      <div class="actions"><span class="btn fill">Siguiente</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="note"><code>SelectSelector</code> con <code>multiple=True</code> en modo lista: HA lo pinta como casillas. Sin subtítulo: nombre y contenido van en la misma etiqueta, como en el paso 2.</p>
+    <p class="note">El perfil declara sus componentes opcionales y cuáles van marcados por defecto (spec §5.1). El principal («Inversor», sacado de <code>device_type</code>) va siempre y no sale en la lista. Puede quedar todo sin marcar.</p>
+    <p class="note">El 1Play TL M sin storage no declara componentes: el paso se salta y sus 3 entidades van en «Inversor».</p>
+    <p class="note">Va después de la conexión: el usuario elige con el dispositivo ya probado. Las lecturas del paso 5 y las listas del paso 7 solo llevan los componentes marcados. Si cambia el modelo desde las lecturas, la elección se olvida.</p>
+  </div>
+</div>
+
+<h4>Paso 5 · Lecturas reales <span class="tag">puntos 6, 7</span></h4>
+<div class="cmp">
+  <div>
+    <h3>Hoy <span class="tag now">actual</span></h3>
+    <div class="dialog before">
+      <div class="title">Inversor encontrado</div>
+      <div class="desc">El inversor en 192.168.1.50 ha respondido:</div>
+      <div class="plain">
+        - Estado del inversor: Conectado a red<br>
+        - Potencia activa: 1650 W<br>
+        - Potencia PV1: 820 W<br>
+        - Potencia PV2: 410 W<br>
+        - Potencia de la batería: 400 W<br>
+        - Estado de carga de la batería: 85 %<br>
+        - Potencia de red: -450 W<br>
+        - Potencia de consumo: 780 W
+      </div>
+      <div class="field"><label>Nombre</label><div class="v">Ingeteam STORAGE 1Play TL M</div></div>
+      <div class="actions"><span class="btn fill">Enviar</span></div>
+    </div>
+  </div>
+  <div>
+    <h3>Propuesta <span class="tag new">v2</span></h3>
+    <div class="dialog">
+      <div class="title">Dispositivo encontrado</div>
+      <div class="desc"><span class="ok">✓ Responde</span> en 192.168.1.50. Comprueba que estos valores cuadran con la pantalla del dispositivo:</div>
+      <div class="readings">
+        <div class="grp"><span>Inversor</span></div>
+        <div><span>Estado</span><span>Conectado a red</span></div>
+        <div><span>Potencia activa</span><span>1.650 W</span></div>
+        <div class="grp"><span>Campo solar</span></div>
+        <div><span>Potencia FV1 · FV2</span><span>820 W · 410 W</span></div>
+        <div class="grp"><span>Batería</span></div>
+        <div><span>Estado de carga · potencia</span><span>85 % · 400 W</span></div>
+        <div class="grp"><span>Red</span></div>
+        <div><span>Potencia</span><span>−450 W</span></div>
+        <div class="grp"><span>Consumo</span></div>
+        <div><span>Potencia</span><span>780 W</span></div>
+      </div>
+      <div class="menu">
+        <div>Valores correctos: continuar</div>
+        <div>Cambiar el modelo</div>
+        <div>Cambiar la conexión</div>
+      </div>
+    </div>
+    <p class="note">Menú con <code>async_show_menu</code>, que admite <code>description_placeholders</code>. Hace de «Atrás» con lo que HA ofrece. Un grupo por componente marcado en el paso 4, con el nombre de su dispositivo. El signo de la red se muestra tal cual, sin «exportando»: el signo no está verificado (<code>docs/features/monitoring.md</code>, «Signos supuestos»).</p>
+  </div>
+</div>
+
+<h4>Paso 6 · Nombre, número de serie y Device ID <span class="tag new">nuevo · punto 14</span></h4>
+<div class="cmp">
+  <div>
+    <h3>Primer inversor · modelo sin número de serie por Modbus</h3>
+    <div class="dialog">
+      <div class="title">Nombre</div>
+      <div class="field"><label>Nombre</label><div class="v">Ingeteam STORAGE 1Play TL M</div></div>
+      <div class="ddesc">Así se llama el grupo de dispositivos en Home Assistant. Se puede cambiar después.</div>
+      <div class="field"><label>Device ID</label><div class="v">0</div></div>
+      <div class="ddesc">Identificador interno de la integración. Distingue equipos del mismo tipo. No tiene nada que ver con el Unit ID de Modbus.</div>
+      <div class="field"><label>Número de serie (opcional)</label><div class="v">&nbsp;</div></div>
+      <div class="ddesc">Este modelo no lo envía por Modbus. Cópialo de la etiqueta del dispositivo.</div>
+      <div class="actions"><span class="btn fill">Siguiente</span></div>
+    </div>
+    <p class="note">Caso de los dos perfiles de Ingeteam hoy: ninguno declara registro de número de serie (<code>docs/wiki/brands/ingeteam/*/registers*.md</code>).</p>
+  </div>
+  <div>
+    <h3>Segundo inversor · ID ocupado</h3>
+    <div class="dialog">
+      <div class="title">Nombre</div>
+      <div class="alert"><span class="err">Ya hay un inversor con el ID 0.</span> Elige otro.</div>
+      <div class="field"><label>Nombre</label><div class="v">Ingeteam STORAGE 1Play TL M 2</div></div>
+      <div class="ddesc">Así se llama el grupo de dispositivos en Home Assistant. Se puede cambiar después.</div>
+      <div class="field"><label>Device ID</label><div class="v">0</div></div>
+      <div class="ddesc">Identificador interno de la integración. Distingue equipos del mismo tipo. No tiene nada que ver con el Unit ID de Modbus.</div>
+      <div class="field"><label>Número de serie (opcional)</label><div class="v">&nbsp;</div></div>
+      <div class="ddesc">Este modelo no lo envía por Modbus. Cópialo de la etiqueta del dispositivo.</div>
+      <div class="actions"><span class="btn fill">Siguiente</span></div>
+    </div>
+    <p class="note">El formulario proponía 1, el menor ID libre entre los inversores; el usuario escribió 0, que ya usa otro inversor. El paso no avanza hasta que el ID esté libre.</p>
+    <p class="note">Número de serie: en un modelo que lo envía por Modbus, el texto de ayuda dice «Déjalo vacío: este modelo lo envía por Modbus. Leído: {serial}.». Si el usuario escribe un valor, manda sobre el leído.</p>
+  </div>
+</div>
+<p class="note"><b>Decidido · Device ID:</b> entero ≥ 0, obligatorio. Único entre las entries cuyo perfil tiene el mismo <code>device_type</code> (<code>domain/profile.py:40</code>): dos inversores no comparten ID, un inversor y un sensor de irradiancia sí. Viene relleno con el menor ID libre del tipo. Error <code>device_id_in_use</code>. Va detrás del nombre de cada dispositivo de la entry («Inversor 0», «Batería 0»), con <code>translation_placeholders</code> en <code>DeviceInfo</code>; de ahí sale el <code>entity_id</code>: <code>sensor.bateria_0_tension</code>.</p>
+<p class="note">Un menú no lleva campos. Por eso el nombre pasa a un paso propio, después de «continuar». El número de serie solo admite letras y números. Se ve en la ficha del dispositivo «Inversor» en HA. El nombre es el título de la entry, que agrupa los dispositivos (ver «Resultado en HA»).</p>
+
+<h4>Paso 7 · Frecuencia de lectura <span class="tag new">nuevo · punto 9</span></h4>
+<div class="cmp">
+  <div>
+    <div class="dialog">
+      <div class="title">Frecuencia de lectura</div>
+      <div class="progress">Ingeteam · STORAGE 1Play TL M</div>
+      <div class="field"><label>Instantánea (s)</label><div class="v">5</div></div>
+      <div class="ddesc">Potencia, tensión y frecuencia de red. Mínimo: {min} s.</div>
+      <details class="ents"><summary>Entidades de esta lectura</summary><ul><li>Red · Tensión</li><li>Red · Frecuencia</li><li>Red · Potencia</li><li>…</li></ul></details>
+      <div class="field"><label>Rápida (s)</label><div class="v">10</div></div>
+      <div class="ddesc">Estado, potencias, carga de la batería y alarmas del BMS. Mínimo para este modelo: {min} s.</div>
+      <details class="ents"><summary>Entidades de esta lectura</summary><ul><li>Inversor · Estado</li><li>Inversor · Potencia activa</li><li>…</li></ul></details>
+      <div class="field"><label>Normal (s)</label><div class="v">60</div></div>
+      <div class="ddesc">Tensiones, corrientes y motivos de limitación. Mínimo: {min} s.</div>
+      <details class="ents"><summary>Entidades de esta lectura</summary><ul><li>Campo solar · Tensión FV1</li><li>…</li></ul></details>
+      <div class="field"><label>Lenta (s)</label><div class="v">3600</div></div>
+      <div class="ddesc">Datos que cambian poco, como la salud de la batería. Mínimo: {min} s.</div>
+      <details class="ents"><summary>Entidades de esta lectura</summary><ul><li>Batería · Estado de salud</li><li>…</li></ul></details>
+      <div class="actions"><span class="btn fill">Terminar</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="note">Mismo formulario que «Reconfigurar · paso 3» (ver «Después del alta»): una <code>section</code> plegada por intervalo, con su mínimo y su lista de entidades. Valores por defecto: <code>DEFAULT_INTERVALS</code> (<code>const.py:10</code>), 5, 10, 60 y 3600 s (instantánea, rápida, normal y lenta). La rápida pasa de 5 a 10 s en todos los perfiles: con las extras de la spec §5.7, con todos los componentes, la rápida del STORAGE pide 6 bloques, 6 s como mínimo.</p>
+    <p class="note">La instantánea es nueva (spec §5.8): lee tensión, frecuencia y potencia de red (30070-30072) en una sola petición. Además del mínimo de cada intervalo, entre todos no pueden pasar de una petición por segundo, el límite del fabricante. Si se pasan, el formulario da el error <code>interval_budget_exceeded</code>.</p>
+    <p class="note">Los componentes se eligen en el paso 4: aquí las listas llevan solo las entidades de los componentes marcados. Con todos, el STORAGE da instantánea 3 + 2 energías, rápida 34 + 3 energías + 2 controles (4 desactivadas), normal 12 (5 desactivadas) y lenta 6 (4 desactivadas).</p>
+    <p class="note">Último paso del alta: el botón dice «Terminar» y crea la entry con un dispositivo por componente marcado.</p>
+  </div>
+</div>
+
+<h2>Flujo completo propuesto</h2>
+<div class="flow">
+  <div class="step"><div class="dialog"><div class="title">1 · Marca</div><div class="desc">Una opción por carpeta de <code>profiles/</code>.</div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog"><div class="title">2 · Modelo</div><div class="desc">Solo los de esa marca, con descripción y sin preselección.</div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog"><div class="title">3 · Conexión</div><div class="desc">IP con ayuda. Sonda de 20 s como máximo. Errores con IP, puerto y qué revisar.</div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog"><div class="title">4 · Componentes</div><div class="desc">Casillas con los opcionales del modelo. Se salta si el modelo no tiene.</div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog"><div class="title">5 · Lecturas</div><div class="desc">Por componente marcado. Menú: continuar · cambiar modelo (→ 2) · cambiar conexión (→ 3).</div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog"><div class="title">6 · Nombre</div><div class="desc">Nombre, número de serie opcional y Device ID (menor libre del tipo).</div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog"><div class="title">7 · Frecuencia</div><div class="desc">Un intervalo por tipo de lectura, con su mínimo y sus entidades. Crea la entry con un dispositivo por componente marcado.</div></div></div>
+</div>
+
+<h2>Resultado en HA <span class="tag new">punto 12</span></h2>
+<h4>Página de la integración · Ajustes → Dispositivos y servicios → Modbus Solar</h4>
+<div class="cmp">
+  <div>
+    <h3>Hoy · 1 dispositivo con todo <span class="tag now">actual</span></h3>
+    <div class="integ">
+      <div class="integ-head"><div class="integ-logo">☀️</div><div><div class="integ-name">Modbus Solar</div>
+        <div class="integ-meta">1 dispositivo · 47 entidades</div></div></div>
+      <div class="integ-sec">Dispositivos</div>
+      <div class="entry">
+        <div class="entry-title">⌃ Ingeteam STORAGE 1Play TL M <span class="dots">⋮</span></div>
+        <div class="dev"><div class="di">▣</div><div class="dn">Ingeteam STORAGE 1Play TL M<small>STORAGE 1Play TL M · 47 entidades</small></div><div class="chev">›</div></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3>Propuesta · 1 entry, 1 conexión, 6 dispositivos <span class="tag new">v2</span></h3>
+    <div class="integ">
+      <div class="integ-head"><div class="integ-logo">☀️</div><div><div class="integ-name">Modbus Solar</div>
+        <div class="integ-meta">6 dispositivos · 56 entidades</div></div></div>
+      <div class="integ-sec">Dispositivos</div>
+      <div class="entry">
+        <div class="entry-title">⌃ Ingeteam STORAGE 1Play TL M <span class="dots">⋮</span></div>
+        <div class="dev"><div class="di">▣</div><div class="dn">Inversor 0<small>STORAGE 1Play TL M · 13 entidades</small></div><div class="chev">›</div></div>
+        <div class="dev"><div class="di">☀</div><div class="dn">Campo solar 0<small>STORAGE 1Play TL M · 8 entidades</small></div><div class="chev">›</div></div>
+        <div class="dev"><div class="di">▮</div><div class="dn">Batería 0<small>STORAGE 1Play TL M · 25 entidades</small></div><div class="chev">›</div></div>
+        <div class="dev"><div class="di">⚡</div><div class="dn">Red 0<small>STORAGE 1Play TL M · 5 entidades</small></div><div class="chev">›</div></div>
+        <div class="dev"><div class="di">⛨</div><div class="dn">Cargas críticas 0<small>STORAGE 1Play TL M · 4 entidades</small></div><div class="chev">›</div></div>
+        <div class="dev"><div class="di">⌂</div><div class="dn">Consumo 0<small>STORAGE 1Play TL M · 1 entidad</small></div><div class="chev">›</div></div>
+      </div>
+    </div>
+    <p class="note">Con los componentes por defecto: sin vatímetro interno ni cargador VE. Batería: 11 de hoy + 14 bits del BMS. El cambio <code>reason-labels</code> suma 1 a Inversor (30043).</p>
+  </div>
+</div>
+<table style="margin-top:12px">
+  <tr><th>Dispositivo</th><th>Entidades (hoy 47 en total)</th><th>N.º</th></tr>
+  <tr><td>Inversor</td><td>estado, potencia activa, tiempo de funcionamiento, reactiva, factor de potencia, reducción y motivo, bus DC, temperatura, aislamiento + y −, límite de vertido (number y switch)</td><td>13</td></tr>
+  <tr><td>Campo solar</td><td>FV1 y FV2 (tensión, corriente, potencia), FV externa, energía solar</td><td>8</td></tr>
+  <tr><td>Batería</td><td>tensión, corriente, potencia, SOC, SOH, estado, temperatura, motivos de carga y descarga, energías de carga y descarga + 14 bits del BMS</td><td>11 + 14</td></tr>
+  <tr><td>Red</td><td>tensión, frecuencia, potencia, energías importada y exportada</td><td>5</td></tr>
+  <tr><td>Vatímetro interno <span class="tag">sin marcar</span></td><td>tensión, corriente, frecuencia, potencia</td><td>4</td></tr>
+  <tr><td>Cargas críticas</td><td>tensión, corriente, frecuencia, potencia</td><td>4</td></tr>
+  <tr><td>Consumo</td><td>potencia de consumo</td><td>1</td></tr>
+  <tr><td>Cargador VE <span class="tag">sin marcar</span></td><td>potencia del cargador</td><td>1</td></tr>
+</table>
+<ul>
+  <li>Una IP, una conexión Modbus y un único sondeo para todos. Recargar o borrar la entry afecta a todos a la vez.</li>
+  <li>La lista no anida: los dispositivos salen al mismo nivel bajo el título de la entry, que hace de hub. El vínculo con «Inversor» se ve en la página de cada uno («Conectado a través de»).</li>
+  <li>El dispositivo principal conserva su identificador <code>(DOMAIN, entry_id)</code>; los demás usan <code>(DOMAIN, f"{entry_id}_{component}")</code> y <code>via_device</code> (ADR 0015). <code>integration_type</code> pasa a <code>hub</code>.</li>
+  <li>El <code>unique_id</code> de cada entidad no cambia (<code>entities/base.py:30</code>): pasar entidades a otro dispositivo conserva el historial.</li>
+  <li>El <code>entity_id</code> nuevo sale del dispositivo, con su Device ID: <code>sensor.bateria_0_estado_de_carga</code>. Un segundo inversor con ID 1 da <code>sensor.bateria_1_estado_de_carga</code>, sin sufijo <code>_2</code>. Los ya creados no cambian.</li>
+  <li>Una entry creada antes de v2 no tiene Device ID: sus dispositivos se llaman sin número («Batería») hasta que el usuario le pone uno al reconfigurar. No hay migración.</li>
+  <li>El límite de vertido va en «Inversor»: es un comando al inversor aunque actúe sobre la red.</li>
+</ul>
+
+<h4>Bits del BMS en «Batería» · un <code>binary_sensor</code> por bit <span class="tag new">punto 13 · decidido</span></h4>
+<p>Registros 30029 «Battery. BMS Alarms» (Nota 4, 9 bits) y 30069 «Battery. BMS Flags» (Nota 10, 5 bits). Fuente: <code>ABH2010IMB08</code> rev. _I, págs. 6-8. Ejemplo: 30029 = <code>0x000A</code> (bits 1 y 3) y 30069 = <code>0x0001</code> (bit 0).</p>
+
+<div class="cols3">
+  <div class="card">
+    <div class="card-title">Información del dispositivo</div>
+    <div class="card-sub">Batería 0<br>Ingeteam · STORAGE 1Play TL M<br>Conectado a través de <span class="link">Inversor 0</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Sensores</div>
+    <div class="row"><div class="icon">▮</div><div class="name">Estado de carga</div><div class="state val">78 %</div></div>
+    <div class="row"><div class="icon">⚡</div><div class="name">Potencia</div><div class="state val">-1.240 W</div></div>
+    <div class="row"><div class="icon">↻</div><div class="name">Estado</div><div class="state val">Carga a corriente constante</div></div>
+    <div class="row"><div class="icon">🌡</div><div class="name">Temperatura</div><div class="state val">24,5 °C</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Diagnóstico</div>
+    <div class="row"><div class="icon on">▼</div><div class="name">Motivo de limitación de carga</div><div class="state val">6 - SOC máximo configurado</div></div>
+    <div class="row"><div class="icon okc">✓</div><div class="name">Alarma: corriente de carga alta</div><div class="state">Correcto</div></div>
+    <div class="row"><div class="icon bad">!</div><div class="name">Alarma: tensión alta</div><div class="state bad">Problema</div></div>
+    <div class="row"><div class="icon okc">✓</div><div class="name">Alarma: tensión baja</div><div class="state">Correcto</div></div>
+    <div class="row"><div class="icon bad">!</div><div class="name">Alarma: temperatura alta</div><div class="state bad">Problema</div></div>
+    <div class="row"><div class="icon okc">✓</div><div class="name">Alarma: temperatura baja</div><div class="state">Correcto</div></div>
+    <div class="row"><div class="icon okc">✓</div><div class="name">Alarma: fallo interno del BMS</div><div class="state">Correcto</div></div>
+    <div class="row"><div class="icon okc">✓</div><div class="name">Alarma: desequilibrio de celdas</div><div class="state">Correcto</div></div>
+    <div class="row"><div class="icon okc">✓</div><div class="name">Alarma: corriente de descarga alta</div><div class="state">Correcto</div></div>
+    <div class="row"><div class="icon okc">✓</div><div class="name">Alarma: error del sistema BMS</div><div class="state">Correcto</div></div>
+    <div class="row"><div class="icon on">■</div><div class="name">Carga bloqueada</div><div class="state on">Activado</div></div>
+    <div class="row"><div class="icon">□</div><div class="name">Descarga bloqueada</div><div class="state">Desactivado</div></div>
+    <div class="row"><div class="icon">□</div><div class="name">Carga forzada por el BMS</div><div class="state">Desactivado</div></div>
+    <div class="row"><div class="icon">□</div><div class="name">Calibración de SOC pendiente</div><div class="state">Desactivado</div></div>
+    <div class="row"><div class="icon">□</div><div class="name">Carga forzada por SOC bajo</div><div class="state">Desactivado</div></div>
+  </div>
+</div>
+<ul class="pros">
+  <li class="plus">14 entidades con nombre traducido (es/en) e historial on/off. Como cuelgan de «Batería», el nombre no necesita el prefijo «BMS».</li>
+  <li class="plus">Las 9 alarmas (Nota 4) llevan <code>device_class: problem</code>: «Correcto» / «Problema». Los 5 flags (Nota 10): «Activado» / «Desactivado».</li>
+  <li class="plus">Una automatización o una notificación al móvil por bit, con un disparador de estado. La integración <code>alert</code> de HA repite el aviso hasta que el bit se apaga.</li>
+</ul>
+<pre>trigger:
+  - platform: state
+    entity_id: binary_sensor.bateria_0_alarma_tension_alta
+    to: "on"</pre>
+<ul class="pros">
+  <li class="minus">Plataforma nueva <code>binary_sensor</code>. Hoy hay <code>sensor</code>, <code>number</code> y <code>switch</code>.</li>
+  <li class="minus">El dominio gana el campo <code>bit</code> en <code>EntitySpec</code>; el decodificador lo extrae y la validación admite varias entidades sobre el mismo registro.</li>
+</ul>
+
+<p class="note">Los valores de los motivos con etiqueta son del cambio <code>reason-labels</code>. Bits: tier rápido (aviso en 10 s como mucho, con el intervalo por defecto) y activados. Tier de cada entidad de diagnóstico: <a href="../../wiki/brands/ingeteam/storage-1-play-tl-m/registers-storage-1-play-tl-m.md">wiki del modelo</a>.</p>
+
+<h2>Después del alta <span class="tag">puntos 8, 9, 12</span></h2>
+<p>Hoy «Reconfigurar» mezcla conexión e intervalos y guarda sin probar nada. Propuesta: tres pasos dentro de «Reconfigurar». Primero la conexión, que se prueba; después los componentes; al final la frecuencia de lectura. Solo se guarda al final.</p>
+<div class="cmp">
+  <div>
+    <h3>Hoy · Reconfigurar <span class="tag now">actual</span></h3>
+    <div class="dialog before">
+      <div class="title">Reconfigurar equipo</div>
+      <div class="field"><label>Host</label><div class="v">192.168.1.50</div></div>
+      <div class="field"><label>Puerto</label><div class="v">502</div></div>
+      <div class="field"><label>Intervalo de sondeo rápido (s)</label><div class="v">5</div></div>
+      <div class="field"><label>Intervalo de sondeo normal (s)</label><div class="v">60</div></div>
+      <div class="field"><label>Intervalo de sondeo lento (s)</label><div class="v">3600</div></div>
+      <div class="actions"><span class="btn fill">Enviar</span></div>
+    </div>
+    <p class="note">Valores por defecto de <code>const.py:10</code>. Sin Unit ID ni prueba de conexión: una IP mal escrita deja la entry sin datos y no avisa.</p>
+  </div>
+  <div>
+    <h3>Reconfigurar · paso 1, conexión <span class="tag new">v2 · decidido</span></h3>
+    <div class="dialog">
+      <div class="title">Cambiar la conexión</div>
+      <div class="desc">Ingeteam STORAGE 1Play TL M</div>
+      <div class="field"><label>Dirección IP</label><div class="v">192.168.1.60</div></div>
+      <div class="field"><label>Número de serie (opcional)</label><div class="v">AB1234567</div></div>
+      <div class="ddesc">Este modelo no lo envía por Modbus. Cópialo de la etiqueta del dispositivo.</div>
+      <div class="field"><label>Device ID</label><div class="v">2</div></div>
+      <div class="ddesc">Identificador interno de la integración. Distingue equipos del mismo tipo. No tiene nada que ver con el Unit ID de Modbus.</div>
+      <div class="section">▸ Opciones avanzadas<br><small>Puerto 502 · Unit ID 1</small></div>
+      <div class="actions"><span class="btn fill">Probar y seguir</span></div>
+    </div>
+    <p class="note">Al pulsar, prueba la conexión. Si falla, se queda en este paso con el error y no pasa al siguiente. El número de serie viene relleno con el guardado y sigue las reglas del paso 6. Si se vacía y el modelo lo envía por Modbus, se guarda el leído en esta prueba.</p>
+    <p class="note">Device ID relleno con el guardado (aquí se cambia de 0 a 2). Se valida como en el alta, sin contar la propia entry. En una entry creada antes de v2 sale vacío y es opcional: si sigue vacío, la entry sigue sin ID.</p>
+    <h3 style="margin-top:16px">Reconfigurar · paso 2, componentes <span class="tag new">v2 · punto 12</span></h3>
+    <div class="dialog">
+      <div class="title">¿Qué tiene tu instalación?</div>
+      <div class="desc">Inversor se añade siempre. Lo que desmarques se quita de Home Assistant con su historial.</div>
+      <div class="chk"><div class="box on">✓</div><div><b>Campo solar</b><small>FV1, FV2 y FV externa</small></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Batería</b><small>Carga, salud, motivos de limitación y alarmas del BMS</small></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Red (vatímetro externo)</b><small>Tensión, frecuencia, potencia y energías de red</small></div></div>
+      <div class="chk"><div class="box"></div><div><b>Vatímetro interno</b></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Cargas críticas</b><small>Salida de respaldo</small></div></div>
+      <div class="chk"><div class="box on">✓</div><div><b>Consumo</b><small>Consumo total de la casa</small></div></div>
+      <div class="chk"><div class="box"></div><div><b>Cargador VE</b></div></div>
+      <div class="actions"><span class="btn fill">Siguiente</span></div>
+    </div>
+    <p class="note">Mismo campo que el paso 4 del alta, relleno con los guardados. Una entry creada antes no tiene componentes guardados: salen todos marcados, que es lo que tiene hoy. Va antes de los intervalos porque sus listas dependen de los componentes. Se salta si el modelo no tiene componentes opcionales.</p>
+    <h3 style="margin-top:16px">Reconfigurar · paso 3, frecuencia de lectura <span class="tag new">v2 · decidido</span></h3>
+    <div class="dialog">
+      <div class="title">Frecuencia de lectura</div>
+      <div class="field"><label>Instantánea (s)</label><div class="v">5</div></div>
+      <div class="ddesc">Potencia, tensión y frecuencia de red. Mínimo: {min} s.</div>
+      <details class="ents">
+        <summary>3 entidades leídas + 2 calculadas</summary>
+        <ul>
+          <li>Red · Tensión</li>
+          <li>Red · Frecuencia</li>
+          <li>Red · Potencia</li>
+        </ul>
+        <div class="sub">Calculadas a partir de estas potencias (ADR 0009)</div>
+        <ul>
+          <li>Red · Energía importada</li>
+          <li>Red · Energía exportada</li>
+        </ul>
+      </details>
+      <div class="field"><label>Rápida (s)</label><div class="v">10</div></div>
+      <div class="ddesc">Estado, potencias, carga de la batería y alarmas del BMS. Mínimo para este modelo: {min} s.</div>
+      <details class="ents">
+        <summary>29 entidades leídas · 4 desactivadas por defecto + 3 calculadas + 2 controles</summary>
+        <ul>
+          <li>Inversor · Estado</li>
+          <li>Inversor · Potencia activa</li>
+          <li class="off">Inversor · Potencia reactiva</li>
+          <li class="off">Inversor · Factor de potencia</li>
+          <li class="off">Inversor · Tensión del bus DC</li>
+          <li>Campo solar · Potencia FV1</li>
+          <li>Campo solar · Potencia FV2</li>
+          <li class="off">Campo solar · Potencia FV externa</li>
+          <li>Batería · Potencia</li>
+          <li>Batería · Estado de carga</li>
+          <li>Batería · Alarma: corriente de carga alta <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: tensión alta <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: tensión baja <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: temperatura alta <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: temperatura baja <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: fallo interno del BMS <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: desequilibrio de celdas <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: corriente de descarga alta <span class="pl">binary_sensor</span></li>
+          <li>Batería · Alarma: error del sistema BMS <span class="pl">binary_sensor</span></li>
+          <li>Batería · Carga bloqueada <span class="pl">binary_sensor</span></li>
+          <li>Batería · Descarga bloqueada <span class="pl">binary_sensor</span></li>
+          <li>Batería · Carga forzada por el BMS <span class="pl">binary_sensor</span></li>
+          <li>Batería · Calibración de SOC pendiente <span class="pl">binary_sensor</span></li>
+          <li>Batería · Carga forzada por SOC bajo <span class="pl">binary_sensor</span></li>
+          <li>Cargas críticas · Tensión</li>
+          <li>Cargas críticas · Corriente</li>
+          <li>Cargas críticas · Frecuencia</li>
+          <li>Cargas críticas · Potencia</li>
+          <li>Consumo · Potencia</li>
+        </ul>
+        <div class="sub">Calculadas a partir de estas potencias (ADR 0009)</div>
+        <ul>
+          <li>Campo solar · Energía FV</li>
+          <li>Batería · Energía de carga</li>
+          <li>Batería · Energía de descarga</li>
+        </ul>
+        <div class="sub">Disponibilidad ligada a esta lectura</div>
+        <ul>
+          <li>Inversor · Límite de vertido a red <span class="pl">number</span></li>
+          <li>Inversor · Vertido a red <span class="pl">switch</span></li>
+        </ul>
+      </details>
+      <div class="field"><label>Normal (s)</label><div class="v">60</div></div>
+      <div class="ddesc">Tensiones, corrientes y motivos de limitación. Mínimo: {min} s.</div>
+      <details class="ents">
+        <summary>12 entidades · 5 desactivadas por defecto</summary>
+        <ul>
+          <li class="off">Inversor · Ratio de reducción de potencia</li>
+          <li class="off">Inversor · Motivo de reducción de potencia</li>
+          <li class="off">Inversor · Temperatura</li>
+          <li>Campo solar · Tensión FV1</li>
+          <li>Campo solar · Corriente FV1</li>
+          <li>Campo solar · Tensión FV2</li>
+          <li>Campo solar · Corriente FV2</li>
+          <li>Batería · Tensión</li>
+          <li>Batería · Corriente</li>
+          <li>Batería · Estado</li>
+          <li class="off">Batería · Motivo de limitación de descarga</li>
+          <li class="off">Batería · Motivo de limitación de carga</li>
+        </ul>
+      </details>
+      <div class="field"><label>Lenta (s)</label><div class="v">3600</div></div>
+      <div class="ddesc">Datos que cambian poco, como la salud de la batería. Mínimo: {min} s.</div>
+      <details class="ents">
+        <summary>6 entidades · 4 desactivadas por defecto</summary>
+        <ul>
+          <li class="off">Inversor · Tiempo de funcionamiento</li>
+          <li class="off">Inversor · Tipo de consigna de reactiva</li>
+          <li class="off">Inversor · Resistencia de aislamiento positiva</li>
+          <li class="off">Inversor · Resistencia de aislamiento negativa</li>
+          <li>Batería · Estado de salud</li>
+          <li>Batería · Temperatura</li>
+        </ul>
+      </details>
+      <div class="actions"><span class="btn fill">Guardar</span></div>
+    </div>
+    <p class="note">Mismo formulario que el paso 6 del alta, con los valores guardados y solo los componentes elegidos. Listas reales del perfil <code>ingeteam.oneplay_storage</code> con los componentes de este ejemplo (sin vatímetro interno ni cargador VE): agrupadas por componente y con los nombres cortos de la spec §5.4. Tier y activación de la spec §5.7 y de la wiki del modelo (<a href="../../wiki/brands/ingeteam/storage-1-play-tl-m/registers-storage-1-play-tl-m.md">registers-storage-1-play-tl-m.md</a>, «Tier y activación de las entidades de diagnóstico»). En gris, las que tienen <code>enabled_default=False</code>. Los 14 bits del BMS van en rápida y activados (§5.3). Las energías calculadas exigen fuentes del mismo tier (<code>domain/validate.py:60-72</code>). Number y switch dependen del tier de <code>probe_key</code> (<code>adapters/inbound/entities/factory.py:50-53</code>). En el 1Play sin storage la lista es mucho más corta: rápida con estado y potencia activa, normal con energía total y lenta vacía.</p>
+    <p class="note">En HA: cada intervalo es una <code>section</code> plegada con su campo dentro, y la lista va en el <code>data_description</code> del campo, con un placeholder por intervalo. Es la única pieza plegable de un formulario de HA. Pendiente de verificar en la VM que HA rellena ese placeholder.</p>
+    <p class="note">El mínimo sale de <code>min_tier_interval</code> (<code>application/poller.py:46</code>). Guardar escribe conexión, componentes e intervalos y recarga la entry. Los intervalos siguen en <code>entry.data</code>, como hoy. Solo aparecen los intervalos con entidades. Si el Device ID ha cambiado, «Guardar» lleva al paso 4 en vez de guardar.</p>
+    <h3 style="margin-top:16px">Reconfigurar · paso 4, renombrar entidades <span class="tag new">v2 · punto 14</span></h3>
+    <div class="dialog">
+      <div class="title">Cambiar el Device ID</div>
+      <div class="desc">El ID pasa de 0 a 2. Los dispositivos se llamarán «Inversor 2», «Batería 2»…</div>
+      <div class="alert">Se renombran <b>52</b> entidades.<br><code>sensor.bateria_0_tension</code> → <code>sensor.bateria_2_tension</code><br><code>sensor.inversor_0_estado</code> → <code>sensor.inversor_2_estado</code><br>…</div>
+      <div class="alert">Se mantienen <b>3</b>: tienen un <code>entity_id</code> personalizado.</div>
+      <div class="alert warn"><span class="wrn">No se renombra 1</span>: el <code>entity_id</code> nuevo ya existe.<br><code>sensor.bateria_2_potencia</code></div>
+      <div class="actions"><span class="btn fill">Confirmar</span></div>
+    </div>
+    <p class="note">Solo sale si el ID cambia. Para cancelar se cierra el diálogo y no cambia nada. Cuenta como generado un <code>entity_id</code> que empieza por <code>&lt;plataforma&gt;.&lt;slug del nombre actual de su dispositivo&gt;_</code> (<code>sensor.bateria_0_</code>); se cambia solo ese prefijo. Las entidades de una entry creada antes de v2 no tienen ese prefijo: se mantienen. Al confirmar: renombra en el registro de entidades (<code>async_update_entity</code> con <code>new_entity_id</code>), guarda y recarga. El historial sigue a la entidad por su <code>unique_id</code>, que no cambia (<code>entities/base.py:30</code>). Las automatizaciones, tarjetas y plantillas que usen el <code>entity_id</code> viejo no se actualizan solas.</p>
+  </div>
+</div>
+
+<h2>Textos <span class="tag">puntos 2, 10</span></h2>
+<p>Regla: los textos del flujo dicen «dispositivo», nunca «inversor». La integración cubre cualquier dispositivo de una instalación solar. El tipo concreto aparece solo como dato del modelo elegido (subtítulo del paso 2), sacado de <code>device_type</code> del perfil (<code>domain/profile.py:40</code>; hoy <code>"inverter"</code> en <code>profiles/ingeteam/oneplay.py:9</code> y <code>oneplay_storage.py:100</code>). Los nombres de componente («Inversor», «Batería») también son datos del perfil. Los nombres de entidad se acortan dentro de su dispositivo: «Estado del inversor» pasa a «Estado» en «Inversor» (spec §5.4).</p>
+<table>
+  <tr><th>Hoy</th><th>Propuesta</th></tr>
+  <tr><td>Cada inversor es una entry independiente. Añade una entry por inversor.</td><td>Paso 1: «Elige la marca». Paso 2: «Busca el modelo en la etiqueta del dispositivo. Si tienes varios, añade uno y repite.»</td></tr>
+  <tr><td>Host</td><td>Dirección IP</td></tr>
+  <tr><td>Avanzado · ID de unidad</td><td>Opciones avanzadas · Unit ID (el nombre que usan los dispositivos Modbus)</td></tr>
+  <tr><td>Este endpoint ya está en uso con otros parámetros de conexión.</td><td>Otro dispositivo ya usa esta IP y este puerto con otra configuración.</td></tr>
+  <tr><td>Este equipo ya está configurado.</td><td>Este dispositivo ya está añadido.</td></tr>
+  <tr><td>Reconfigurar equipo</td><td>Cambiar la conexión</td></tr>
+  <tr><td>El equipo se ha reconfigurado.</td><td>Cambios guardados.</td></tr>
+  <tr><td>Estado de carga de la batería</td><td>Batería · Estado de carga</td></tr>
+</table>
+
+<h2>Resumen y coste</h2>
+<table>
+  <tr><th>Punto</th><th>Cambio</th><th>Toca</th><th>Tests</th></tr>
+  <tr><td>11</td><td>Paso de marca y modelo filtrado por marca</td><td><code>flow.py</code>, textos, test de catálogo (<code>brand</code> = carpeta)</td><td>sí</td></tr>
+  <tr><td>1</td><td>Descripción del modelo en la lista</td><td>perfiles, <code>flow.py</code></td><td>sí</td></tr>
+  <tr><td>2, 3, 10</td><td>Textos, <code>data_description</code>, vocabulario</td><td><code>strings.json</code>, <code>en.json</code>, <code>es.json</code></td><td>hassfest en CI</td></tr>
+  <tr><td>4</td><td>Errores con placeholders</td><td><code>flow.py</code>, textos</td><td>sí</td></tr>
+  <tr><td>5</td><td>Campo «Modelo» tras un error</td><td><code>flow.py</code>, textos</td><td>sí</td></tr>
+  <tr><td>6</td><td>Lecturas agrupadas y con formato</td><td><code>format_readings</code></td><td>sí</td></tr>
+  <tr><td>7</td><td>Menú de confirmación y paso de nombre</td><td><code>flow.py</code>, textos</td><td>sí</td></tr>
+  <tr><td>8</td><td>Reconfigure solo de conexión, con sonda y Unit ID</td><td><code>flow.py</code></td><td>sí</td></tr>
+  <tr><td>9</td><td>Paso de intervalos en reconfigure, con lista de entidades</td><td><code>flow.py</code>, textos</td><td>sí</td></tr>
+  <tr><td>12</td><td>Paso de componentes, un dispositivo por componente, limpieza del registro</td><td>dominio (<code>Component</code>), perfil, <code>flow.py</code>, <code>entities/base.py</code>, <code>runtime.py</code>, <code>manifest.json</code>, textos</td><td>sí</td></tr>
+  <tr><td>13</td><td>Bits del BMS: un <code>binary_sensor</code> por bit</td><td>Dominio (<code>bit</code>, <code>Platform</code>), <code>decode.py</code>, <code>validate.py</code>, perfil, plataforma nueva, textos</td><td>sí</td></tr>
+  <tr><td>14</td><td>Device ID: campo en el alta y en reconfigure, nombre de dispositivo con el ID, paso de renombrado</td><td><code>flow.py</code>, <code>entities/base.py</code>, registro de entidades, textos</td><td>sí</td></tr>
+</table>
+
+<h2>Fuera de alcance</h2>
+<ul>
+  <li>Interpretar el signo con texto («exportando», «cargando»): los signos siguen sin verificar.</li>
+  <li>Detectar el modelo real del dispositivo o sus componentes: no hay registro fiable.</li>
+  <li>Etiquetas de los motivos (Notas 7, 8 y 9): cambio <code>reason-labels</code>.</li>
+  <li>Paradas y alarmas del inversor (30010, 30011, 30013-30015) y registros 30074-30077 (Nota 11).</li>
+  <li>Descubrimiento automático (DHCP, zeroconf).</li>
+  <li>Configurar el control de vertido durante el alta: el estado inicial es optimista y no se escribe (ADR 0012).</li>
+</ul>
+
+<h2>Decidido</h2>
+<ol>
+  <li>Tras un error del paso 3, el formulario añade el campo «Modelo» con los modelos de la marca. Cambiar de marca exige empezar de nuevo.</li>
+  <li>Reconfigure prueba la conexión y no sigue si falla.</li>
+  <li>Descripción del modelo con <code>translation_key</code> en el selector. El perfil no cambia.</li>
+  <li>El paso 1 (marca) se muestra siempre.</li>
+  <li>Los textos del flujo dicen «dispositivo», no «inversor».</li>
+  <li>Reconfigure en tres pasos: conexión con prueba, componentes, e intervalos con una section por intervalo y su lista de entidades. Sin options flow.</li>
+  <li>Paso de componentes en el alta (paso 4, antes de las lecturas) y paso de frecuencia de lectura al final (paso 7). Un dispositivo por componente; la entry hace de hub con su título y los dispositivos llevan nombre corto (ADR 0015).</li>
+  <li>El límite de vertido (number y switch) va en «Inversor».</li>
+  <li>Los bits del BMS van en «Batería», un <code>binary_sensor</code> por bit, en tier rápido y activados.</li>
+  <li>Tier de las entidades de diagnóstico por componente: medidas eléctricas (potencia, tensión, corriente, frecuencia) y alarmas rápido; temperatura, ratio y motivos normal; contador de horas y aislamiento lento. Medidas de Vatímetro interno, Cargas críticas y Cargador VE activadas (<a href="../../wiki/brands/ingeteam/storage-1-play-tl-m/registers-storage-1-play-tl-m.md">wiki del modelo</a>).</li>
+  <li>Nombres de entidad cortos: la entidad no repite su dispositivo (spec §5.4, <a href="naming.html">maqueta de nombres</a>). Cambian el texto visible de 30 entidades (2 solo en inglés, 1 solo en español).</li>
+  <li>Device ID: entero ≥ 0, obligatorio en el alta, único por tipo de equipo (<code>device_type</code>), relleno con el menor libre. Va en el nombre de cada dispositivo de la entry y, por tanto, en el <code>entity_id</code>. Se puede cambiar al reconfigurar: renombra los <code>entity_id</code> generados y avisa antes de cuántos se renombran, cuántos se mantienen y cuántos chocan. Las entries anteriores a v2 no se migran: quedan sin ID hasta que el usuario le pone uno.</li>
+</ol>
+</main>
+</body>
+</html>
