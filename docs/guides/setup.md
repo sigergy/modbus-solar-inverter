@@ -22,8 +22,10 @@ bash scripts/lint.sh
 
 Los tests solo corren en GitHub Actions: la máquina de desarrollo es Windows y Home Assistant no se instala allí. Decisión: [ADR 0007](../decisions/0007-tests-ci-only.md). Ciclo y fixtures: [testing](testing.md).
 
-## Un solo cliente Modbus en el Ingeteam
+## Clientes Modbus en el Ingeteam
 
-El Ingeteam 1Play Storage admite un único cliente Modbus en el puerto 502 (`docs/changes/2026-10-04-skeleton/spec.md:66`). Si otro cliente, por ejemplo el EMS, ocupa el puerto, la lectura falla como `DeviceUnavailable` (`custom_components/modbus_solar/adapters/outbound/modbus_gateway.py:36-37`). El `TierCoordinator` la convierte en `UpdateFailed` y el equipo sale `unavailable` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:54-58`).
+Ingeteam recomienda un único cliente conectado al puerto 502 del 1Play Storage y un periodo entre peticiones de al menos 1 s (`docs/wiki/brands/ingeteam/1-play-tl-m/ACL2010IMB05.pdf`, pág. 4). Su guía genérica de comunicaciones dice que los INGECON SUN admiten conexiones simultáneas de varios clientes en el puerto 502, sin prioridad entre peticiones (`docs/wiki/brands/ingeteam/AAX2023IPD02_E.pdf`, pág. 7). Qué pasa en el 1Play con un segundo cliente, por ejemplo el EMS, no está verificado: se comprueba en la VM.
 
-No hay reintento agresivo: se reintenta en el siguiente tick del tier (spec §5, `docs/changes/2026-10-04-skeleton/spec.md:353-355`). Cuando el puerto queda libre, el equipo se recupera solo. El equipo exige además un periodo entre peticiones ≥ 1 s (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:11-12`).
+Si una lectura falla por la conexión, se traduce a `DeviceUnavailable` (`custom_components/modbus_solar/adapters/outbound/modbus_gateway.py:36-37`). El `TierCoordinator` la convierte en `UpdateFailed` y el equipo sale `unavailable` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:54-58`).
+
+No hay reintento agresivo: se reintenta en el siguiente tick del tier (spec §5, `docs/changes/2026-10-04-skeleton/spec.md:353-355`). Cuando la lectura vuelve a funcionar, el equipo se recupera solo. El perfil espacia las peticiones 1 s, como recomienda Ingeteam (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:11-12`).

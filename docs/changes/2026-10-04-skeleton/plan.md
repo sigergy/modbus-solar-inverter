@@ -4027,7 +4027,7 @@ Usa la conexión compartida de la integración `modbus` del core.
 ## Requisitos
 
 - Home Assistant 2026.9.0 o posterior.
-- El equipo accesible por Modbus TCP. El Ingeteam admite un solo cliente Modbus a la vez.
+- El equipo accesible por Modbus TCP. En el 1Play Storage, Ingeteam recomienda un único cliente Modbus y al menos 1 s entre peticiones.
 
 ## Instalación
 
@@ -4249,8 +4249,8 @@ Cada fichero describe el código final y cita `archivo:línea`:
   - instalar ruff e import-linter;
   - `bash scripts/lint.sh`;
   - por qué no hay pytest local (ADR 0007);
-  - el Ingeteam admite un solo cliente Modbus: si otro cliente (por ejemplo, el EMS) ocupa
-    el puerto, el equipo sale `unavailable` y se reintenta en el siguiente tick (spec §5).
+  - Ingeteam recomienda un único cliente Modbus; el efecto de un segundo cliente (por ejemplo,
+    el EMS) no está verificado. Si una lectura falla, el equipo sale `unavailable` y se reintenta en el siguiente tick (spec §5).
 - `guides/testing.md`:
   - `tests/unit` frente a `tests/ha`;
   - fixtures `ingeteam_unit`, `temp_unit` y `patch_unit`;
