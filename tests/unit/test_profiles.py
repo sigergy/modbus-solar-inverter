@@ -77,3 +77,7 @@ def test_catalog_lookup() -> None:
 def test_catalog_rejects_duplicate_ids() -> None:
     with pytest.raises(ValueError, match="duplicate profile id: ingeteam.oneplay"):
         Catalog([ONEPLAY, ONEPLAY])
+
+
+def test_oneplay_has_no_controls() -> None:
+    assert ONEPLAY.controls == ()

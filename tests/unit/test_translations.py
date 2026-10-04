@@ -52,3 +52,12 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
     assert set(config["error"]) == {"cannot_connect", "endpoint_in_use", "invalid_response", "interval_too_short"}
     assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
     assert "config_subentries" not in strings
+
+
+def test_controls_and_write_error_are_translated() -> None:
+    strings = load("strings.json")
+    for profile in ALL_PROFILES:
+        for control in profile.controls:
+            assert "name" in strings["entity"]["number"][control.key], control.key
+            assert "name" in strings["entity"]["switch"][control.switch_key], control.switch_key
+    assert "{error}" in strings["exceptions"]["write_failed"]["message"]

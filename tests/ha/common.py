@@ -18,6 +18,7 @@ DEVICE_DATA: dict[str, Any] = {
     "profile": "ingeteam.oneplay",
     "intervals": {"fast": 5, "normal": 60, "slow": 3600},
 }
+STORAGE_DATA: dict[str, Any] = {**DEVICE_DATA, "profile": "ingeteam.oneplay_storage"}
 
 
 def device_entry(
@@ -34,12 +35,12 @@ def device_entry(
     )
 
 
-def entity_id_of(hass: HomeAssistant, key: str, entry_id: str = DEVICE_ID) -> str | None:
-    return er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{entry_id}_{key}")
+def entity_id_of(hass: HomeAssistant, key: str, entry_id: str = DEVICE_ID, *, platform: str = "sensor") -> str | None:
+    return er.async_get(hass).async_get_entity_id(platform, DOMAIN, f"{entry_id}_{key}")
 
 
-def state_of(hass: HomeAssistant, key: str) -> State | None:
-    entity_id = entity_id_of(hass, key)
+def state_of(hass: HomeAssistant, key: str, *, platform: str = "sensor") -> State | None:
+    entity_id = entity_id_of(hass, key, platform=platform)
     return None if entity_id is None else hass.states.get(entity_id)
 
 

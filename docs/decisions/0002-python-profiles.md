@@ -11,7 +11,7 @@ Cada equipo necesita registros, escalas, tiers de sondeo y metadatos de entidad.
 
 ## Decisión
 
-Los perfiles son instancias de `DeviceProfile` (`custom_components/modbus_solar/domain/profile.py:35-45`) en `custom_components/modbus_solar/profiles/<marca>/`. Hoy hay uno: `ONEPLAY_STORAGE` (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:6`). `validate_profile` (`custom_components/modbus_solar/domain/validate.py:14`) los comprueba en tests.
+Los perfiles son instancias de `DeviceProfile` (`custom_components/modbus_solar/domain/profile.py:36-46`) en `custom_components/modbus_solar/profiles/<marca>/`. Hoy hay uno: `ONEPLAY_STORAGE` (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:7`). `validate_profile` (`custom_components/modbus_solar/domain/validate.py:48`) los comprueba en tests.
 
 ## Consecuencias
 

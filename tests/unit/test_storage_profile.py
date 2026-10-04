@@ -192,3 +192,14 @@ def test_energies() -> None:
         ("battery_charge_energy", Role.ENERGY_BATTERY_CHARGE, ("battery_power",), SignFilter.NEGATIVE, True),
         ("battery_discharge_energy", Role.ENERGY_BATTERY_DISCHARGE, ("battery_power",), SignFilter.POSITIVE, True),
     ]
+
+
+def test_export_control() -> None:
+    (control,) = ONEPLAY_STORAGE.controls
+    assert (control.key, control.switch_key) == ("export_limit", "export_enabled")
+    assert (control.role, control.switch_role) == (Role.EXPORT_LIMIT, Role.EXPORT_ENABLED)
+    # AAA0030IMB03_N págs. 4, 7 y 19-20: CMD 26 (0x1A), dato 1 0x0A «Grid power», desde la dirección 1000
+    assert (control.write.address, control.write.prefix, control.write.dtype) == (1000, (26, 10), DataType.S16)
+    # rango del PDF [6000 W, -6000 W]: los negativos no se exponen
+    assert (control.min_value, control.max_value, control.step, control.unit) == (0, 6000, 1, "W")
+    assert (control.default, control.off_value, control.device_class) == (6000, 0, "power")

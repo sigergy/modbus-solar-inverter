@@ -17,4 +17,4 @@ Una config entry por marca, con `unique_id` = marca (`custom_components/modbus_s
 
 - Alta, baja o reconfigure de un equipo recarga la entry de marca entera (`custom_components/modbus_solar/__init__.py:51-52`, `:60-61`). Es necesario: `async_get_unit` ata la liberación de la conexión a la entry, no a la subentry (`docs/changes/2026-10-04-skeleton/spec.md:304-307`).
 - Aceptable: las altas y bajas de equipos son operaciones raras.
-- El `unique_id` de las entidades usa el `subentry_id`, no el host: cambiar el host no duplica entidades (`custom_components/modbus_solar/adapters/inbound/runtime.py:30-32`).
+- El `unique_id` de las entidades usa el `subentry_id`, no el host: cambiar el host no duplica entidades (`custom_components/modbus_solar/adapters/inbound/runtime.py:33-35`).

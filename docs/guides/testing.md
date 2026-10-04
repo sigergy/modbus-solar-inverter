@@ -7,9 +7,9 @@ Los tests solo corren en GitHub Actions ([ADR 0007](../decisions/0007-tests-ci-o
 | Carpeta | Qué prueba | Necesita HA |
 |---|---|---|
 | `tests/unit/` | `domain`, `application`, `profiles`, `ModbusGateway`, empaquetado y traducciones | no |
-| `tests/ha/` | coordinators, setup, sensores, config flow y diagnostics | sí (`hass`) |
+| `tests/ha/` | coordinators, setup, sensores, number y switch de control, config flow y diagnostics | sí (`hass`) |
 
-- `tests/unit/` importa `custom_components.modbus_solar.…` y usa `FakeGateway` o el mock de `modbus_connection` (`tests/unit/test_modbus_gateway.py:1-14`).
+- `tests/unit/` importa `custom_components.modbus_solar.…` y usa `FakeGateway`, `FakeWriter` o el mock de `modbus_connection` (`tests/unit/test_modbus_gateway.py:1-15`).
 - `tests/ha/` carga la integración con `enable_custom_integrations`, activado en cada test (`tests/ha/conftest.py:12-14`).
 - La configuración de pytest está en `pyproject.toml:14-18`.
 
@@ -20,14 +20,22 @@ Los tests solo corren en GitHub Actions ([ADR 0007](../decisions/0007-tests-ci-o
 | `ingeteam_unit` | `MockModbusUnit` con los tres registros del Ingeteam: `0x101D`, `0x1021` y `0x1037` | `tests/ha/conftest.py:17-22` |
 | `temp_unit` | sustituye `async_get_temporary_unit` del config flow por `ingeteam_unit` | `tests/ha/conftest.py:25-34` |
 | `patch_unit` | sustituye `async_get_unit` del setup por `ingeteam_unit` | `tests/ha/conftest.py:37-41` |
+| `storage_unit` | `MockModbusUnit` con las lecturas del STORAGE (`STORAGE_INPUT`, `tests/ha/conftest.py:45`) | `tests/ha/conftest.py:48-53` |
+| `patch_storage_unit` | sustituye `async_get_unit` del setup por `storage_unit` | `tests/ha/conftest.py:56-60` |
 
 Los parches apuntan a los nombres importados en la raíz: `custom_components.modbus_solar.config_flow.async_get_temporary_unit` y `custom_components.modbus_solar.async_get_unit` (`tests/ha/conftest.py:33`, `:40`).
 
 ## `FakeGateway`
 
-`tests/fakes.py:11-23`: `DeviceGateway` en memoria. Devuelve `words[address]` por cada `RegisterSpec` o lanza el `error` que se le pase. Guarda las llamadas en `calls`. `INGETEAM_WORDS` (`tests/fakes.py:8`) lleva los mismos valores que `ingeteam_unit`: `grid_connected`, 5000,0 Wh y 1234,5 W.
+`tests/fakes.py:12-24`: `DeviceGateway` en memoria. Devuelve `words[address]` por cada `RegisterSpec` o lanza el `error` que se le pase. Guarda las llamadas en `calls`. `INGETEAM_WORDS` (`tests/fakes.py:9`) lleva los mismos valores que `ingeteam_unit`: `grid_connected`, 5000,0 Wh y 1234,5 W.
 
-Se usa en `tests/unit/test_poller.py`, `tests/unit/test_probe.py` y `tests/ha/test_coordinator.py`. El resto de `tests/ha/` usa `ingeteam_unit` con el gateway real.
+Se usa en `tests/unit/test_poller.py`, `tests/unit/test_probe.py` y `tests/ha/test_coordinator.py`. El resto de `tests/ha/` usa `ingeteam_unit` o `storage_unit` con el gateway real.
+
+## `FakeWriter`
+
+`tests/fakes.py:27-37`: `DeviceWriter` en memoria. Anota cada `(spec, valor)` en `writes` o lanza el `error` que se le pase. Se usa en `tests/unit/test_control_usecases.py`.
+
+Los tests de `tests/ha/test_control.py` no lo usan: ejercitan el `ModbusGateway` real contra `storage_unit` y recogen las escrituras con `on_write`, que el mock no guarda (fixture `writes`, `tests/ha/test_control.py:37-42`).
 
 ## Ciclo RED / GREEN
 

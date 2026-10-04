@@ -1,0 +1,13 @@
+"""Plataforma number: límites escribibles del equipo de la entry."""
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+
+from .adapters.inbound.entities.factory import build_numbers
+from .adapters.inbound.runtime import ModbusSolarConfigEntry
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ModbusSolarConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
+) -> None:
+    async_add_entities(build_numbers(entry.runtime_data))

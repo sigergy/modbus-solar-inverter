@@ -7,7 +7,7 @@ Usa la conexión compartida de la integración `modbus` del core.
 
 | Marca | Modelo | Entidades |
 |---|---|---|
-| Ingeteam | INGECON SUN STORAGE 1Play TL M | inversor, FV, batería, red y consumo; energía solar, de red y de batería calculada por la integración |
+| Ingeteam | INGECON SUN STORAGE 1Play TL M | inversor, FV, batería, red y consumo; energía solar, de red y de batería calculada por la integración; switch y límite de vertido a red |
 | Ingeteam | INGECON SUN 1Play TL M (sin storage) | estado del inversor, potencia activa, energía total |
 
 ## Requisitos

@@ -18,7 +18,7 @@ from .profiles import ALL_PROFILES
 _LOGGER = logging.getLogger(__name__)
 
 CATALOG = Catalog(ALL_PROFILES)
-PLATFORMS = [HaPlatform.SENSOR]
+PLATFORMS = [HaPlatform.SENSOR, HaPlatform.NUMBER, HaPlatform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ModbusSolarConfigEntry) -> bool:
@@ -28,7 +28,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ModbusSolarConfigEntry) 
     unit = async_get_unit(hass, entry, ModbusTcpParams(host=data[CONF_HOST], port=data[CONF_PORT]), data[CONF_UNIT_ID])
     gateway = ModbusGateway(unit, profile)
     keys = enabled_keys(er.async_get(hass), entry.entry_id, profile)
-    runtime = build_runtime(hass, entry, profile, gateway, keys)
+    # el mismo ModbusGateway lee y escribe: dos puertos, una implementación
+    runtime = build_runtime(hass, entry, profile, gateway, gateway, keys)
     entry.runtime_data = runtime
 
     # primer refresh en segundo plano: un equipo caído no retrasa el arranque ni bloquea la entry

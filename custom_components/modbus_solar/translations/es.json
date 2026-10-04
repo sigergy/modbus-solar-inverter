@@ -222,6 +222,21 @@
       "battery_discharge_energy": {
         "name": "Energía de descarga de la batería"
       }
+    },
+    "number": {
+      "export_limit": {
+        "name": "Límite de vertido a red"
+      }
+    },
+    "switch": {
+      "export_enabled": {
+        "name": "Vertido a red"
+      }
+    }
+  },
+  "exceptions": {
+    "write_failed": {
+      "message": "No se pudo escribir en el inversor: {error}"
     }
   }
 }

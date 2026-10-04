@@ -56,6 +56,8 @@ class Role(StrEnum):
     ENERGY_GRID_EXPORT = "energy_grid_export"
     ENERGY_BATTERY_CHARGE = "energy_battery_charge"
     ENERGY_BATTERY_DISCHARGE = "energy_battery_discharge"
+    EXPORT_LIMIT = "export_limit"
+    EXPORT_ENABLED = "export_enabled"
 
 
 class Platform(StrEnum):
