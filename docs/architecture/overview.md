@@ -51,9 +51,9 @@ Dos reglas más, sin contrato propio:
 
 ```
 async_setup_entry
-  └─ async_get_unit(hass, entry, ModbusTcpParams, unit_id)        __init__.py:37-39
-       └─ ModbusGateway(unit, profile)                             __init__.py:40
-            └─ build_runtime → un TierCoordinator por tier         __init__.py:42, runtime.py:57-82
+  └─ async_get_unit(hass, entry, ModbusTcpParams, unit_id)        __init__.py:28
+       └─ ModbusGateway(unit, profile)                             __init__.py:29
+            └─ build_runtime → un TierCoordinator por tier         __init__.py:31, runtime.py:57-81
 
 TierCoordinator._async_update_data                                 coordinator.py:53
   └─ read_tier(tier, gateway, profile, keys)                       coordinator.py:55, poller.py:21
@@ -62,16 +62,16 @@ TierCoordinator._async_update_data                                 coordinator.p
        └─ decode(spec, words)                                      poller.py:38, decode.py:10
   ◄─ TierResult(values, raw, decode_errors)                        poller.py:14-18
 
-ModbusSolarSensor.native_value = result.values[key]                factory.py:27-31
-ModbusSolarEnergySensor._handle_coordinator_update                 entities/energy.py:37-43
+ModbusSolarSensor.native_value = result.values[key]                factory.py:25-29
+ModbusSolarEnergySensor._handle_coordinator_update                 entities/energy.py:35-41
   └─ EnergyAccumulator.add(t, suma de sources)                     domain/energy.py:38
 ```
 
 Rutas completas bajo `custom_components/modbus_solar/` (`adapters/inbound/` para `runtime.py`, `coordinator.py`, `entities/factory.py` y `entities/energy.py`; `application/` para `poller.py`; `domain/` para `decode.py`).
 
-- El primer refresh de cada coordinator se lanza en segundo plano: un equipo caído no retrasa el arranque de HA ni bloquea la entry (`custom_components/modbus_solar/__init__.py:45-48`).
-- `always_update` va por tier. Por defecto es `False` y HA solo escribe estado si cambia el `TierResult` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:33`, `:41-43`). Los tiers con fuentes de energía usan `True` para que la integral avance con potencia constante (`custom_components/modbus_solar/adapters/inbound/runtime.py:67`, `:78`).
-- Las claves habilitadas se leen del entity registry en el setup (`custom_components/modbus_solar/__init__.py:41`, `custom_components/modbus_solar/adapters/inbound/runtime.py:44-54`). Una energía habilitada añade sus `sources` aunque su sensor de potencia esté deshabilitado (`custom_components/modbus_solar/adapters/inbound/runtime.py:50-53`). Habilitar o deshabilitar una entidad recarga la entry y con ella las claves (`docs/changes/2026-10-04-skeleton/spec.md:323-325`).
+- El primer refresh de cada coordinator se lanza en segundo plano: un equipo caído no retrasa el arranque de HA ni bloquea la entry (`custom_components/modbus_solar/__init__.py:34-36`).
+- `always_update` va por tier. Por defecto es `False` y HA solo escribe estado si cambia el `TierResult` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:33`, `:41-43`). Los tiers con fuentes de energía usan `True` para que la integral avance con potencia constante (`custom_components/modbus_solar/adapters/inbound/runtime.py:66`, `:77`).
+- Las claves habilitadas se leen del entity registry en el setup (`custom_components/modbus_solar/__init__.py:30`, `custom_components/modbus_solar/adapters/inbound/runtime.py:44-54`). Una energía habilitada añade sus `sources` aunque su sensor de potencia esté deshabilitado (`custom_components/modbus_solar/adapters/inbound/runtime.py:50-53`). Habilitar o deshabilitar una entidad recarga la entry y con ella las claves (`docs/changes/2026-10-04-skeleton/spec.md:323-325`).
 
 ## Composición
 
@@ -79,14 +79,14 @@ Solo `__init__.py` y `config_flow.py` conocen a la vez adaptadores de entrada, d
 
 `custom_components/modbus_solar/__init__.py`:
 
-- `CATALOG = Catalog(ALL_PROFILES)`: la raíz inyecta los perfiles al catálogo (`:17`).
-- `async_setup_entry` crea un `DeviceRuntime` por subentry de tipo `device` (`:31-42`), guarda `entry.runtime_data` (`:43`), lanza los primeros refresh (`:46-48`), reenvía las plataformas (`:50`) y registra el listener de recarga (`:52`).
-- `sensor.py:7-20` y `diagnostics.py:8-29` son delegaciones finas a `adapters/inbound/`.
+- `CATALOG = Catalog(ALL_PROFILES)`: la raíz inyecta los perfiles al catálogo (`:20`).
+- `async_setup_entry` crea el `DeviceRuntime` del equipo de la entry (`:25-31`), lo guarda en `entry.runtime_data` (`:32`), lanza los primeros refresh (`:34-36`) y reenvía las plataformas (`:38`). Sin update listener: el reconfigure recarga la entry.
+- `async_migrate_entry` deja las entries v1 en `MIGRATION_ERROR` con un mensaje en el log (`:46-54`).
+- `sensor.py:10-13` y `diagnostics.py:12-19` son delegaciones finas a `adapters/inbound/`.
 
 `custom_components/modbus_solar/config_flow.py`:
 
 - `open_gateway` abre `async_get_temporary_unit`, traduce `HomeAssistantError` a `EndpointInUse` y entrega un `ModbusGateway` (`:20-33`).
-- `DeviceFlow` inyecta `catalog` y `gateway_factory` en `DeviceSubentryFlow` (`:36-38`).
-- `ModbusSolarConfigFlow` inyecta `catalog` y `device_flow` en `BrandFlow` (`:41-43`).
+- `ModbusSolarConfigFlow` inyecta `catalog` y `gateway_factory` en `DeviceConfigFlow` (`:36-38`).
 
 Detalle por capa: [domain](domain.md), [application](application.md), [ports](ports.md), [inbound](adapters/inbound.md), [outbound](adapters/outbound.md).

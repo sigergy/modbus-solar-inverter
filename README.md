@@ -24,11 +24,12 @@ Usa la conexión compartida de la integración `modbus` del core.
 ## Configuración
 
 1. Ajustes → Dispositivos y servicios → Añadir integración → «Modbus Solar».
-2. Elegir la marca. Se crea una entrada por marca.
-3. En la entrada, «Añadir equipo»: nombre, host, puerto, ID de unidad y modelo.
-   Para un STORAGE, elegir el modelo «STORAGE 1Play TL M».
-   La integración lee el estado del inversor antes de guardar.
-4. «Reconfigurar» en el equipo cambia host, puerto e intervalos de sondeo.
+2. Elegir el modelo. Para un STORAGE, «Ingeteam · STORAGE 1Play TL M».
+3. Escribir la IP o el nombre de host del inversor. Puerto e ID de unidad van en «Avanzado».
+   La integración prueba la conexión antes de seguir.
+4. Revisar las lecturas del inversor y darle un nombre.
+   Se crea una entrada por inversor: para otro inversor, repetir desde el paso 1.
+5. «Reconfigurar» en la entrada cambia host, puerto e intervalos de sondeo.
 
 Detalle: [docs/features/device-setup.md](docs/features/device-setup.md) y
 [docs/features/monitoring.md](docs/features/monitoring.md).

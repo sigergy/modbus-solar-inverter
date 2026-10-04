@@ -7,7 +7,7 @@ Los tests solo corren en GitHub Actions ([ADR 0007](../decisions/0007-tests-ci-o
 | Carpeta | Qué prueba | Necesita HA |
 |---|---|---|
 | `tests/unit/` | `domain`, `application`, `profiles`, `ModbusGateway`, empaquetado y traducciones | no |
-| `tests/ha/` | coordinators, setup, sensores, config flow, subentry flow y diagnostics | sí (`hass`) |
+| `tests/ha/` | coordinators, setup, sensores, config flow y diagnostics | sí (`hass`) |
 
 - `tests/unit/` importa `custom_components.modbus_solar.…` y usa `FakeGateway` o el mock de `modbus_connection` (`tests/unit/test_modbus_gateway.py:1-14`).
 - `tests/ha/` carga la integración con `enable_custom_integrations`, activado en cada test (`tests/ha/conftest.py:12-14`).

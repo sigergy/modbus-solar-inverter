@@ -96,7 +96,7 @@ La escala `[X x 10]` y el orden de palabras de los registros de 32 bits siguen s
 
 - Cada tier lee todos sus registros o falla entero. Si la lectura falla (`DeviceUnavailable` o `DeviceProtocolError`), el coordinator lanza `UpdateFailed` y las entidades del tier pasan a `unavailable` (`adapters/inbound/coordinator.py:56-60`).
 - Vuelven en la siguiente lectura correcta, sin intervención. El log de pérdida (`error`) y de recuperación (`info`) lo emite `DataUpdateCoordinator`, una vez por cambio de estado y no en cada tick (`adapters/inbound/coordinator.py:59`).
-- Un equipo caído al arrancar no bloquea la entry: no se lanza `ConfigEntryNotReady` y el primer refresh va en segundo plano (`__init__.py:45-48`). Las entidades nacen `unavailable` hasta su primera lectura correcta (`adapters/inbound/entities/base.py:38-41`).
+- Un equipo caído al arrancar no bloquea la entry: no se lanza `ConfigEntryNotReady` y el primer refresh va en segundo plano (`__init__.py:34-36`). Las entidades nacen `unavailable` hasta su primera lectura correcta (`adapters/inbound/entities/base.py:34-37`).
 - Un segundo cliente Modbus (por ejemplo, el EMS) va contra la recomendación de Ingeteam y su efecto no está verificado. Ver [setup](../guides/setup.md).
 
 ## Valor fuera del enum
@@ -110,13 +110,13 @@ Un valor de un enum que no está en el perfil lanza `DecodeError` (`domain/decod
 
 ## Diagnostics
 
-Se descarga desde HA con «Download diagnostics»: en la página del dispositivo del equipo (`diagnostics.py:22-29`) o en la de la entry de marca, que agrega todos los equipos (`diagnostics.py:13-19`). El dispositivo de marca devuelve `{}`, porque no tiene registros propios.
+Se descarga desde HA con «Download diagnostics», en la página de la entry o en la del dispositivo. Los dos dan lo mismo: cada entry tiene un solo equipo (`diagnostics.py:12-19`).
 
-Por equipo (`adapters/inbound/diagnostics.py:14-43`):
+Contenido (`adapters/inbound/diagnostics.py:14-43`):
 
 - `profile` e `intervals`;
 - `tiers`: `last_update_success`, `last_error` y `last_error_at` de cada tier;
 - `entities`: por clave, `address`, `dtype`, `word_order`, `scale`, `raw` (palabras sin decodificar) y `value` decodificado (`adapters/inbound/diagnostics.py:30-35`);
-- `subentry`: los datos del equipo con `host` oculto por `async_redact_data` (`adapters/inbound/diagnostics.py:11`, `:38`).
+- `entry`: los datos de la entry con `host` oculto por `async_redact_data` (`adapters/inbound/diagnostics.py:11`, `:38`).
 
 Uso: en la VM, comparar `raw`, `scale` y `word_order` con el valor real del equipo para verificar escalas, orden de palabras y signos.

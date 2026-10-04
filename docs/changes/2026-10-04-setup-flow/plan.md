@@ -2,7 +2,7 @@
 type: feature
 area: config-flow
 layers: [application, adapters]
-status: in-progress
+status: done
 date: 2026-10-04
 ---
 
