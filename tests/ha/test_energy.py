@@ -15,9 +15,8 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.modbus_solar.const import DOMAIN
-from tests.ha.common import DEVICE_DATA, DEVICE_ID, device_entry, entity_id_of, setup_entry, state_of
-
-STORAGE = {**DEVICE_DATA, "profile": "ingeteam.oneplay_storage"}
+from tests.ha.common import DEVICE_ID, device_entry, entity_id_of, setup_entry, state_of
+from tests.ha.common import STORAGE_DATA as STORAGE
 
 
 async def advance(hass: HomeAssistant, freezer: FrozenDateTimeFactory, seconds: float) -> None:

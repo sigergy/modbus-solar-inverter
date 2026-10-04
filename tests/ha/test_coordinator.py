@@ -11,11 +11,12 @@ from homeassistant.helpers import entity_registry as er
 from custom_components.modbus_solar.adapters.inbound.coordinator import TierCoordinator
 from custom_components.modbus_solar.adapters.inbound.runtime import build_runtime, enabled_keys
 from custom_components.modbus_solar.const import DOMAIN
+from custom_components.modbus_solar.domain.control import GatedState
 from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable
 from custom_components.modbus_solar.domain.types import PollTier
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
 from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
-from tests.fakes import INGETEAM_WORDS, FakeGateway
+from tests.fakes import INGETEAM_WORDS, FakeGateway, FakeWriter
 from tests.ha.common import DEVICE_ID, device_entry
 
 ALL_KEYS = frozenset({"inverter_state", "active_power", "total_energy"})
@@ -103,10 +104,13 @@ async def test_build_runtime_one_coordinator_per_tier_with_entities(hass: HomeAs
     entry = device_entry()
     entry.add_to_hass(hass)
     gateway = FakeGateway(INGETEAM_WORDS)
-    runtime = build_runtime(hass, entry, ONEPLAY, gateway, ALL_KEYS)
+    writer = FakeWriter()
+    runtime = build_runtime(hass, entry, ONEPLAY, gateway, writer, ALL_KEYS)
     assert (runtime.entry_id, runtime.title, runtime.profile.id) == (DEVICE_ID, "Inverter", ONEPLAY.id)
     assert runtime.intervals == {"fast": 5, "normal": 60, "slow": 3600}
     assert runtime.gateway is gateway
+    assert runtime.writer is writer
+    assert runtime.control_states == {}
     # el perfil Ingeteam no tiene entidades slow
     assert set(runtime.coordinators) == {PollTier.FAST, PollTier.NORMAL}
     assert runtime.coordinators[PollTier.NORMAL].update_interval == timedelta(seconds=60)
@@ -140,9 +144,11 @@ async def test_energy_sources_are_read_with_power_sensor_disabled(hass: HomeAssi
 async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> None:
     entry = device_entry()
     entry.add_to_hass(hass)
-    runtime = build_runtime(hass, entry, ONEPLAY_STORAGE, FakeGateway({}), set())
+    runtime = build_runtime(hass, entry, ONEPLAY_STORAGE, FakeGateway({}), FakeWriter(), set())
     assert {tier: c.always_update for tier, c in runtime.coordinators.items()} == {
         PollTier.FAST: True,
         PollTier.NORMAL: False,
         PollTier.SLOW: False,
     }
+    # un estado por control, con el límite por defecto del perfil
+    assert runtime.control_states == {"export_limit": GatedState(limit=6000)}
