@@ -9,6 +9,7 @@ Usa la conexión compartida de la integración `modbus` del core.
 |---|---|---|
 | Ingeteam | INGECON SUN STORAGE 1Play TL M | inversor, FV, batería, red y consumo; energía solar, de red y de batería calculada por la integración; switch y límite de vertido a red |
 | Ingeteam | INGECON SUN 1Play TL M (sin storage) | estado del inversor, potencia activa, energía total |
+| Ingenieurbüro Mencke & Tegtmeyer | Si-RS485TC-T-MB, -2T-MB, -2T-v-MB, -T-Tm-MB (sensor de irradiancia, vía pasarela RS485 → Modbus TCP) | irradiancia, velocidad del viento, temperatura de la célula y temperatura externa |
 
 ## Requisitos
 
@@ -25,10 +26,10 @@ Usa la conexión compartida de la integración `modbus` del core.
 
 1. Ajustes → Dispositivos y servicios → Añadir integración → «Modbus Solar».
 2. Elegir el modelo. Para un STORAGE, «Ingeteam · STORAGE 1Play TL M».
-3. Escribir la IP o el nombre de host del inversor. Puerto e ID de unidad van en «Avanzado».
+3. Escribir la IP o el nombre de host del equipo. Puerto e ID de unidad van en «Avanzado».
    La integración prueba la conexión antes de seguir.
-4. Revisar las lecturas del inversor y darle un nombre.
-   Se crea una entrada por inversor: para otro inversor, repetir desde el paso 1.
+4. Revisar las lecturas del equipo y darle un nombre.
+   Se crea una entrada por equipo: para otro equipo, repetir desde el paso 1.
 5. «Reconfigurar» en la entrada cambia host, puerto e intervalos de sondeo.
 
 Detalle: [docs/features/device-setup.md](docs/features/device-setup.md) y

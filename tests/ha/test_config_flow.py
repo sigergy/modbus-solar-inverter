@@ -47,6 +47,13 @@ async def test_model_step_lists_every_profile(hass: HomeAssistant) -> None:
     assert selector.config["options"] == [
         {"value": "ingeteam.oneplay", "label": "Ingeteam · 1Play TL M"},
         {"value": "ingeteam.oneplay_storage", "label": "Ingeteam · STORAGE 1Play TL M"},
+        {
+            "value": "mencke_tegtmeyer.si_rs485",
+            "label": (
+                "Ingenieurbüro Mencke & Tegtmeyer · "
+                "Si-RS485TC-T-MB, Si-RS485TC-2T-MB, Si-RS485TC-2T-v-MB, Si-RS485TC-T-Tm-MB"
+            ),
+        },
     ]
     assert selector.config["mode"] == "list"
 

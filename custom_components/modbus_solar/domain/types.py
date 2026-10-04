@@ -58,6 +58,10 @@ class Role(StrEnum):
     ENERGY_BATTERY_DISCHARGE = "energy_battery_discharge"
     EXPORT_LIMIT = "export_limit"
     EXPORT_ENABLED = "export_enabled"
+    IRRADIANCE = "irradiance"
+    WIND_SPEED = "wind_speed"
+    CELL_TEMPERATURE = "cell_temperature"
+    EXTERNAL_TEMPERATURE = "external_temperature"  # ambiente o módulo, según el modelo
 
 
 class Platform(StrEnum):

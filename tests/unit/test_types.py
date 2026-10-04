@@ -63,6 +63,10 @@ def test_enum_values_are_stable() -> None:
         "energy_battery_discharge",
         "export_limit",
         "export_enabled",
+        "irradiance",
+        "wind_speed",
+        "cell_temperature",
+        "external_temperature",
     ]
 
 

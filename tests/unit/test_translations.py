@@ -61,3 +61,33 @@ def test_controls_and_write_error_are_translated() -> None:
             assert "name" in strings["entity"]["number"][control.key], control.key
             assert "name" in strings["entity"]["switch"][control.switch_key], control.switch_key
     assert "{error}" in strings["exceptions"]["write_failed"]["message"]
+
+
+def test_flow_texts_do_not_say_inverter() -> None:
+    # el alta sirve a cualquier equipo (inversor, sensor…): sin «inverter» ni «inversor»
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        for step in ("user", "connection", "confirm"):
+            step_texts = load(name)["config"]["step"][step]
+            for field in ("title", "description"):
+                text = step_texts[field].lower()
+                assert "inverter" not in text and "inversor" not in text, f"{name} {step}.{field}"
+
+
+def test_irradiance_sensor_entities_are_named() -> None:
+    expected = {
+        "strings.json": {
+            "irradiance": "Irradiance",
+            "wind_speed": "Wind speed",
+            "cell_temperature": "Cell temperature",
+            "external_temperature": "External temperature",
+        },
+        "translations/es.json": {
+            "irradiance": "Irradiancia",
+            "wind_speed": "Velocidad del viento",
+            "cell_temperature": "Temperatura de la célula",
+            "external_temperature": "Temperatura externa",
+        },
+    }
+    for name, names in expected.items():
+        sensors = load(name)["entity"]["sensor"]
+        assert {key: sensors[key]["name"] for key in names} == names, name

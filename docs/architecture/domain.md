@@ -11,9 +11,9 @@ Enumeraciones del dominio. Sus valores se guardan en config y diagnostics: no se
 | `DataType` | `u16`, `s16`, `u32`, `s32`; propiedades `words` y `signed` | `types.py:6-19` |
 | `RegisterKind` | `holding`, `input` | `types.py:22-24` |
 | `PollTier` | `fast`, `normal`, `slow` | `types.py:27-30` |
-| `Role` | `inverter_state`, `ac_power`, `energy_produced_total`; roles por magnitud del STORAGE (`pv_*`, `battery_*`, `grid_*`, `load_power`), `diagnostic` para entidades sin significado común entre marcas cinco `energy_*` para energías calculadas y `export_limit` y `export_enabled` para el control del vertido | `types.py:33-60`, `:53`, `:54-58`, `:59-60` |
-| `Platform` | `sensor` | `types.py:63-64` |
-| `WordOrder` | `big` (palabra alta primero), `little` | `types.py:67-71` |
+| `Role` | `inverter_state`, `ac_power`, `energy_produced_total`; roles por magnitud del STORAGE (`pv_*`, `battery_*`, `grid_*`, `load_power`), `diagnostic` para entidades sin significado común entre marcas cinco `energy_*` para energías calculadas `export_limit` y `export_enabled` para el control del vertido, y `irradiance`, `wind_speed`, `cell_temperature` y `external_temperature` para el sensor de irradiancia | `types.py:33-64`, `:53`, `:54-58`, `:59-60`, `:61-64` |
+| `Platform` | `sensor` | `types.py:67-68` |
+| `WordOrder` | `big` (palabra alta primero), `little` | `types.py:71-75` |
 
 ## `profile.py`
 

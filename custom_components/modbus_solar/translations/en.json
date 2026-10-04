@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "Choose the model",
-        "description": "Each inverter is a separate entry. Add one entry per inverter.",
+        "description": "Each device is a separate entry. Add one entry per device.",
         "data": {
           "profile": "Model"
         }
       },
       "connection": {
-        "title": "Connect to the inverter",
-        "description": "Enter the IP address or hostname of the inverter. The connection is tested before going on.",
+        "title": "Connect to the device",
+        "description": "Enter the IP address or hostname of the device. The connection is tested before going on.",
         "data": {
           "host": "Host"
         },
@@ -25,8 +25,8 @@
         }
       },
       "confirm": {
-        "title": "Inverter found",
-        "description": "The inverter at {host} answered:\n\n{readings}",
+        "title": "Device found",
+        "description": "The device at {host} answered:\n\n{readings}",
         "data": {
           "name": "Name"
         }
@@ -221,6 +221,18 @@
       },
       "battery_discharge_energy": {
         "name": "Battery discharge energy"
+      },
+      "irradiance": {
+        "name": "Irradiance"
+      },
+      "wind_speed": {
+        "name": "Wind speed"
+      },
+      "cell_temperature": {
+        "name": "Cell temperature"
+      },
+      "external_temperature": {
+        "name": "External temperature"
       }
     },
     "number": {
