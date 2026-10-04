@@ -7,6 +7,10 @@ extend-exclude = ["docs"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.isort]
+# fijo: si no, ruff lo trata como de terceros mientras el módulo no existe (estado RED)
+known-first-party = ["custom_components"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
