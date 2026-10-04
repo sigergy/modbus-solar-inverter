@@ -1,4 +1,4 @@
-"""Perfil Ingeteam 1Play Storage y catálogo de perfiles."""
+"""Perfil Ingeteam 1Play TL M (sin storage) y catálogo de perfiles."""
 
 import pytest
 
@@ -7,11 +7,11 @@ from custom_components.modbus_solar.application.catalog import Catalog
 from custom_components.modbus_solar.domain.types import DataType, PollTier, RegisterKind, Role, WordOrder
 from custom_components.modbus_solar.domain.validate import validate_profile
 from custom_components.modbus_solar.profiles import ALL_PROFILES
-from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
+from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
 
 
 def entity(key: str):
-    return next(e for e in ONEPLAY_STORAGE.entities if e.key == key)
+    return next(e for e in ONEPLAY.entities if e.key == key)
 
 
 def test_all_profiles_are_valid() -> None:
@@ -20,12 +20,12 @@ def test_all_profiles_are_valid() -> None:
 
 
 def test_ingeteam_identity_and_limits() -> None:
-    p = ONEPLAY_STORAGE
+    p = ONEPLAY
     assert (p.id, p.brand, p.device_type, p.models) == (
-        "ingeteam.oneplay_storage",
+        "ingeteam.oneplay",
         "ingeteam",
         "inverter",
-        ("1Play Storage",),
+        ("1Play TL M",),
     )
     # PDF ACL2010IMB05 pág. 4: de 1 a 124 registros por lectura y >= 1 s entre peticiones
     assert p.max_block_registers == 124
@@ -36,7 +36,7 @@ def test_ingeteam_identity_and_limits() -> None:
 
 
 def test_all_registers_are_big_endian_holding() -> None:
-    for e in ONEPLAY_STORAGE.entities:
+    for e in ONEPLAY.entities:
         assert (e.register.kind, e.register.word_order, e.register.offset) == (RegisterKind.HOLDING, WordOrder.BIG, 0)
 
 
@@ -65,13 +65,13 @@ def test_total_energy() -> None:
 
 def test_catalog_lookup() -> None:
     assert CATALOG.brands() == ["ingeteam"]
-    assert CATALOG.for_brand("ingeteam") == [ONEPLAY_STORAGE]
+    assert CATALOG.for_brand("ingeteam") == [ONEPLAY]
     assert CATALOG.for_brand("other") == []
-    assert CATALOG.get("ingeteam.oneplay_storage") is ONEPLAY_STORAGE
+    assert CATALOG.get("ingeteam.oneplay") is ONEPLAY
     with pytest.raises(KeyError):
         CATALOG.get("missing")
 
 
 def test_catalog_rejects_duplicate_ids() -> None:
-    with pytest.raises(ValueError, match="duplicate profile id: ingeteam.oneplay_storage"):
-        Catalog([ONEPLAY_STORAGE, ONEPLAY_STORAGE])
+    with pytest.raises(ValueError, match="duplicate profile id: ingeteam.oneplay"):
+        Catalog([ONEPLAY, ONEPLAY])

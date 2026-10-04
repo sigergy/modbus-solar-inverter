@@ -36,7 +36,7 @@ async def test_setup_builds_runtime_and_devices(
     assert brand is not None
     assert (brand.name, brand.manufacturer, brand.entry_type) == ("Ingeteam", "Ingeteam", dr.DeviceEntryType.SERVICE)
     assert device is not None
-    assert (device.name, device.manufacturer, device.model) == ("Inverter", "Ingeteam", "1Play Storage")
+    assert (device.name, device.manufacturer, device.model) == ("Inverter", "Ingeteam", "1Play TL M")
     assert device.via_device_id == brand.id
 
 

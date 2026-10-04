@@ -23,7 +23,7 @@ async def test_entry_diagnostics(hass: HomeAssistant, patch_unit: MagicMock) -> 
     device = diagnostics["devices"][DEVICE_ID]
     assert device["subentry"]["host"] == "**REDACTED**"
     assert device["subentry"]["unit_id"] == 1
-    assert device["profile"] == "ingeteam.oneplay_storage"
+    assert device["profile"] == "ingeteam.oneplay"
     assert device["intervals"] == {"fast": 5, "normal": 60, "slow": 3600}
     assert set(device["tiers"]) == {"fast", "normal"}
     assert device["tiers"]["fast"] == {"last_update_success": True, "last_error": None, "last_error_at": None}

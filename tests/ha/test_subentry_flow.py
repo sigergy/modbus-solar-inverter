@@ -18,7 +18,7 @@ USER_INPUT = {
     "host": "192.168.1.50",
     "port": 502,
     "unit_id": 1,
-    "profile": "ingeteam.oneplay_storage",
+    "profile": "ingeteam.oneplay",
 }
 
 
@@ -40,7 +40,7 @@ async def test_add_device(hass: HomeAssistant, temp_unit: MagicMock) -> None:
         "host": "Inverter.LAN",
         "port": 502,
         "unit_id": 1,
-        "profile": "ingeteam.oneplay_storage",
+        "profile": "ingeteam.oneplay",
         "intervals": {"fast": 5, "normal": 60, "slow": 3600},
     }
     _, params, unit_id = temp_unit.call_args.args
