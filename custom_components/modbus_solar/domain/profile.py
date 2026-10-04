@@ -39,6 +39,7 @@ class DeviceProfile:
     models: tuple[str, ...]
     min_request_interval_s: float
     max_block_registers: int = 125  # 125 = límite de FC03/FC04
+    max_gap: int = 0  # huecos de hasta max_gap registros se leen dentro del mismo bloque
     default_port: int
     default_unit_id: int
     probe_key: str  # entidad que lee el config flow para validar el equipo
