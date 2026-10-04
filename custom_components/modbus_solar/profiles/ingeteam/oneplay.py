@@ -1,13 +1,13 @@
-"""Ingeteam 1Play Storage. Fuente: PDF ACL2010IMB05 (docs/wiki/brands/ingeteam/1-play-tl-m/)."""
+"""INGECON SUN 1Play TL M, sin storage. Fuente: PDF ACL2010IMB05 (docs/wiki/brands/ingeteam/1-play-tl-m/)."""
 
 from ...domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from ...domain.types import DataType, Platform, PollTier, Role
 
-ONEPLAY_STORAGE = DeviceProfile(
-    id="ingeteam.oneplay_storage",
+ONEPLAY = DeviceProfile(
+    id="ingeteam.oneplay",
     brand="ingeteam",
     device_type="inverter",
-    models=("1Play Storage",),
+    models=("1Play TL M",),
     # pág. 4: periodo entre peticiones >= 1 s y de 1 a 124 registros por lectura (FC03)
     min_request_interval_s=1.0,
     max_block_registers=124,
