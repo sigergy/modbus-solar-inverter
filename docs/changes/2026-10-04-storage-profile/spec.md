@@ -64,12 +64,22 @@ Esta spec corrige el perfil y añade los contadores de energía que el mapa no t
 | `models` | `("STORAGE 1Play TL M",)` |
 | `min_request_interval_s` | `1.0` |
 | `max_block_registers` | `10` |
+| `max_gap` | `9` |
 | `default_port` / `default_unit_id` | `502` / `1` |
 | `probe_key` | `inverter_state` |
 
+- `max_gap` es un campo nuevo de `DeviceProfile` (`int = 0`): huecos de hasta ese número de
+  registros se leen dentro del mismo bloque. Lo usan `ModbusGateway` y `min_tier_interval`,
+  que hoy reciben `max_gap` como argumento con valor 0.
+  - Sin él, el tier `fast` del STORAGE necesita 6 peticiones: 6 s, más que los 5 s por
+    defecto. El reconfigure daría `interval_too_short`.
+  - Con `max_gap=9` y bloques de 10 registros, el tier `fast` son 3 peticiones
+    (direcciones 15-20, 33-37 y 71-78) y el `normal` otras 3 (17-26, 31-35 y 69-70).
+  - Leer huecos es seguro: «Within the Input Registers map it can be read whatever part of
+    the memory» (`ABH2010IMB08`, pág. 9).
 - Todas las entidades usan `RegisterKind.INPUT`.
-- Dirección = registro − 30001. En el código se escribe `address=30016 - 30001`, para que se
-  pueda cotejar con el PDF.
+- Dirección = registro − 30001. El perfil escribe el número de registro del PDF y un helper
+  `_input(30016, …)` resta 30001, para que se pueda cotejar con el PDF.
 - Fichero: `profiles/ingeteam/oneplay_storage.py`. El mapa viejo se mueve, sin cambios en sus
   registros, a `profiles/ingeteam/oneplay.py` con `id="ingeteam.oneplay"` y
   `models=("1Play TL M",)`. Los dos van en `ALL_PROFILES`.
@@ -104,6 +114,12 @@ Escalas tal como las da el PDF. `S16` = `INT16` del PDF.
   la instalación del proyecto.
 - Los sensores de potencia, tensión, corriente, frecuencia y temperatura llevan
   `state_class="measurement"`.
+- `Role` gana un rol por magnitud del núcleo: `pv_voltage`, `pv_current`, `pv_power`,
+  `battery_voltage`, `battery_current`, `battery_power`, `battery_soc`, `battery_soh`,
+  `battery_state`, `battery_temperature`, `grid_voltage`, `grid_frequency`, `grid_power` y
+  `load_power`. `inverter_state` y `active_power` siguen con `inverter_state` y `ac_power`.
+  Los dos MPPT comparten rol.
+- `battery_soh` va sin `device_class`: HA no tiene clase de salud de batería.
 
 ### 3.3 Entidades extra (deshabilitadas por defecto)
 
@@ -135,7 +151,11 @@ Todas con `enabled_default=False` y en el tier `slow`, salvo que se indique otra
 
 - Los motivos de las Notas 7 y 9 se exponen como valor numérico crudo. Pasarlos a enum
   traducido queda fuera de esta spec.
-- Las extra llevan `entity_category="diagnostic"`.
+- Las extra llevan `entity_category="diagnostic"` y el rol nuevo `Role.DIAGNOSTIC`
+  (`diagnostic`).
+- Llevan `device_class` y `state_class="measurement"` las que tienen magnitud física. Los
+  motivos crudos y `power_factor` van sin `device_class`; `operation_time` va con
+  `device_class="duration"` y `state_class="total_increasing"`.
 
 ### 3.4 Enumeraciones
 
@@ -181,6 +201,13 @@ Esta spec **asume**:
 
 Se verifica en la VM con diagnostics. Si el equipo dice otra cosa, se invierte el filtro de
 signo de los contadores afectados (§4.1) en el perfil.
+
+### 3.6 Traducciones compartidas
+
+`key` es también `translation_key` (`domain/profile.py:21`). `inverter_state` existe en los
+dos perfiles con opciones distintas. Su bloque `state` de `strings.json` lleva la unión de las
+opciones de ambos perfiles. `test_translations.py` comprueba que el bloque `state` de cada
+clave es exactamente la unión de los `enum` de todos los perfiles con esa clave.
 
 ## 4. Energía calculada
 
@@ -228,6 +255,13 @@ signo de los contadores afectados (§4.1) en el perfil.
   - En cada actualización correcta toma `t` de `dt_util.utcnow()` y la suma de sus fuentes.
   - Un fallo de lectura (`last_update_success` falso) corta la serie.
   - `max_gap_s = 3 × intervalo del tier`.
+  - El `TierCoordinator` de un tier con fuentes de energía usa `always_update=True`.
+    Con `always_update=False`, HA no avisa a las entidades si el `TierResult` no cambia
+    (`homeassistant/helpers/update_coordinator.py:590-598`, HA 2026.9.4). Una potencia
+    constante dejaría de generar muestras y se perdería energía por `max_gap_s`.
+    `TierCoordinator` gana el parámetro `always_update: bool`; `build_runtime` lo calcula.
+  - Al añadirse a HA toma una primera muestra si el coordinador ya tiene datos.
+  - Precisión de presentación sugerida: 3 decimales.
   - Al arrancar, restaura el último `native_value` con `async_get_last_sensor_data()`. Lo que
     pasa con HA apagado no se integra.
 - `build_sensors` (`adapters/inbound/entities/factory.py`) crea también estos sensores a
