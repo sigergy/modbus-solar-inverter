@@ -22,4 +22,8 @@ jobs:
       - name: Publicar release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" modbus_solar.zip --generate-notes
+        run: |
+          flags="--generate-notes"
+          # beta o release candidate (PEP 440: 0.1.0b1, 0.1.0rc1): se publica como prerelease
+          case "${GITHUB_REF_NAME#v}" in *[a-z]*) flags="$flags --prerelease" ;; esac
+          gh release create "${GITHUB_REF_NAME}" modbus_solar.zip $flags
