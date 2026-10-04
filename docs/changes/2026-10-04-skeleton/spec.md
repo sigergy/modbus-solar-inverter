@@ -2,7 +2,7 @@
 type: feature
 area: core
 layers: [domain, application, ports, adapters, profiles]
-status: draft
+status: done
 date: 2026-10-04
 ---
 
