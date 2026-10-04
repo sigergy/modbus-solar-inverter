@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modbus Solar · Propuesta de flujo de alta</title>
+<style>
+  :root {
+    --bg: #111; --card: #1c1c1c; --line: #2e2e2e; --text: #e6e6e6; --muted: #9a9a9a;
+    --primary: #03a9f4; --ok: #4caf50; --err: #ef5350; --warn: #ffb300;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Roboto, system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 40px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 500; }
+  p, li { color: #cfcfcf; }
+  .lead { color: var(--muted); margin: 0 0 16px; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #263238; color: #80deea; margin-left: 6px; vertical-align: middle; }
+  .tag.rec { background: #1b5e20; color: #c8e6c9; }
+  .flow { display: flex; gap: 16px; overflow-x: auto; padding: 8px 2px 16px; align-items: flex-start; }
+  .step { flex: 0 0 280px; }
+  .arrow { flex: 0 0 auto; align-self: center; color: var(--muted); font-size: 22px; }
+  .dialog { background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 20px 18px 16px; min-height: 360px; display: flex; flex-direction: column; }
+  .dialog .title { font-size: 20px; margin-bottom: 4px; }
+  .dialog .progress { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .dialog .desc { font-size: 13px; color: #bdbdbd; margin-bottom: 12px; }
+  .field { border: 1px solid #555; border-radius: 6px; padding: 8px 10px 6px; margin-bottom: 4px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); }
+  .field .v { font-size: 15px; }
+  .field .v.ph { color: #666; }
+  .help { font-size: 11px; color: var(--muted); margin: 0 0 10px 2px; }
+  .opt { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 8px; display: flex; gap: 10px; }
+  .opt.sel { border-color: var(--primary); background: #0b2a38; }
+  .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #777; flex: 0 0 auto; margin-top: 2px; }
+  .opt.sel .radio { border-color: var(--primary); box-shadow: inset 0 0 0 3px var(--card); background: var(--primary); }
+  .opt b { display: block; font-weight: 500; }
+  .opt small { color: var(--muted); }
+  .section { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; font-size: 13px; color: var(--muted); }
+  .readings { background: #141414; border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; }
+  .readings div { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+  .readings span:last-child { color: #fff; }
+  .ok { color: var(--ok); font-weight: 500; }
+  .err { color: var(--err); font-weight: 500; }
+  .alert { border-left: 3px solid var(--err); background: #2a1515; padding: 8px 10px; font-size: 13px; border-radius: 4px; margin-bottom: 12px; }
+  .alert.warn { border-color: var(--warn); background: #2a2310; }
+  .actions { margin-top: auto; display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+  .btn { color: var(--primary); font-weight: 500; padding: 6px 10px; }
+  .btn.fill { background: var(--primary); color: #00141e; border-radius: 18px; padding: 6px 16px; }
+  .page { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+  .page .row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding: 10px 2px; font-size: 14px; }
+  .page .row small { display: block; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  code { background: #262626; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Modbus Solar · Propuesta de flujo de alta</h1>
+<p class="lead">Borrador para decidir. No hay nada implementado. 4 de octubre de 2026.</p>
+
+<h2>Problemas del flujo actual</h2>
+<ul>
+  <li>Hay dos altas separadas. «Añadir hub» solo pregunta la marca y deja un hub vacío, sin entidades.</li>
+  <li>Hay que encontrar después el botón «Añadir equipo», y no hay nada que lo indique.</li>
+  <li>El modelo va en un desplegable junto a la IP, y viene preseleccionado el 1Play sin storage. Es fácil elegir el mapa equivocado.</li>
+  <li>Los campos no explican qué es cada cosa: qué IP poner, ni qué son el puerto o el Unit ID.</li>
+  <li>Al terminar no se sabe si las lecturas tienen sentido. Los signos supuestos solo se comprueban con diagnostics.</li>
+  <li>Al pulsar «Añadir equipo» se queda cargando sin fin. Es un fallo aparte y se investiga con los logs.</li>
+</ul>
+
+<h2>Opción A · Un alta, un inversor <span class="tag rec">Recomendada</span></h2>
+<p>Cada inversor es una integración propia. Se añade igual que casi todas las integraciones de HA: «Añadir integración», y luego el modelo, la IP y la confirmación. Desaparecen el hub y el botón «Añadir equipo».</p>
+
+<div class="flow">
+  <div class="step">
+    <h3>1 · Modelo</h3>
+    <div class="dialog">
+      <div class="title">¿Qué inversor tienes?</div>
+      <div class="progress">Paso 1 de 3</div>
+      <div class="desc">Busca el modelo en la etiqueta lateral del inversor.</div>
+      <div class="opt sel"><div class="radio"></div><div><b>Ingeteam · INGECON SUN STORAGE 1Play TL M</b><small>Híbrido, con batería</small></div></div>
+      <div class="opt"><div class="radio"></div><div><b>Ingeteam · INGECON SUN 1Play TL M</b><small>Solo fotovoltaica, sin batería</small></div></div>
+      <div class="help">Marca y modelo van en la misma lista. No hay ninguno preseleccionado.</div>
+      <div class="actions"><span class="btn fill">Siguiente</span></div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="step">
+    <h3>2 · Conexión</h3>
+    <div class="dialog">
+      <div class="title">Conexión con el inversor</div>
+      <div class="progress">Paso 2 de 3 · STORAGE 1Play TL M</div>
+      <div class="field"><label>Dirección IP del inversor</label><div class="v ph">192.168.1.50</div></div>
+      <div class="help">Está en la pantalla del inversor (Comunicaciones) o en la lista de dispositivos de tu router.</div>
+      <div class="section">▸ Opciones avanzadas<br><small>Puerto 502 · Unit ID 1. Cámbialos solo si los cambiaste en el inversor.</small></div>
+      <div class="actions"><span class="btn">Atrás</span><span class="btn fill">Conectar</span></div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="step">
+    <h3>3 · Confirmación con lecturas reales</h3>
+    <div class="dialog">
+      <div class="title">Inversor encontrado</div>
+      <div class="progress">Paso 3 de 3</div>
+      <div class="desc"><span class="ok">✓ Responde</span> en 192.168.1.50. Comprueba que estos valores cuadran con la pantalla del inversor:</div>
+      <div class="readings">
+        <div><span>Estado</span><span>Conectado a red</span></div>
+        <div><span>Fotovoltaica</span><span>1 230 W</span></div>
+        <div><span>Batería</span><span>85 % · cargando 400 W</span></div>
+        <div><span>Red</span><span>exportando 450 W</span></div>
+      </div>
+      <div class="field"><label>Nombre</label><div class="v">Inversor STORAGE</div></div>
+      <div class="actions"><span class="btn">Atrás</span><span class="btn fill">Terminar</span></div>
+    </div>
+  </div>
+</div>
+
+<h3>Si no responde (paso 2)</h3>
+<div class="dialog" style="min-height:0;max-width:320px">
+  <div class="title">Conexión con el inversor</div>
+  <div class="alert"><span class="err">No responde</span> en 192.168.1.50:502 tras 10 s.<br>
+    · Comprueba la IP.<br>
+    · Activa Modbus TCP en el inversor.<br>
+    · Cierra otros clientes Modbus, como el EMS.</div>
+  <div class="field"><label>Dirección IP del inversor</label><div class="v">192.168.1.50</div></div>
+  <div class="actions"><span class="btn fill">Reintentar</span></div>
+</div>
+
+<h3 style="margin-top:20px">Resultado en la página de la integración</h3>
+<div class="page" style="max-width:520px">
+  <div style="display:flex;gap:8px;margin-bottom:10px"><span class="btn fill">+ Añadir dispositivo</span></div>
+  <div class="row"><div>Inversor STORAGE<small>STORAGE 1Play TL M · 192.168.1.50</small></div><span>⋮</span></div>
+  <div class="row"><div>Inversor garaje<small>1Play TL M · 192.168.1.51</small></div><span>⋮</span></div>
+</div>
+<p>Con <code>integration_type: "device"</code>, HA rotula el botón «Añadir dispositivo» en vez de «Añadir hub». Cada fila es un inversor con sus entidades. La IP, el puerto y los intervalos se cambian desde «Reconfigurar».</p>
+
+<h2>Opción B · Se mantiene el hub, mejor guiado</h2>
+<p>Los mismos tres pasos de A, pero el primer inversor se añade junto con el hub en un solo flujo. Los siguientes se añaden con «Añadir equipo», sobre el hub de la marca. Se mantiene el ADR 0004.</p>
+<div class="flow">
+  <div class="step"><div class="dialog" style="min-height:0"><div class="title">Marca</div><div class="desc">Solo la primera vez.</div><div class="opt sel"><div class="radio"></div><div><b>Ingeteam</b></div></div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog" style="min-height:0"><div class="title">Modelo → Conexión → Confirmación</div><div class="desc">Los mismos pasos 1 a 3 de la opción A.</div></div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="dialog" style="min-height:0"><div class="title">Hub + primer equipo</div><div class="desc">Se crean juntos. Si después quieres otro inversor de la misma marca: «Añadir equipo».</div></div></div>
+</div>
+
+<h2>Comparativa</h2>
+<table>
+  <tr><th></th><th>A · Un alta por inversor</th><th>B · Hub mejor guiado</th></tr>
+  <tr><td>Pasos hasta ver datos</td><td>3, siempre</td><td>4 la primera vez, 3 después</td></tr>
+  <tr><td>Conceptos para el usuario</td><td>Solo «inversor», igual que en el resto de HA</td><td>«Hub» y «equipo»</td></tr>
+  <tr><td>Conexión Modbus</td><td>Al borrar un inversor se cierra su socket, sin tocar los demás</td><td>Al dar de alta o de baja un equipo se recarga el hub entero (ADR 0004)</td></tr>
+  <tr><td>Cambios de código</td><td>Flow nuevo. Desaparece el subentry flow. ADR nuevo que sustituye al 0004. Migración de la entry de marca.</td><td>Flow inicial nuevo y mejoras en el subentry flow. Sin ADR nuevo.</td></tr>
+  <tr><td>Equipos ya configurados</td><td>Hay que migrarlos. Como solo existe tu instalación de prueba, basta con borrar y volver a añadir.</td><td>Siguen igual</td></tr>
+</table>
+
+<h2>Comunes a A y B</h2>
+<ul>
+  <li>El modelo se elige en una lista con descripción, sin preselección.</li>
+  <li>La IP lleva una ayuda que dice dónde encontrarla. Puerto y Unit ID van en «Opciones avanzadas», plegadas.</li>
+  <li>La prueba de conexión tiene un tiempo límite y su error dice qué revisar.</li>
+  <li>El último paso muestra lecturas reales. Así se ven los signos de red y batería antes de terminar.</li>
+  <li>Los textos de los formularios llevan traducción al español en <code>translations/es.json</code>.</li>
+</ul>
+
+</main>
+</body>
+</html>
