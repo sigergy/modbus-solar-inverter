@@ -2,7 +2,7 @@
 type: feature
 area: profiles
 layers: [domain, profiles, adapters]
-status: draft
+status: done
 date: 2026-10-04
 ---
 
@@ -90,7 +90,7 @@ valor sin sentido (la guía no dice cuál).
 ### 2.3 Qué no se puede saber desde el perfil
 
 - El modelo y el firmware solo se leen con FC 0x46, subfunciones 07 y 08 (págs. 4-5). `DeviceGateway`
-  solo lee registros (`ports/device.py:9-12`) y esta spec no añade esa función. Consecuencia: el perfil
+  solo lee registros (`ports/device.py:10-13`) y esta spec no añade esa función. Consecuencia: el perfil
   no puede ocultar las entidades que el modelo no tiene (§7, riesgo 1).
 - Un registro opcional ausente y una lectura real de 0 son indistinguibles (pág. 1).
 

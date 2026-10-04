@@ -28,7 +28,7 @@ Abort `already_configured`: mismo `host:port:unit_id`, con el host en minúscula
 
 Al enviar, el flow abre una unit temporal (`config_flow.py:20-33`) y llama a `probe_device` (`application/probe.py:10-17`):
 
-1. Lee la entidad `probe_key` del perfil, `inverter_state` en los dos perfiles Ingeteam: input 30016 en el STORAGE (`profiles/ingeteam/oneplay_storage.py:109`, `:114`) y holding `0x101D` en el 1Play sin storage (`profiles/ingeteam/oneplay.py:16`, `:22`). Un valor fuera del enum lanza `DecodeError`.
+1. Lee la entidad `probe_key` del perfil, `inverter_state` en los dos perfiles Ingeteam e `irradiance` en el sensor de irradiancia (`profiles/mencke_tegtmeyer/si_rs485.py:20`): input 30016 en el STORAGE (`profiles/ingeteam/oneplay_storage.py:109`, `:114`) y holding `0x101D` en el 1Play sin storage (`profiles/ingeteam/oneplay.py:16`, `:22`). Un valor fuera del enum lanza `DecodeError`.
 2. Lee el tier `fast`, limitado a las entidades habilitadas por defecto.
 
 Todo dentro de un tiempo máximo de `PROBE_TIMEOUT_S = 20` s (`adapters/inbound/flow.py:48`, `:202-205`). Si falla, no se crea la entry y el formulario vuelve con lo que escribió el usuario (`adapters/inbound/flow.py:133-137`).

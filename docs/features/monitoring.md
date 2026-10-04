@@ -8,6 +8,7 @@ Documento vivo. Rutas bajo `custom_components/modbus_solar/` salvo indicación. 
 |---|---|---|---|
 | `ingeteam.oneplay_storage` | INGECON SUN STORAGE 1Play TL M | `ABH2010IMB08`: input registers 30001-30081, FC04 ([registers.md](../wiki/brands/ingeteam/storage-1-play-tl-m/registers.md)) | `profiles/ingeteam/oneplay_storage.py` |
 | `ingeteam.oneplay` | INGECON SUN 1Play TL M, sin storage | `ACL2010IMB05`: holding `0x10xx`, FC03 ([registers.md](../wiki/brands/ingeteam/1-play-tl-m/registers.md)) | `profiles/ingeteam/oneplay.py` |
+| `mencke_tegtmeyer.si_rs485` | Sensor de irradiancia Si-RS485TC-…-MB (cuatro modelos) | `Specification_Si-RS485_MODBUS`: input registers 0, 3, 7 y 8, FC04 ([registers.md](../wiki/brands/mencke-tegtmeyer/si-rs485-mb/registers.md)) | `profiles/mencke_tegtmeyer/si_rs485.py` |
 
 Los dos van en el catálogo (`profiles/__init__.py:7`).
 
@@ -91,6 +92,23 @@ Estados de `inverter_state` (`profiles/ingeteam/oneplay.py:26`): `0` `factory_de
 La escala `[X x 10]` y el orden de palabras de los registros de 32 bits siguen sin verificar en equipo (`profiles/ingeteam/oneplay.py:32`, `:43`).
 
 `inverter_state` es la misma clave de traducción en los dos perfiles: su bloque `state` de `strings.json` lleva la unión de las opciones de ambos.
+
+## Sensor de irradiancia Si-RS485TC-…-MB
+
+Definido en `profiles/mencke_tegtmeyer/si_rs485.py:7-68`. Modbus RTU tras una pasarela RS485 → Modbus TCP: para la integración es un equipo TCP más (puerto 502, unit ID 1 por defecto).
+
+| Clave | Registro | Tipo | Escala | Unidad | Clases de HA |
+|---|---|---|---|---|---|
+| `irradiance` | 0 | U16 | 0,1 | W/m² | `irradiance`, `measurement` |
+| `wind_speed` | 3 | U16 | 0,1 | m/s | `wind_speed`, `measurement` |
+| `cell_temperature` | 7 | S16 | 0,1 | °C | `temperature`, `measurement` |
+| `external_temperature` | 8 | S16 | 0,1 | °C | `temperature`, `measurement` |
+
+- Todas `fast`, FC04, activas por defecto. `max_gap=3` las agrupa en un solo bloque de 9 registros: un ciclo es una petición (`si_rs485.py:16`).
+- Los registros 7 y 8 exigen firmware ≥ 1.53 (`Specification` pág. 1).
+- `external_temperature` mide el ambiente o el módulo según el modelo (`Specification` pág. 5).
+- Un registro opcional ausente devuelve 0: los modelos sin viento o sin temperatura externa muestran 0 como si fuera una medida. Deshabilitar la entidad desde la UI (ADR [0013](../decisions/0013-sensor-series-profile.md)).
+- Las escalas del PDF no están verificadas en equipo.
 
 ## Disponibilidad
 

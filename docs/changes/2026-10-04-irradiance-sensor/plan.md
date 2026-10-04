@@ -2,7 +2,7 @@
 type: feature
 area: profiles
 layers: [domain, profiles, adapters]
-status: draft
+status: done
 date: 2026-10-04
 ---
 
