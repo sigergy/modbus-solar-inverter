@@ -29,7 +29,7 @@ Un valor de `inverter_state` que no está en el enum lanza `DecodeError` (`domai
 
 ## Panel de Energía
 
-`total_energy` es la producción solar total: `device_class=energy`, `state_class=total_increasing` y unidad `Wh` (`profiles/ingeteam/oneplay_storage.py:46-48`). Se añade en el panel de Energía de HA como producción solar.
+`total_energy` es la producción solar total: `device_class=energy`, `state_class=total_increasing` y unidad `Wh` (`profiles/ingeteam/oneplay_storage.py:46-48`). Son las clases que pide el panel de Energía de HA para elegirlo como producción solar. Sin probar todavía en la VM.
 
 ## Diagnostics
 
