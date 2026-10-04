@@ -106,7 +106,7 @@ custom_components/modbus_solar/
     profile.py             RegisterSpec, EntitySpec, DeviceProfile
     decode.py              decode(spec, words) -> int | float | str
     blocks.py              plan_blocks(registers, max_gap, max_count) -> list[Block]
-    errors.py              DeviceUnavailable, DeviceProtocolError, DecodeError
+    errors.py              DeviceUnavailable, DeviceProtocolError, DecodeError, EndpointInUse
     validate.py            validate_profile(profile) -> list[str]
 
   ports/
@@ -271,14 +271,15 @@ es válido (por ejemplo, fuera del `enum`). La usa el config flow para validar e
   `async with async_get_temporary_unit(hass, ModbusTcpParams(host=..., port=...), unit_id)`
   y entrega un `ModbusGateway` sobre esa unit. El flow llama a
   `application.probe_device(gateway, profile)`, que lee `profile.probe_key`
-  (`inverter_state`, `0x101D` en Ingeteam). El flow solo ve errores de dominio y el
-  `HomeAssistantError` de la apertura:
+  (`inverter_state`, `0x101D` en Ingeteam). El flow solo ve errores de dominio: la
+  `gateway_factory` traduce el `HomeAssistantError` de la apertura a `EndpointInUse`.
+  Así el adaptador de entrada no depende de cómo se abre la conexión:
 
   | Fallo | Error del formulario |
   |---|---|
   | `DeviceUnavailable` | `cannot_connect` |
   | `DeviceProtocolError`, `DecodeError` (valor fuera del `enum`) | `invalid_response` |
-  | `HomeAssistantError` de `async_get_temporary_unit`: endpoint en uso con otros parámetros de enlace (`connection.py:62-65`) | `endpoint_in_use` |
+  | `EndpointInUse`, traducido del `HomeAssistantError` de `async_get_temporary_unit`: endpoint en uso con otros parámetros de enlace (`connection.py:62-65`) | `endpoint_in_use` |
 
 - `unique_id = f"{host}:{port}:{unit_id}"` (host en minúsculas); si se repite en la
   entry, aborta con `already_configured`.
@@ -332,8 +333,9 @@ ModbusSolarEntity(CoordinatorEntity).native_value = result.values[key]
 
 ## 5. Errores y disponibilidad
 
-- `domain/errors.py`: `DeviceUnavailable`, `DeviceProtocolError`, `DecodeError`. Solo el
-  gateway conoce las excepciones de `modbus_connection`.
+- `domain/errors.py`: `DeviceUnavailable`, `DeviceProtocolError`, `DecodeError` y
+  `EndpointInUse`. Solo el gateway conoce las excepciones de `modbus_connection`, y solo
+  la `gateway_factory` el `HomeAssistantError` de la apertura.
 - En el coordinator, `DeviceUnavailable` y `DeviceProtocolError` → `UpdateFailed`: las
   entidades del tier pasan a `unavailable`.
 - Un tier es todo o nada: si falla un bloque, falla el tier.

@@ -425,8 +425,8 @@ Esperado: `run …: exit 0`; `lint` y `test` en verde (3 tests).
   `WordOrder` (`BIG="big"`, `LITTLE="little"`).
 - Produces (`domain/profile.py`): dataclasses congeladas `RegisterSpec`, `EntitySpec`,
   `DeviceProfile` con los campos de la spec §3.3.
-- Produces (`domain/errors.py`): `DeviceUnavailable`, `DeviceProtocolError`, `DecodeError`
-  (subclases de `Exception`).
+- Produces (`domain/errors.py`): `DeviceUnavailable`, `DeviceProtocolError`, `DecodeError`,
+  `EndpointInUse` (subclases de `Exception`, independientes entre sí).
 
 - [ ] **Paso 1: Test que falla**
 
@@ -439,7 +439,12 @@ import dataclasses
 
 import pytest
 
-from custom_components.modbus_solar.domain.errors import DecodeError, DeviceProtocolError, DeviceUnavailable
+from custom_components.modbus_solar.domain.errors import (
+    DecodeError,
+    DeviceProtocolError,
+    DeviceUnavailable,
+    EndpointInUse,
+)
 from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
     DataType,
@@ -511,9 +516,12 @@ def test_profile_default_block_limit_is_fc03_maximum() -> None:
     assert profile.max_block_registers == 125
 
 
-@pytest.mark.parametrize("error", [DeviceUnavailable, DeviceProtocolError, DecodeError])
+DOMAIN_ERRORS = {DeviceUnavailable, DeviceProtocolError, DecodeError, EndpointInUse}
+
+
+@pytest.mark.parametrize("error", sorted(DOMAIN_ERRORS, key=lambda e: e.__name__))
 def test_domain_errors_are_independent(error: type[Exception]) -> None:
-    others = {DeviceUnavailable, DeviceProtocolError, DecodeError} - {error}
+    others = DOMAIN_ERRORS - {error}
     assert issubclass(error, Exception)
     assert not any(issubclass(error, other) for other in others)
 ```
@@ -652,6 +660,10 @@ class DeviceProtocolError(Exception):
 
 class DecodeError(Exception):
     """Las palabras leídas no dan un valor válido para la entidad."""
+
+
+class EndpointInUse(Exception):
+    """El endpoint ya está abierto con otros parámetros de enlace."""
 ```
 
 - [ ] **Paso 4: Gates, commit GREEN y CI**
@@ -2619,7 +2631,8 @@ Esperado: `exit 0`.
   si el endpoint ya está en uso con otros parámetros.
 - Produces (`flow.py`):
   - `GatewayFactory`: `Callable[[HomeAssistant, str, int, int, DeviceProfile], AbstractAsyncContextManager[DeviceGateway]]`.
-    Recibe `(hass, host, port, unit_id, profile)`.
+    Recibe `(hass, host, port, unit_id, profile)`. Si el endpoint está en uso, lanza `EndpointInUse`
+    (dominio). El flow nunca ve `HomeAssistantError`.
   - Validadores `PORT` (1-65535), `UNIT_ID` (1-247) e `INTERVAL` (≥ 1).
   - `device_unique_id(host: str, port: int, unit_id: int) -> str`, que devuelve `f"{host.lower()}:{port}:{unit_id}"`.
   - `BrandFlow(ConfigFlow)` sin `domain`, `VERSION = 1`. Atributos de clase:
@@ -2839,7 +2852,6 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
 
 from ...application.catalog import Catalog
 from ...application.probe import probe_device
@@ -2852,7 +2864,7 @@ from ...const import (
     DEFAULT_INTERVALS,
     SUBENTRY_DEVICE,
 )
-from ...domain.errors import DecodeError, DeviceProtocolError, DeviceUnavailable
+from ...domain.errors import DecodeError, DeviceProtocolError, DeviceUnavailable, EndpointInUse
 from ...domain.profile import DeviceProfile
 from ...ports.device import DeviceGateway
 
@@ -2949,8 +2961,7 @@ class DeviceSubentryFlow(ConfigSubentryFlow):
         try:
             async with self.gateway_factory(self.hass, host, port, unit_id, profile) as gateway:
                 await probe_device(gateway, profile)
-        except HomeAssistantError:
-            # endpoint en uso con otros parámetros de enlace
+        except EndpointInUse:
             return "endpoint_in_use"
         except DeviceUnavailable:
             return "cannot_connect"
@@ -2965,16 +2976,18 @@ class DeviceSubentryFlow(ConfigSubentryFlow):
 """Config flow: compone los flows de adapters/inbound con el catálogo y el gateway Modbus."""
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from homeassistant.components.modbus import async_get_temporary_unit
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from modbus_connection import ModbusTcpParams
 
 from . import CATALOG
 from .adapters.inbound.flow import BrandFlow, DeviceSubentryFlow
 from .adapters.outbound.modbus_gateway import ModbusGateway
 from .const import DOMAIN
+from .domain.errors import EndpointInUse
 from .domain.profile import DeviceProfile
 from .ports.device import DeviceGateway
 
@@ -2984,7 +2997,14 @@ async def open_gateway(
     hass: HomeAssistant, host: str, port: int, unit_id: int, profile: DeviceProfile
 ) -> AsyncIterator[DeviceGateway]:
     # unit temporal: se cierra al salir si ninguna entry comparte la conexión
-    async with async_get_temporary_unit(hass, ModbusTcpParams(host=host, port=port), unit_id) as unit:
+    async with AsyncExitStack() as stack:
+        try:
+            unit = await stack.enter_async_context(
+                async_get_temporary_unit(hass, ModbusTcpParams(host=host, port=port), unit_id)
+            )
+        except HomeAssistantError as err:
+            # solo la apertura: endpoint en uso con otros parámetros de enlace
+            raise EndpointInUse(str(err)) from err
         yield ModbusGateway(unit, profile)
 
 
