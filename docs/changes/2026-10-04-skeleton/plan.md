@@ -111,7 +111,7 @@ Responsabilidades: `domain` define tipos, perfil, decodificación, bloques y val
 ```bash
 cd /c/Users/carlo/orca/ingeteam-inverter
 git switch -c feat/skeleton
-py -3.13 -m venv .venv
+py -3.14 -m venv .venv
 .venv/Scripts/python -m pip install -q ruff import-linter
 ```
 
@@ -4245,7 +4245,7 @@ Cada fichero describe el código final y cita `archivo:línea`:
 
 - `guides/setup.md`:
   - clonar;
-  - `py -3.13 -m venv .venv`;
+  - `py -3.14 -m venv .venv`;
   - instalar ruff e import-linter;
   - `bash scripts/lint.sh`;
   - por qué no hay pytest local (ADR 0007);
