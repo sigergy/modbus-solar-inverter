@@ -2,6 +2,7 @@
 
 from homeassistant.components.number import NumberEntity
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.switch import SwitchEntity
 
 from ....domain.profile import EntitySpec
 from ....domain.types import Platform
@@ -10,6 +11,7 @@ from ..runtime import DeviceRuntime
 from .base import ModbusSolarEntity
 from .energy import ModbusSolarEnergySensor
 from .number import ModbusSolarNumber
+from .switch import ModbusSolarSwitch
 
 
 class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
@@ -54,3 +56,8 @@ def _control_coordinator(runtime: DeviceRuntime) -> TierCoordinator:
 def build_numbers(runtime: DeviceRuntime) -> list[NumberEntity]:
     coordinator = _control_coordinator(runtime)
     return [ModbusSolarNumber(coordinator, runtime, spec) for spec in runtime.profile.controls]
+
+
+def build_switches(runtime: DeviceRuntime) -> list[SwitchEntity]:
+    coordinator = _control_coordinator(runtime)
+    return [ModbusSolarSwitch(coordinator, runtime, spec) for spec in runtime.profile.controls]

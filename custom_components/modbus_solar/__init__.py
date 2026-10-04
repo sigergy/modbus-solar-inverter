@@ -18,7 +18,7 @@ from .profiles import ALL_PROFILES
 _LOGGER = logging.getLogger(__name__)
 
 CATALOG = Catalog(ALL_PROFILES)
-PLATFORMS = [HaPlatform.SENSOR, HaPlatform.NUMBER]
+PLATFORMS = [HaPlatform.SENSOR, HaPlatform.NUMBER, HaPlatform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ModbusSolarConfigEntry) -> bool:
