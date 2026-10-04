@@ -101,7 +101,7 @@ custom_components/modbus_solar/
   domain/                  solo stdlib
     types.py               DataType (u16, s16, u32, s32), RegisterKind (holding, input),
                            PollTier (fast, normal, slow), Role, Platform, WordOrder
-    profile.py             RegisterSpec, EntitySpec, DeviceProfile, WriteSpec (vacío)
+    profile.py             RegisterSpec, EntitySpec, DeviceProfile
     decode.py              decode(spec, words) -> int | float | str
     errors.py              DeviceUnavailable, DeviceProtocolError, DecodeError
     validate.py            validate_profile(profile) -> list[str]
@@ -110,7 +110,7 @@ custom_components/modbus_solar/
     device.py              Protocol DeviceGateway
 
   application/             domain + ports; sin homeassistant ni modbus_connection
-    poller.py              read_tier(tier, gateway, profile) -> TierResult
+    poller.py              read_tier(tier, gateway, profile, keys) -> TierResult
     probe.py               probe_device(gateway, profile): lee profile.probe_key
     catalog.py             Catalog: perfiles por marca e id
 
@@ -118,6 +118,7 @@ custom_components/modbus_solar/
     inbound/
       flow.py              BrandFlow, DeviceSubentryFlow
       coordinator.py       TierCoordinator(DataUpdateCoordinator[TierResult])
+      runtime.py           DeviceRuntime: unit, gateway y coordinators de un equipo
       diagnostics.py
       entities/factory.py  EntitySpec -> entidad HA
       entities/base.py     ModbusSolarEntity(CoordinatorEntity)
@@ -188,6 +189,11 @@ class DeviceProfile:
     entities: tuple[EntitySpec, ...]
 ```
 
+`Role` es el significado semántico de la entidad, independiente de la marca; lo usará el
+frontend (spec 4) para encontrar entidades sin depender del `entity_id`. Valores en esta
+spec: `INVERTER_STATE` (`inverter_state`), `AC_POWER` (`active_power`) y
+`ENERGY_PRODUCED_TOTAL` (`total_energy`). Cada spec posterior añade los suyos.
+
 `validate_profile` comprueba: claves únicas, `probe_key` presente entre las claves del
 perfil, rangos de registro sin solaparse, `enum` solo con `device_class == "enum"`,
 `scale != 0`, tamaño de `dtype` coherente con `word_order`.
@@ -202,8 +208,11 @@ class DeviceGateway(Protocol):
 
 ### 3.5 Aplicación
 
-`read_tier(tier, gateway, profile) -> TierResult` es una función pura sobre el puerto:
-1. Filtra las `EntitySpec` del tier.
+`read_tier(tier, gateway, profile, keys) -> TierResult` es una función pura sobre el
+puerto. `keys` son las claves de las entidades habilitadas del tier; las pasa el
+coordinator, para no leer registros de entidades que el usuario ha deshabilitado.
+1. Filtra las `EntitySpec` del tier cuya clave está en `keys`. Si no queda ninguna,
+   devuelve un `TierResult` vacío sin llamar al gateway.
 2. Llama una vez a `gateway.read(...)` con sus `RegisterSpec`.
 3. Decodifica cada una con `domain.decode`. Un `DecodeError` deja esa clave a `None` y
    anota el error; no aborta el tier.
@@ -219,8 +228,9 @@ es válido (por ejemplo, fuera del `enum`). La usa el config flow para validar e
 ### 3.6 Gateway saliente
 
 `ModbusGateway(unit: ModbusUnit)`:
-- Agrupa las direcciones contiguas en bloques (hueco máximo configurable, 0 por defecto) y
-  lanza una lectura `read_holding_registers` / `read_input_registers` por bloque.
+- Agrupa las direcciones contiguas en bloques (hueco máximo configurable, 0 por defecto)
+  de como máximo 125 registros, el límite de FC03/FC04 en Modbus, y lanza una lectura
+  `read_holding_registers` / `read_input_registers` por bloque.
 - Traduce excepciones: `ModbusConnectionError` y `ModbusTimeoutError` a
   `DeviceUnavailable`; `ModbusExceptionError` y `ModbusProtocolError` a
   `DeviceProtocolError`.
@@ -258,8 +268,10 @@ es válido (por ejemplo, fuera del `enum`). La usa el config flow para validar e
 - `unique_id = f"{host}:{port}:{unit_id}"` (host en minúsculas); si se repite en la
   entry, aborta con `already_configured`.
 - `data = {host, port, unit_id, profile, intervals: {fast: 5, normal: 60, slow: 3600}}`.
-- Paso `reconfigure`: cambia `host`, `port` e `intervals`. Cada intervalo ≥
-  `profile.min_request_interval_s`. Recalcula el `unique_id` con el nuevo `host` y
+- Paso `reconfigure`: cambia `host`, `port` e `intervals`. Cada intervalo debe ser ≥
+  número de bloques del tier × `profile.min_request_interval_s`; si no, error
+  `interval_too_short`. Así un tier cabe en su intervalo con el espaciado entre
+  peticiones. Recalcula el `unique_id` con el nuevo `host` y
   `port`; si choca con otra subentry de la misma entry, aborta con `already_configured`.
   Guarda con `async_update_and_abort(entry, subentry, unique_id=..., title=..., data_updates=...)`
   (`config_entries.py:3814-3822`). No hay options flow, porque las subentries no tienen
@@ -267,7 +279,8 @@ es válido (por ejemplo, fuera del `enum`). La usa el config flow para validar e
 
 ### 4.3 Ciclo de vida
 
-- **Setup de la entry:** por cada subentry `device` crea un `DeviceRuntime` con su
+- **Setup de la entry:** por cada subentry `device` crea un `DeviceRuntime`
+  (`adapters/inbound/runtime.py`) con su
   `ModbusUnit` (vía `async_get_unit(hass, entry, params, unit_id)`), un `ModbusGateway` y
   un `TierCoordinator` por tier que tenga entidades. Se guarda en
   `entry.runtime_data: dict[subentry_id, DeviceRuntime]`.
@@ -283,13 +296,15 @@ es válido (por ejemplo, fuera del `enum`). La usa el config flow para validar e
 ```
 TierCoordinator(tier).update_interval = intervals[tier]
   └─ _async_update_data()
-       └─ application.read_tier(tier, gateway, profile)
+       └─ application.read_tier(tier, gateway, profile, keys habilitadas)
             └─ ModbusGateway.read(specs) ─► ModbusUnit.read_holding_registers (por bloque)
             └─ domain.decode(spec, words)
        ◄─ TierResult (values, raw, decode_errors)
 ModbusSolarEntity(CoordinatorEntity).native_value = result.values[key]
 ```
 
+- Las claves habilitadas que el coordinator pasa a `read_tier` se leen del entity
+  registry en el setup de la entry.
 - Coordinators con `always_update=False`: HA solo escribe estado si el valor cambia.
 - Identificadores estables: device `(DOMAIN, subentry_id)`; entity
   `unique_id = f"{subentry_id}_{key}"`. Se basan en el `subentry_id` (ULID) para que
@@ -311,8 +326,10 @@ ModbusSolarEntity(CoordinatorEntity).native_value = result.values[key]
 - Log según la quality scale: un `warning` al perder el equipo y un `info` al recuperarlo;
   nada en cada tick.
 - Arranque: un equipo caído **no** bloquea la entry de marca. No se lanza
-  `ConfigEntryNotReady`. Cada coordinator hace `async_refresh()`; las entidades nacen
-  `unavailable` y se recuperan en el siguiente tick.
+  `ConfigEntryNotReady`. El primer refresh de cada coordinator se lanza en segundo plano
+  con `entry.async_create_background_task(hass, coordinator.async_refresh(), name)`
+  (`config_entries.py:1417`), para no retrasar el arranque de HA con un equipo que no
+  responde. Las entidades nacen `unavailable` hasta su primera lectura correcta.
 - Si otro cliente ocupa el único puerto Modbus del Ingeteam (por ejemplo, el EMS), se ve
   como `DeviceUnavailable`. Se documenta en `docs/guides/setup.md`. Sin reintento
   agresivo: se reintenta en el siguiente tick.
@@ -346,8 +363,9 @@ ejecuta antes `custom_components/modbus_solar/__init__.py`, que importa `homeass
   del enum.
 - `validate_profile`: cada regla del §3.3, y que el perfil Ingeteam pasa.
 - `read_tier` con un `DeviceGateway` falso: éxito, error del gateway, `DecodeError`
-  parcial.
-- `ModbusGateway` con `mock_modbus_unit`: agrupado en bloques, traducción de cada
+  parcial, claves fuera de `keys` no se leen, `keys` vacío no llama al gateway.
+- `ModbusGateway` con `mock_modbus_unit`: agrupado en bloques, corte a 125 registros,
+  traducción de cada
   excepción (`fail_read`), y que llama a `set_message_spacing`.
 - Formatos de `unique_id` estables (patrón de `irrigation-scheduler`,
   `entities/tests/test_entities.py:7-11`).
@@ -355,7 +373,7 @@ ejecuta antes `custom_components/modbus_solar/__init__.py`, que importa `homeass
 `tests/ha/` (con fixture `hass` de `pytest-homeassistant-custom-component`):
 - Flow de marca: alta y duplicado.
 - Subentry: alta OK, `cannot_connect`, `endpoint_in_use`, `invalid_response`, duplicado,
-  reconfigure con intervalo inferior al mínimo.
+  reconfigure con intervalo inferior a bloques × mínimo (`interval_too_short`).
 - Setup/unload de la entry; recarga al cambiar subentries.
 - Entidades: valores, `unavailable` con equipo caído y recuperación.
 - Diagnostics con `host` oculto.
