@@ -14,6 +14,7 @@ from custom_components.modbus_solar.const import DOMAIN
 from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable
 from custom_components.modbus_solar.domain.types import PollTier
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
 from tests.fakes import INGETEAM_WORDS, FakeGateway
 from tests.ha.common import DEVICE, DEVICE_ID, brand_entry
 
@@ -111,3 +112,40 @@ async def test_build_runtime_one_coordinator_per_tier_with_entities(hass: HomeAs
     assert set(runtime.coordinators) == {PollTier.FAST, PollTier.NORMAL}
     assert runtime.coordinators[PollTier.NORMAL].update_interval == timedelta(seconds=60)
     assert runtime.coordinators[PollTier.FAST].keys == ALL_KEYS
+    assert not runtime.coordinators[PollTier.FAST].always_update
+
+
+async def test_energy_sources_are_read_with_power_sensor_disabled(hass: HomeAssistant) -> None:
+    entry = brand_entry(DEVICE)
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{DEVICE_ID}_pv1_power",
+        config_entry=entry,
+        config_subentry_id=DEVICE_ID,
+        disabled_by=er.RegistryEntryDisabler.USER,
+    )
+    # solar_energy sigue activa: necesita pv1_power aunque su sensor esté deshabilitado
+    assert "pv1_power" in enabled_keys(registry, DEVICE_ID, ONEPLAY_STORAGE)
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{DEVICE_ID}_solar_energy",
+        config_entry=entry,
+        config_subentry_id=DEVICE_ID,
+        disabled_by=er.RegistryEntryDisabler.USER,
+    )
+    assert "pv1_power" not in enabled_keys(registry, DEVICE_ID, ONEPLAY_STORAGE)
+
+
+async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> None:
+    entry = brand_entry(DEVICE)
+    entry.add_to_hass(hass)
+    runtime = build_runtime(hass, entry, entry.subentries[DEVICE_ID], ONEPLAY_STORAGE, FakeGateway({}), set())
+    assert {tier: c.always_update for tier, c in runtime.coordinators.items()} == {
+        PollTier.FAST: True,
+        PollTier.NORMAL: False,
+        PollTier.SLOW: False,
+    }
