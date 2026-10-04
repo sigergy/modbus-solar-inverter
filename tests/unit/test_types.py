@@ -8,6 +8,7 @@ from custom_components.modbus_solar.domain.errors import (
     DecodeError,
     DeviceProtocolError,
     DeviceUnavailable,
+    EncodeError,
     EndpointInUse,
 )
 from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
@@ -60,6 +61,8 @@ def test_enum_values_are_stable() -> None:
         "energy_grid_export",
         "energy_battery_charge",
         "energy_battery_discharge",
+        "export_limit",
+        "export_enabled",
     ]
 
 
@@ -105,7 +108,7 @@ def test_profile_default_block_limit_is_fc03_maximum() -> None:
     assert profile.max_block_registers == 125
 
 
-DOMAIN_ERRORS = {DeviceUnavailable, DeviceProtocolError, DecodeError, EndpointInUse}
+DOMAIN_ERRORS = {DeviceUnavailable, DeviceProtocolError, DecodeError, EncodeError, EndpointInUse}
 
 
 @pytest.mark.parametrize("error", sorted(DOMAIN_ERRORS, key=lambda e: e.__name__))

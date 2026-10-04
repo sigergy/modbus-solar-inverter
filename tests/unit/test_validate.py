@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 
+from custom_components.modbus_solar.domain.control import GatedLimitSpec, WriteSpec
 from custom_components.modbus_solar.domain.energy import EnergySpec, SignFilter
 from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
@@ -127,3 +128,73 @@ def test_energy_sources_in_one_tier() -> None:
     assert validate_profile(with_energies(energy("e", "a", "b"), entities=entities)) == [
         "e: sources in different tiers"
     ]
+
+
+def gated(**changes: object) -> GatedLimitSpec:
+    base = GatedLimitSpec(
+        key="limit",
+        switch_key="enabled",
+        role=Role.EXPORT_LIMIT,
+        switch_role=Role.EXPORT_ENABLED,
+        write=WriteSpec(address=1000, prefix=(26, 10)),
+        min_value=0,
+        max_value=6000,
+        step=1,
+        unit="W",
+        default=6000,
+    )
+    return replace(base, **changes)
+
+
+def with_controls(*controls: GatedLimitSpec) -> DeviceProfile:
+    return replace(profile(ent("a", 0)), controls=controls)
+
+
+def test_valid_control() -> None:
+    assert validate_profile(with_controls(gated())) == []
+
+
+def test_control_keys_duplicated_with_entity_or_between_controls() -> None:
+    assert validate_profile(with_controls(gated(key="a"))) == ["duplicate key: a"]
+    assert validate_profile(with_controls(gated(switch_key="limit"))) == ["duplicate key: limit"]
+    assert validate_profile(with_controls(gated(), gated())) == ["duplicate key: limit", "duplicate key: enabled"]
+
+
+def test_control_min_above_max() -> None:
+    assert "limit: min_value above max_value" in validate_profile(with_controls(gated(min_value=10, max_value=5)))
+
+
+def test_control_step_must_be_positive() -> None:
+    assert validate_profile(with_controls(gated(step=0))) == ["limit: step must be positive"]
+
+
+def test_control_default_in_range() -> None:
+    assert validate_profile(with_controls(gated(default=7000))) == ["limit: default out of range"]
+
+
+def test_control_off_value_in_range() -> None:
+    assert validate_profile(with_controls(gated(min_value=100))) == ["limit: off_value out of range"]
+
+
+def test_control_write_scale_zero() -> None:
+    write = WriteSpec(address=1000, prefix=(26, 10), scale=0)
+    assert validate_profile(with_controls(gated(write=write))) == ["limit: write scale 0"]
+
+
+def test_control_write_must_be_16_bit() -> None:
+    write = WriteSpec(address=1000, prefix=(26, 10), dtype=DataType.U32)
+    assert validate_profile(with_controls(gated(write=write))) == ["limit: write dtype u32 is not 16-bit"]
+
+
+def test_control_write_must_fit_a_request() -> None:
+    small = replace(with_controls(gated()), max_block_registers=2)
+    assert validate_profile(small) == ["limit: write longer than max_block_registers"]
+
+
+def test_control_prefix_words_are_16_bit() -> None:
+    write = WriteSpec(address=1000, prefix=(26, 70000))
+    assert validate_profile(with_controls(gated(write=write))) == ["limit: prefix word out of range"]
+
+
+def test_control_range_must_encode() -> None:
+    assert validate_profile(with_controls(gated(max_value=40000, default=40000))) == ["limit: 40000 does not encode"]
