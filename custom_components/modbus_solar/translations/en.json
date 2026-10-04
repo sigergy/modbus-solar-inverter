@@ -222,6 +222,21 @@
       "battery_discharge_energy": {
         "name": "Battery discharge energy"
       }
+    },
+    "number": {
+      "export_limit": {
+        "name": "Grid export limit"
+      }
+    },
+    "switch": {
+      "export_enabled": {
+        "name": "Grid export"
+      }
+    }
+  },
+  "exceptions": {
+    "write_failed": {
+      "message": "Could not write to the inverter: {error}"
     }
   }
 }

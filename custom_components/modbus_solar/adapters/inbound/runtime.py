@@ -8,9 +8,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from ...const import CONF_INTERVALS, DEFAULT_INTERVALS, DOMAIN
+from ...domain.control import GatedState
 from ...domain.profile import DeviceProfile
 from ...domain.types import Platform, PollTier
-from ...ports.device import DeviceGateway
+from ...ports.device import DeviceGateway, DeviceWriter
 from .coordinator import TierCoordinator
 
 
@@ -21,7 +22,9 @@ class DeviceRuntime:
     profile: DeviceProfile
     intervals: dict[str, int]
     gateway: DeviceGateway
+    writer: DeviceWriter
     coordinators: dict[PollTier, TierCoordinator]
+    control_states: dict[str, GatedState]
 
 
 type ModbusSolarConfigEntry = ConfigEntry[DeviceRuntime]
@@ -59,6 +62,7 @@ def build_runtime(
     entry: ConfigEntry,
     profile: DeviceProfile,
     gateway: DeviceGateway,
+    writer: DeviceWriter,
     keys: Collection[str],
 ) -> DeviceRuntime:
     intervals = {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {})}
@@ -85,5 +89,8 @@ def build_runtime(
         profile=profile,
         intervals=intervals,
         gateway=gateway,
+        writer=writer,
         coordinators=coordinators,
+        # un estado por control, compartido por su number y su switch; sin valor restaurado manda el default
+        control_states={control.key: GatedState(limit=control.default) for control in profile.controls},
     )

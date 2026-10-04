@@ -5,6 +5,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ....const import BRAND_TITLES, DOMAIN
+from ....domain.control import GatedLimitSpec
 from ....domain.energy import EnergySpec
 from ....domain.profile import EntitySpec
 from ..coordinator import TierCoordinator
@@ -14,11 +15,19 @@ from ..runtime import DeviceRuntime, entity_unique_id
 class ModbusSolarEntity(CoordinatorEntity[TierCoordinator]):
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: TierCoordinator, runtime: DeviceRuntime, spec: EntitySpec | EnergySpec) -> None:
+    def __init__(
+        self,
+        coordinator: TierCoordinator,
+        runtime: DeviceRuntime,
+        spec: EntitySpec | EnergySpec | GatedLimitSpec,
+        key: str | None = None,
+    ) -> None:
         super().__init__(coordinator)
         self._spec = spec
-        self._attr_translation_key = spec.key
-        self._attr_unique_id = entity_unique_id(runtime.entry_id, spec.key)
+        # un control da dos entidades (number y switch): la clave la elige quien construye
+        key = spec.key if key is None else key
+        self._attr_translation_key = key
+        self._attr_unique_id = entity_unique_id(runtime.entry_id, key)
         self._attr_entity_registry_enabled_default = spec.enabled_default
         # las energías calculadas no tienen categoría: son de primer nivel
         if isinstance(spec, EntitySpec) and spec.entity_category is not None:

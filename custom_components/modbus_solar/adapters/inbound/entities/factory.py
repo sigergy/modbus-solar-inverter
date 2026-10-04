@@ -1,5 +1,6 @@
 """Construye las entidades de un equipo a partir de su perfil."""
 
+from homeassistant.components.number import NumberEntity
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 
 from ....domain.profile import EntitySpec
@@ -8,6 +9,7 @@ from ..coordinator import TierCoordinator
 from ..runtime import DeviceRuntime
 from .base import ModbusSolarEntity
 from .energy import ModbusSolarEnergySensor
+from .number import ModbusSolarNumber
 
 
 class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
@@ -41,3 +43,14 @@ def build_sensors(runtime: DeviceRuntime) -> list[SensorEntity]:
         coordinator = runtime.coordinators[by_key[energy.sources[0]].poll]
         sensors.append(ModbusSolarEnergySensor(coordinator, runtime, energy))
     return sensors
+
+
+def _control_coordinator(runtime: DeviceRuntime) -> TierCoordinator:
+    # los controles cuelgan del tier de la entidad de prueba: si el equipo no responde, no se ofrece escribir
+    probe = next(e for e in runtime.profile.entities if e.key == runtime.profile.probe_key)
+    return runtime.coordinators[probe.poll]
+
+
+def build_numbers(runtime: DeviceRuntime) -> list[NumberEntity]:
+    coordinator = _control_coordinator(runtime)
+    return [ModbusSolarNumber(coordinator, runtime, spec) for spec in runtime.profile.controls]
