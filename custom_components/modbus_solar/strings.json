@@ -36,6 +36,7 @@
         "data": {
           "host": "Host",
           "port": "Port",
+          "instant": "Instant poll interval (s)",
           "fast": "Fast poll interval (s)",
           "normal": "Normal poll interval (s)",
           "slow": "Slow poll interval (s)"

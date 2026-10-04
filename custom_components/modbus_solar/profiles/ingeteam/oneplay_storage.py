@@ -175,17 +175,17 @@ ONEPLAY_STORAGE = DeviceProfile(
             unit="°C",
         ),
         # red: vatímetro externo (30070-30073), el que mide el punto de conexión
-        _core("grid_voltage", Role.GRID_VOLTAGE, _input(30070), PollTier.NORMAL, device_class="voltage", unit="V"),
+        _core("grid_voltage", Role.GRID_VOLTAGE, _input(30070), PollTier.INSTANT, device_class="voltage", unit="V"),
         _core(
             "grid_frequency",
             Role.GRID_FREQUENCY,
             _input(30071, scale=0.1),
-            PollTier.NORMAL,
+            PollTier.INSTANT,
             device_class="frequency",
             unit="Hz",
         ),
         _core(
-            "grid_power", Role.GRID_POWER, _input(30072, DataType.S16), PollTier.FAST, device_class="power", unit="W"
+            "grid_power", Role.GRID_POWER, _input(30072, DataType.S16), PollTier.INSTANT, device_class="power", unit="W"
         ),
         _core("load_power", Role.LOAD_POWER, _input(30079), PollTier.FAST, device_class="power", unit="W"),
         _extra(

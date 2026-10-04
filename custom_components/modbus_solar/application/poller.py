@@ -1,6 +1,6 @@
 """Lectura de un tier: una llamada al gateway y decodificación por entidad."""
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 
 from ..domain.blocks import plan_blocks
@@ -47,3 +47,8 @@ def min_tier_interval(profile: DeviceProfile, tier: PollTier) -> float:
     """Segundos mínimos para leer el tier entero respetando el espaciado entre peticiones."""
     registers = [e.register for e in profile.entities if e.poll is tier]
     return len(plan_blocks(registers, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s
+
+
+def request_rate(profile: DeviceProfile, intervals: Mapping[PollTier, int]) -> float:
+    """Peticiones por segundo que piden los tiers con estos intervalos. El equipo admite 1."""
+    return sum(min_tier_interval(profile, tier) / interval for tier, interval in intervals.items())

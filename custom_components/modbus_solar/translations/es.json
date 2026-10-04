@@ -36,6 +36,7 @@
         "data": {
           "host": "Host",
           "port": "Puerto",
+          "instant": "Intervalo de sondeo instantáneo (s)",
           "fast": "Intervalo de sondeo rápido (s)",
           "normal": "Intervalo de sondeo normal (s)",
           "slow": "Intervalo de sondeo lento (s)"

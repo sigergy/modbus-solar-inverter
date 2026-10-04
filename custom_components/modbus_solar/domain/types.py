@@ -25,6 +25,7 @@ class RegisterKind(StrEnum):
 
 
 class PollTier(StrEnum):
+    INSTANT = "instant"  # primero: el formulario de intervalos recorre el enum en orden
     FAST = "fast"
     NORMAL = "normal"
     SLOW = "slow"
