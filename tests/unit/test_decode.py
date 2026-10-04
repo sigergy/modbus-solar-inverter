@@ -3,8 +3,8 @@
 from collections.abc import Mapping
 
 import pytest
-from custom_components.modbus_solar.domain.decode import decode
 
+from custom_components.modbus_solar.domain.decode import decode
 from custom_components.modbus_solar.domain.errors import DecodeError
 from custom_components.modbus_solar.domain.profile import EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import DataType, Platform, PollTier, Role, WordOrder
