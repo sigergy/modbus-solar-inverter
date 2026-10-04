@@ -1,0 +1,6 @@
+{
+  "name": "Modbus Solar",
+  "zip_release": true,
+  "filename": "modbus_solar.zip",
+  "homeassistant": "2026.9.0"
+}
