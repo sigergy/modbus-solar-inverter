@@ -31,4 +31,4 @@ async def test_brand_flow_aborts_if_brand_exists(hass: HomeAssistant) -> None:
 async def test_brand_entry_offers_device_subentries(hass: HomeAssistant) -> None:
     entry = brand_entry()
     entry.add_to_hass(hass)
-    assert set(entry.supported_subentry_types) == {"device"}
+    assert entry.supported_subentry_types == {"device": {"supports_reconfigure": True}}

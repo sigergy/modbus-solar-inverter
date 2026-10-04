@@ -16,6 +16,7 @@ from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant, callback
 
 from ...application.catalog import Catalog
+from ...application.poller import min_tier_interval
 from ...application.probe import probe_device
 from ...const import (
     BRAND_TITLES,
@@ -28,6 +29,7 @@ from ...const import (
 )
 from ...domain.errors import DecodeError, DeviceProtocolError, DeviceUnavailable, EndpointInUse
 from ...domain.profile import DeviceProfile
+from ...domain.types import PollTier
 from ...ports.device import DeviceGateway
 
 # (hass, host, port, unit_id, profile) -> contexto que entrega un gateway sobre una unit temporal
@@ -111,6 +113,50 @@ class DeviceSubentryFlow(ConfigSubentryFlow):
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(schema, user_input or {}),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        profile = self.catalog.get(subentry.data[CONF_PROFILE])
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            # cada tier tiene que caber en su intervalo con el espaciado entre peticiones
+            for tier in PollTier:
+                if user_input[tier.value] < min_tier_interval(profile, tier):
+                    errors[tier.value] = "interval_too_short"
+            if not errors:
+                host, port = user_input[CONF_HOST], user_input[CONF_PORT]
+                unique_id = device_unique_id(host, port, subentry.data[CONF_UNIT_ID])
+                if self._unique_id_taken(entry, unique_id, exclude=subentry.subentry_id):
+                    return self.async_abort(reason="already_configured")
+                return self.async_update_and_abort(
+                    entry,
+                    subentry,
+                    unique_id=unique_id,
+                    data_updates={
+                        CONF_HOST: host,
+                        CONF_PORT: port,
+                        CONF_INTERVALS: {tier.value: user_input[tier.value] for tier in PollTier},
+                    },
+                )
+        current = {
+            CONF_HOST: subentry.data[CONF_HOST],
+            CONF_PORT: subentry.data[CONF_PORT],
+            **DEFAULT_INTERVALS,
+            **subentry.data.get(CONF_INTERVALS, {}),
+        }
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOST): str,
+                vol.Required(CONF_PORT): PORT,
+                **{vol.Required(tier.value): INTERVAL for tier in PollTier},
+            }
+        )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(schema, user_input or current),
             errors=errors,
         )
 
