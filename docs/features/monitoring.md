@@ -6,7 +6,7 @@ Documento vivo. Rutas bajo `custom_components/modbus_solar/` salvo indicación. 
 
 | Perfil | Equipo | Mapa | Fichero |
 |---|---|---|---|
-| `ingeteam.oneplay_storage` | INGECON SUN STORAGE 1Play TL M | `ABH2010IMB08`: input registers 30001-30081, FC04 ([registers.md](../wiki/brands/ingeteam/storage-1-play-tl-m/registers.md)) | `profiles/ingeteam/oneplay_storage.py` |
+| `ingeteam.oneplay_storage` | INGECON SUN STORAGE 1Play TL M | `ABH2010IMB08`: input registers 30001-30081, FC04 ([registers-storage-1-play-tl-m.md](../wiki/brands/ingeteam/storage-1-play-tl-m/registers-storage-1-play-tl-m.md)) | `profiles/ingeteam/oneplay_storage.py` |
 | `ingeteam.oneplay` | INGECON SUN 1Play TL M, sin storage | `ACL2010IMB05`: holding `0x10xx`, FC03 ([registers.md](../wiki/brands/ingeteam/1-play-tl-m/registers.md)) | `profiles/ingeteam/oneplay.py` |
 | `mencke_tegtmeyer.si_rs485` | Sensor de irradiancia Si-RS485TC-…-MB (cuatro modelos) | `Specification_Si-RS485_MODBUS`: input registers 0, 3, 7 y 8, FC04 ([registers.md](../wiki/brands/mencke-tegtmeyer/si-rs485-mb/registers.md)) | `profiles/mencke_tegtmeyer/si_rs485.py` |
 
