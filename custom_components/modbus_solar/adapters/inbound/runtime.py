@@ -1,9 +1,9 @@
-"""Estado en memoria de cada equipo (subentry) mientras la entry de marca está cargada."""
+"""Estado en memoria de un equipo mientras su entry está cargada."""
 
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
@@ -16,7 +16,7 @@ from .coordinator import TierCoordinator
 
 @dataclass
 class DeviceRuntime:
-    subentry_id: str
+    entry_id: str
     title: str
     profile: DeviceProfile
     intervals: dict[str, int]
@@ -24,16 +24,16 @@ class DeviceRuntime:
     coordinators: dict[PollTier, TierCoordinator]
 
 
-type ModbusSolarConfigEntry = ConfigEntry[dict[str, DeviceRuntime]]
+type ModbusSolarConfigEntry = ConfigEntry[DeviceRuntime]
 
 
-def entity_unique_id(subentry_id: str, key: str) -> str:
-    # basado en el subentry_id (ULID): cambiar el host no duplica entidades
-    return f"{subentry_id}_{key}"
+def entity_unique_id(entry_id: str, key: str) -> str:
+    # basado en el entry_id (ULID): cambiar el host no duplica entidades
+    return f"{entry_id}_{key}"
 
 
-def _is_enabled(registry: er.EntityRegistry, platform: str, subentry_id: str, key: str, default: bool) -> bool:
-    entity_id = registry.async_get_entity_id(platform, DOMAIN, entity_unique_id(subentry_id, key))
+def _is_enabled(registry: er.EntityRegistry, platform: str, entry_id: str, key: str, default: bool) -> bool:
+    entity_id = registry.async_get_entity_id(platform, DOMAIN, entity_unique_id(entry_id, key))
     if entity_id is None:
         # entidad aún no registrada: manda el valor por defecto del perfil
         return default
@@ -41,15 +41,15 @@ def _is_enabled(registry: er.EntityRegistry, platform: str, subentry_id: str, ke
     return entity is not None and entity.disabled_by is None
 
 
-def enabled_keys(registry: er.EntityRegistry, subentry_id: str, profile: DeviceProfile) -> frozenset[str]:
+def enabled_keys(registry: er.EntityRegistry, entry_id: str, profile: DeviceProfile) -> frozenset[str]:
     keys = {
         spec.key
         for spec in profile.entities
-        if _is_enabled(registry, spec.platform, subentry_id, spec.key, spec.enabled_default)
+        if _is_enabled(registry, spec.platform, entry_id, spec.key, spec.enabled_default)
     }
     for energy in profile.energies:
         # una energía activa necesita leer sus fuentes aunque su sensor de potencia esté deshabilitado
-        if _is_enabled(registry, Platform.SENSOR, subentry_id, energy.key, energy.enabled_default):
+        if _is_enabled(registry, Platform.SENSOR, entry_id, energy.key, energy.enabled_default):
             keys.update(energy.sources)
     return frozenset(keys)
 
@@ -57,19 +57,18 @@ def enabled_keys(registry: er.EntityRegistry, subentry_id: str, profile: DeviceP
 def build_runtime(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    subentry: ConfigSubentry,
     profile: DeviceProfile,
     gateway: DeviceGateway,
     keys: Collection[str],
 ) -> DeviceRuntime:
-    intervals = {**DEFAULT_INTERVALS, **subentry.data.get(CONF_INTERVALS, {})}
+    intervals = {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {})}
     poll_of = {e.key: e.poll for e in profile.entities}
     energy_tiers = {poll_of[source] for energy in profile.energies for source in energy.sources}
     coordinators = {
         tier: TierCoordinator(
             hass,
             entry,
-            name=f"{subentry.title} {tier}",
+            name=f"{entry.title} {tier}",
             tier=tier,
             interval_s=intervals[tier],
             gateway=gateway,
@@ -81,8 +80,8 @@ def build_runtime(
         if any(e.poll is tier for e in profile.entities)
     }
     return DeviceRuntime(
-        subentry_id=subentry.subentry_id,
-        title=subentry.title,
+        entry_id=entry.entry_id,
+        title=entry.title,
         profile=profile,
         intervals=intervals,
         gateway=gateway,

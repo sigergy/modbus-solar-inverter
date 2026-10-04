@@ -2,55 +2,55 @@
   "config": {
     "step": {
       "user": {
-        "title": "Elige una marca",
-        "description": "Una entrada por marca. Después añade cada equipo desde la entrada.",
+        "title": "Elige el modelo",
+        "description": "Cada inversor es una entry independiente. Añade una entry por inversor.",
         "data": {
-          "brand": "Marca"
+          "profile": "Modelo"
+        }
+      },
+      "connection": {
+        "title": "Conectar con el inversor",
+        "description": "Escribe la dirección IP o el nombre de host del inversor. La conexión se prueba antes de seguir.",
+        "data": {
+          "host": "Host"
+        },
+        "sections": {
+          "advanced": {
+            "name": "Avanzado",
+            "data": {
+              "port": "Puerto",
+              "unit_id": "ID de unidad"
+            }
+          }
+        }
+      },
+      "confirm": {
+        "title": "Inversor encontrado",
+        "description": "El inversor en {host} ha respondido:\n\n{readings}",
+        "data": {
+          "name": "Nombre"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigurar equipo",
+        "data": {
+          "host": "Host",
+          "port": "Puerto",
+          "fast": "Intervalo de sondeo rápido (s)",
+          "normal": "Intervalo de sondeo normal (s)",
+          "slow": "Intervalo de sondeo lento (s)"
         }
       }
     },
+    "error": {
+      "cannot_connect": "El equipo no responde. Revisa host, puerto e ID de unidad, y que ningún otro cliente Modbus esté usando el equipo.",
+      "endpoint_in_use": "Este endpoint ya está en uso con otros parámetros de conexión.",
+      "invalid_response": "El equipo respondió con un valor inesperado. Revisa el modelo y el ID de unidad.",
+      "interval_too_short": "Demasiado corto para este equipo: leer todos sus registros tarda más."
+    },
     "abort": {
-      "already_configured": "Esta marca ya está configurada."
-    }
-  },
-  "config_subentries": {
-    "device": {
-      "entry_type": "Equipo",
-      "initiate_flow": {
-        "user": "Añadir equipo"
-      },
-      "step": {
-        "user": {
-          "title": "Añadir equipo",
-          "data": {
-            "name": "Nombre",
-            "host": "Host",
-            "port": "Puerto",
-            "unit_id": "ID de unidad",
-            "profile": "Modelo"
-          }
-        },
-        "reconfigure": {
-          "title": "Reconfigurar equipo",
-          "data": {
-            "host": "Host",
-            "port": "Puerto",
-            "fast": "Intervalo de sondeo rápido (s)",
-            "normal": "Intervalo de sondeo normal (s)",
-            "slow": "Intervalo de sondeo lento (s)"
-          }
-        }
-      },
-      "error": {
-        "cannot_connect": "El equipo no responde. Revisa host, puerto e ID de unidad, y que ningún otro cliente Modbus esté usando el equipo.",
-        "endpoint_in_use": "Este endpoint ya está en uso con otros parámetros de conexión.",
-        "invalid_response": "El equipo respondió con un valor inesperado. Revisa el modelo y el ID de unidad.",
-        "interval_too_short": "Demasiado corto para este equipo: leer todos sus registros tarda más."
-      },
-      "abort": {
-        "already_configured": "Este equipo ya está configurado.",
-        "reconfigure_successful": "El equipo se ha reconfigurado."
-      }
+      "already_configured": "Este equipo ya está configurado.",
+      "reconfigure_successful": "El equipo se ha reconfigurado."
     }
   },
   "entity": {

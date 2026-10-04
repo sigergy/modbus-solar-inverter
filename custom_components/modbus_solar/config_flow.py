@@ -1,4 +1,4 @@
-"""Config flow: compone los flows de adapters/inbound con el catálogo y el gateway Modbus."""
+"""Config flow: compone el flow de adapters/inbound con el catálogo y el gateway Modbus."""
 
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -9,7 +9,7 @@ from homeassistant.exceptions import HomeAssistantError
 from modbus_connection import ModbusTcpParams
 
 from . import CATALOG
-from .adapters.inbound.flow import BrandFlow, DeviceSubentryFlow
+from .adapters.inbound.flow import DeviceConfigFlow
 from .adapters.outbound.modbus_gateway import ModbusGateway
 from .const import DOMAIN
 from .domain.errors import EndpointInUse
@@ -33,11 +33,6 @@ async def open_gateway(
         yield ModbusGateway(unit, profile)
 
 
-class DeviceFlow(DeviceSubentryFlow):
+class ModbusSolarConfigFlow(DeviceConfigFlow, domain=DOMAIN):
     catalog = CATALOG
     gateway_factory = staticmethod(open_gateway)
-
-
-class ModbusSolarConfigFlow(BrandFlow, domain=DOMAIN):
-    catalog = CATALOG
-    device_flow = DeviceFlow

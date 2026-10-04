@@ -11,7 +11,7 @@ from .runtime import DeviceRuntime
 TO_REDACT = {CONF_HOST}
 
 
-def device_diagnostics(runtime: DeviceRuntime, subentry_data: Mapping[str, Any]) -> dict[str, Any]:
+def device_diagnostics(runtime: DeviceRuntime, entry_data: Mapping[str, Any]) -> dict[str, Any]:
     tiers = {
         tier.value: {
             "last_update_success": coordinator.last_update_success,
@@ -35,7 +35,7 @@ def device_diagnostics(runtime: DeviceRuntime, subentry_data: Mapping[str, Any])
             "value": result.values.get(spec.key) if result is not None else None,
         }
     return {
-        "subentry": async_redact_data(dict(subentry_data), TO_REDACT),
+        "entry": async_redact_data(dict(entry_data), TO_REDACT),
         "profile": runtime.profile.id,
         "intervals": runtime.intervals,
         "tiers": tiers,

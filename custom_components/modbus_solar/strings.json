@@ -2,55 +2,55 @@
   "config": {
     "step": {
       "user": {
-        "title": "Choose a brand",
-        "description": "One entry per brand. Add each device afterwards from the entry.",
+        "title": "Choose the model",
+        "description": "Each inverter is a separate entry. Add one entry per inverter.",
         "data": {
-          "brand": "Brand"
+          "profile": "Model"
+        }
+      },
+      "connection": {
+        "title": "Connect to the inverter",
+        "description": "Enter the IP address or hostname of the inverter. The connection is tested before going on.",
+        "data": {
+          "host": "Host"
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "data": {
+              "port": "Port",
+              "unit_id": "Unit ID"
+            }
+          }
+        }
+      },
+      "confirm": {
+        "title": "Inverter found",
+        "description": "The inverter at {host} answered:\n\n{readings}",
+        "data": {
+          "name": "Name"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure device",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "fast": "Fast poll interval (s)",
+          "normal": "Normal poll interval (s)",
+          "slow": "Slow poll interval (s)"
         }
       }
     },
+    "error": {
+      "cannot_connect": "The device does not answer. Check host, port and unit ID, and that no other Modbus client is using the device.",
+      "endpoint_in_use": "This endpoint is already in use with different connection settings.",
+      "invalid_response": "The device answered with an unexpected value. Check the model and the unit ID.",
+      "interval_too_short": "Too short for this device: reading all its registers takes longer."
+    },
     "abort": {
-      "already_configured": "This brand is already configured."
-    }
-  },
-  "config_subentries": {
-    "device": {
-      "entry_type": "Device",
-      "initiate_flow": {
-        "user": "Add device"
-      },
-      "step": {
-        "user": {
-          "title": "Add device",
-          "data": {
-            "name": "Name",
-            "host": "Host",
-            "port": "Port",
-            "unit_id": "Unit ID",
-            "profile": "Model"
-          }
-        },
-        "reconfigure": {
-          "title": "Reconfigure device",
-          "data": {
-            "host": "Host",
-            "port": "Port",
-            "fast": "Fast poll interval (s)",
-            "normal": "Normal poll interval (s)",
-            "slow": "Slow poll interval (s)"
-          }
-        }
-      },
-      "error": {
-        "cannot_connect": "The device does not answer. Check host, port and unit ID, and that no other Modbus client is using the device.",
-        "endpoint_in_use": "This endpoint is already in use with different connection settings.",
-        "invalid_response": "The device answered with an unexpected value. Check the model and the unit ID.",
-        "interval_too_short": "Too short for this device: reading all its registers takes longer."
-      },
-      "abort": {
-        "already_configured": "This device is already configured.",
-        "reconfigure_successful": "The device was reconfigured."
-      }
+      "already_configured": "This device is already configured.",
+      "reconfigure_successful": "The device was reconfigured."
     }
   },
   "entity": {
