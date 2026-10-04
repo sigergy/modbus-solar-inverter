@@ -1,0 +1,21 @@
+# Guía: publicar una versión
+
+HACS instala el `modbus_solar.zip` adjunto a cada release (`hacs.json:3-4`).
+
+1. Sube `version` en `custom_components/modbus_solar/manifest.json` (`manifest.json:12`).
+2. Merge a `main`.
+3. Crea el tag y empújalo:
+
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+4. `release.yml` se dispara con el tag `v*.*.*` (`.github/workflows/release.yml:3-5`) y:
+   - comprueba que `version` del manifest sea igual al tag, y falla si no (`.github/workflows/release.yml:15-18`);
+   - empaqueta `custom_components/modbus_solar` en `modbus_solar.zip` (`.github/workflows/release.yml:19-21`);
+   - publica la release con el zip y las notas generadas (`.github/workflows/release.yml:22-25`).
+
+El tag debe llevar el prefijo `v` y coincidir exactamente con la versión del manifest: `v0.1.0` para `"version": "0.1.0"`.
+
+El workflow `validate` (hassfest y HACS) corre en cada push y pull request (`.github/workflows/validate.yml:3-6`). El check `license` de HACS se ignora porque PolyForm Noncommercial no es una licencia OSI ([ADR 0008](../decisions/0008-license-polyform-noncommercial.md)).
