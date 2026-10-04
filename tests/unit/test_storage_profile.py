@@ -4,6 +4,7 @@ import pytest
 
 from custom_components.modbus_solar.application.poller import min_tier_interval
 from custom_components.modbus_solar.domain.blocks import plan_blocks
+from custom_components.modbus_solar.domain.energy import SignFilter
 from custom_components.modbus_solar.domain.types import DataType, PollTier, RegisterKind, Role
 from custom_components.modbus_solar.domain.validate import validate_profile
 from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
@@ -180,3 +181,14 @@ def test_no_block_over_ten_registers(tier: PollTier) -> None:
 def test_tiers_fit_default_intervals(tier: PollTier, expected: float) -> None:
     # fast: bloques 15-20, 33-37 y 71-78; normal: 17-26, 31-35 y 69-70 (spec §3.1)
     assert min_tier_interval(ONEPLAY_STORAGE, tier) == expected
+
+
+def test_energies() -> None:
+    # signos supuestos (spec §3.5): grid_power > 0 importa; battery_power > 0 descarga
+    assert [(e.key, e.role, e.sources, e.sign, e.enabled_default) for e in ONEPLAY_STORAGE.energies] == [
+        ("solar_energy", Role.ENERGY_SOLAR, ("pv1_power", "pv2_power"), SignFilter.POSITIVE, True),
+        ("grid_import_energy", Role.ENERGY_GRID_IMPORT, ("grid_power",), SignFilter.POSITIVE, True),
+        ("grid_export_energy", Role.ENERGY_GRID_EXPORT, ("grid_power",), SignFilter.NEGATIVE, True),
+        ("battery_charge_energy", Role.ENERGY_BATTERY_CHARGE, ("battery_power",), SignFilter.NEGATIVE, True),
+        ("battery_discharge_energy", Role.ENERGY_BATTERY_DISCHARGE, ("battery_power",), SignFilter.POSITIVE, True),
+    ]

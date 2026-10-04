@@ -55,6 +55,11 @@ def test_enum_values_are_stable() -> None:
         "grid_power",
         "load_power",
         "diagnostic",
+        "energy_solar",
+        "energy_grid_import",
+        "energy_grid_export",
+        "energy_battery_charge",
+        "energy_battery_discharge",
     ]
 
 

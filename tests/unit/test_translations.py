@@ -37,6 +37,8 @@ def test_every_entity_and_enum_state_is_translated() -> None:
             assert "name" in sensors[spec.key], spec.key
             if spec.enum is not None:
                 options.setdefault(spec.key, set()).update(spec.enum.values())
+        for energy in profile.energies:
+            assert "name" in sensors[energy.key], energy.key
     # la clave es translation_key en todos los perfiles: state lleva la unión de sus opciones
     for key, values in options.items():
         assert set(sensors[key]["state"]) == values, key
