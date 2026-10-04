@@ -9,4 +9,4 @@ CONF_INTERVALS = "intervals"
 # segundos por tier; editables en el reconfigure de cada equipo
 DEFAULT_INTERVALS = {"fast": 5, "normal": 60, "slow": 3600}
 
-BRAND_TITLES = {"ingeteam": "Ingeteam"}
+BRAND_TITLES = {"ingeteam": "Ingeteam", "mencke_tegtmeyer": "Ingenieurbüro Mencke & Tegtmeyer"}
