@@ -4161,7 +4161,7 @@ Comprobar que las tres filas que usa el perfil coinciden con
 grep -nE "0x101D|0x1021|0x1037" docs/wiki/brands/ingeteam/1-play-tl-m/registers.md
 ```
 
-Esperado: tres filas. `0x101D` en la página 7 con la Nota 3; `0x1021` en Wh x 10 y 32 bits;
+Esperado: tres filas. `0x101D` en la página 5 con la Nota 3 (texto de la nota en la página 7); `0x1021` en Wh x 10 y 32 bits;
 `0x1037` en W x 10 y 32 bits con signo. Si alguna discrepa del perfil, parar y preguntar.
 
 - [ ] **Paso 5: Commit**
