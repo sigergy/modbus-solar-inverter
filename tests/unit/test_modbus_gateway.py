@@ -4,10 +4,11 @@ from dataclasses import replace
 
 import pytest
 from modbus_connection import ModbusConnectionError, ModbusExceptionError, ModbusProtocolError, ModbusTimeoutError
-from modbus_connection.mock import MockModbusConnection, MockModbusUnit, ReadEvent
+from modbus_connection.mock import MockModbusConnection, MockModbusUnit, ReadEvent, WriteEvent
 
 from custom_components.modbus_solar.adapters.outbound.modbus_gateway import ModbusGateway
-from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable
+from custom_components.modbus_solar.domain.control import WriteSpec
+from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable, EncodeError
 from custom_components.modbus_solar.domain.profile import RegisterSpec
 from custom_components.modbus_solar.domain.types import DataType, RegisterKind
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
@@ -78,3 +79,44 @@ async def test_dead_device_is_unavailable(unit: MockModbusUnit) -> None:
     unit.fail_requests(ModbusConnectionError("no route"))
     with pytest.raises(DeviceUnavailable):
         await ModbusGateway(unit, ONEPLAY).read(SPECS)
+
+
+GRID_POWER = WriteSpec(address=1000, prefix=(26, 0x0A))
+
+
+async def test_write_is_one_fc16_request(unit: MockModbusUnit) -> None:
+    events: list[WriteEvent] = []
+    unit.on_write(events.append)
+    await ModbusGateway(unit, ONEPLAY).write(GRID_POWER, 3000)
+    # AAA0030IMB03_N pág. 19: 01 10 03 E8 00 03 06 00 1A 00 0A 0B B8
+    assert events == [WriteEvent("holding", 1000, [26, 10, 3000], 0x10)]
+
+
+async def test_write_negative_value_is_twos_complement(unit: MockModbusUnit) -> None:
+    await ModbusGateway(unit, ONEPLAY).write(GRID_POWER, -1)
+    assert [unit.holding[1000 + i] for i in range(3)] == [26, 10, 0xFFFF]
+
+
+async def test_value_that_does_not_encode_sends_nothing(unit: MockModbusUnit) -> None:
+    events: list[WriteEvent] = []
+    unit.on_write(events.append)
+    with pytest.raises(EncodeError):
+        await ModbusGateway(unit, ONEPLAY).write(GRID_POWER, 40000)
+    assert events == []
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (ModbusConnectionError("refused"), DeviceUnavailable),
+        (ModbusTimeoutError("timeout"), DeviceUnavailable),
+        (ModbusProtocolError("bad frame"), DeviceProtocolError),
+        (ModbusExceptionError(2), DeviceProtocolError),
+    ],
+)
+async def test_translates_modbus_errors_on_write(
+    unit: MockModbusUnit, error: Exception, expected: type[Exception]
+) -> None:
+    unit.fail_write(1000, error)
+    with pytest.raises(expected):
+        await ModbusGateway(unit, ONEPLAY).write(GRID_POWER, 3000)
