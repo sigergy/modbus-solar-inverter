@@ -30,6 +30,7 @@ class TierCoordinator(DataUpdateCoordinator[TierResult]):
         gateway: DeviceGateway,
         profile: DeviceProfile,
         keys: Iterable[str],
+        always_update: bool = False,
     ) -> None:
         super().__init__(
             hass,
@@ -37,8 +38,9 @@ class TierCoordinator(DataUpdateCoordinator[TierResult]):
             config_entry=entry,
             name=name,
             update_interval=timedelta(seconds=interval_s),
-            # HA solo escribe estado si el TierResult cambia
-            always_update=False,
+            # HA solo escribe estado si el TierResult cambia; los tiers con fuentes de
+            # energía avisan en cada lectura para que la integral avance con potencia constante
+            always_update=always_update,
         )
         self.tier = tier
         self.keys = frozenset(keys)
