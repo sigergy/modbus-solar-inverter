@@ -89,8 +89,10 @@ el perfil, y la usa para el control del vertido del INGECON SUN STORAGE 1Play TL
 
 - `ModbusUnit.write_registers(address: int, values: list[int]) -> None` es FC16
   (`modbus_connection/_protocol.py:18`).
-- El mock de pruebas implementa `write_registers`, registra un `WriteEvent("holding", address, values,
-  0x10)` y admite `fail_write` (`modbus_connection/mock.py:152`, `:271-277`).
+- El mock de pruebas implementa `write_registers`: guarda los valores en `holding`, dispara
+  `WriteEvent("holding", address, values, 0x10)` a los callbacks de `on_write` y admite `fail_write`
+  (`modbus_connection/mock.py:140`, `:152`, `:271-277`). No guarda una lista de escrituras: los tests
+  la montan con `unit.on_write(events.append)`.
 - El espaciado entre peticiones lo aplica `Pacer.paced` con un `asyncio.Lock` por conexión
   (`modbus_connection/_pacing.py`). Una escritura espera detrás de las lecturas en curso, así que no se
   mezclan tramas. Un ciclo de lectura largo retrasa la escritura unos segundos.
@@ -133,13 +135,15 @@ class GatedLimitSpec:
     default: float            # límite inicial si no hay valor restaurado
     off_value: float = 0.0    # valor que se escribe al apagar el switch
     device_class: str | None = None
+    enabled_default: bool = True   # number y switch; lo lee ModbusSolarEntity como en EntitySpec
 ```
 
 - `DeviceProfile` gana `controls: tuple[GatedLimitSpec, ...] = ()`, junto a `energies`
   (`domain/profile.py:48`).
 - `WriteSpec` solo admite `dtype` de 16 bits en esta spec. `validate_profile` lo comprueba.
-- `Platform` (`domain/types.py:61-62`) gana `NUMBER = "number"` y `SWITCH = "switch"`. `Role` gana
-  `EXPORT_LIMIT = "export_limit"` y `EXPORT_ENABLED = "export_enabled"`.
+- `Role` (`domain/types.py:143`) gana `EXPORT_LIMIT = "export_limit"` y `EXPORT_ENABLED =
+  "export_enabled"`. `Platform` (`domain/types.py:171-172`) no cambia: la usa `EntitySpec.platform` y los
+  controles no son `EntitySpec`; number y switch salen de `controls`, no de un valor de `Platform`.
 
 ### 3.2 Codificación (`domain/encode.py`, nuevo)
 
@@ -147,7 +151,8 @@ class GatedLimitSpec:
 (`domain/decode.py:10-34`):
 
 - `raw = round(value / scale)`.
-- Comprueba que `raw` cabe en el tipo (S16: -32768…32767); si no, lanza `EncodeError(DecodeError)`.
+- Comprueba que `raw` cabe en el tipo (S16: -32768…32767; U16: 0…65535); si no, lanza `EncodeError`. Un
+  valor no finito (`nan`, `inf`) también lanza `EncodeError`.
 - Un valor negativo pasa a complemento a dos de 16 bits (`raw + 0x10000`).
 - Devuelve `spec.prefix + (palabra,)`.
 
@@ -208,7 +213,8 @@ class DeviceWriter(Protocol):
 ```
 
 Separado de `DeviceGateway` (segregación de interfaces: el poller y el config flow solo leen). Los
-errores son los de dominio (`domain/errors.py`); `EncodeError` se define aquí también.
+errores son los de dominio (`domain/errors.py`). `EncodeError` es una excepción de dominio nueva,
+independiente de `DecodeError` (leer y escribir no comparten manejo).
 
 ### 4.2 Casos de uso (`application/control.py`, nuevo)
 
@@ -266,7 +272,8 @@ Un parámetro nuevo (p. ej. SOC mínimo, CMD 26 dato 6) es: un dataclass de cont
   (`base.py:90-93`). Se asocian al coordinador del tier de `profile.probe_key`: si el equipo no
   responde a las lecturas, no se ofrece escribir.
 - Number: `native_min_value`, `native_max_value`, `native_step`, `native_unit_of_measurement`,
-  modo `box`. Switch sin `device_class`.
+  modo `box`. Switch sin `device_class` y con `assumed_state = True`: el equipo no permite leer el
+  ajuste, así que HA muestra lo último que escribió y no lo que hay (§2.3).
 - `unique_id`: `{entry_id}_{key}` (`runtime.py:30-32`), con las claves `export_limit` y
   `export_enabled`.
 
@@ -310,7 +317,8 @@ Solo en CI (ADR 0007, memoria `tests-ci-only`).
   - Una escritura fallida lanza `HomeAssistantError` y el estado no cambia.
   - Restauración tras recargar la entry: valores recuperados y ningún `WriteEvent`.
   - Disponibilidad: `unavailable` antes de la primera lectura y si el equipo cae.
-  - Una escritura mientras corre una lectura no solapa tramas.
+- **Sin test propio:** que una escritura no solape tramas con una lectura. Lo garantiza el `Pacer` de
+  `modbus_connection` (§2.2) y el mock no lo reproduce. Se comprueba en la VM.
 
 ## 7. Documentación
 
