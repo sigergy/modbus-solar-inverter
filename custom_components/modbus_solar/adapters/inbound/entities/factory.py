@@ -7,6 +7,7 @@ from ....domain.types import Platform
 from ..coordinator import TierCoordinator
 from ..runtime import DeviceRuntime
 from .base import ModbusSolarEntity
+from .energy import ModbusSolarEnergySensor
 
 
 class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
@@ -30,9 +31,15 @@ class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
         return self.coordinator.data.values.get(self._spec.key)
 
 
-def build_sensors(runtime: DeviceRuntime, brand_device_id: str) -> list[ModbusSolarSensor]:
-    return [
+def build_sensors(runtime: DeviceRuntime, brand_device_id: str) -> list[SensorEntity]:
+    sensors: list[SensorEntity] = [
         ModbusSolarSensor(runtime.coordinators[spec.poll], runtime, spec, brand_device_id)
         for spec in runtime.profile.entities
         if spec.platform is Platform.SENSOR
     ]
+    by_key = {spec.key: spec for spec in runtime.profile.entities}
+    for energy in runtime.profile.energies:
+        # validate_profile garantiza que todas las fuentes van en el mismo tier
+        coordinator = runtime.coordinators[by_key[energy.sources[0]].poll]
+        sensors.append(ModbusSolarEnergySensor(coordinator, runtime, energy, brand_device_id))
+    return sensors
