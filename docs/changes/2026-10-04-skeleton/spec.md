@@ -204,16 +204,20 @@ spec: `INVERTER_STATE` (`inverter_state`), `AC_POWER` (`active_power`) y
 `ENERGY_PRODUCED_TOTAL` (`total_energy`). Cada spec posterior añade los suyos.
 
 `validate_profile` comprueba: claves únicas, `probe_key` presente entre las claves del
-perfil, rangos de registro sin solaparse, `enum` solo con `device_class == "enum"`,
-`scale != 0`, tamaño de `dtype` coherente con `word_order`.
+perfil, rangos de registro sin solaparse, `enum` si y solo si `device_class == "enum"`
+(HA exige `options` en un sensor `enum`), `scale != 0`, tamaño de `dtype` coherente con
+`word_order` (un tipo de 16 bits solo admite `big`).
 
 ### 3.4 Puerto
 
 ```python
 class DeviceGateway(Protocol):
-    async def read(self, specs: Sequence[RegisterSpec]) -> Mapping[int, tuple[int, ...]]:
-        """Palabras crudas por dirección. Lanza DeviceUnavailable o DeviceProtocolError."""
+    async def read(self, specs: Sequence[RegisterSpec]) -> Mapping[RegisterSpec, tuple[int, ...]]:
+        """Palabras crudas por registro. Lanza DeviceUnavailable o DeviceProtocolError."""
 ```
+
+La clave es el `RegisterSpec` (congelado, hashable) y no la dirección: un registro
+`holding` y uno `input` pueden compartir dirección.
 
 ### 3.5 Aplicación
 
