@@ -37,4 +37,4 @@ Detalle: [docs/features/device-setup.md](docs/features/device-setup.md) y
 
 ## Licencia
 
-[PolyForm Noncommercial License 1.0.0](LICENSE)
+[GNU AGPL-3.0](LICENSE)

@@ -20,4 +20,4 @@ El tag debe llevar el prefijo `v` y coincidir exactamente con la versión del ma
 
 Betas: versión PEP 440 con sufijo (`0.1.0b1`, `0.1.0rc1`) y tag igual (`v0.1.0b1`). `release.yml` las publica como prerelease si el tag lleva letras. En HACS solo aparecen con «Mostrar versiones beta» activado en el repositorio.
 
-El workflow `validate` (hassfest y HACS) corre en cada push y pull request (`.github/workflows/validate.yml:3-6`). El check `license` de HACS se ignora porque PolyForm Noncommercial no es una licencia OSI ([ADR 0008](../decisions/0008-license-polyform-noncommercial.md)).
+El workflow `validate` (hassfest y HACS) corre en cada push y pull request (`.github/workflows/validate.yml:3-6`). La licencia es AGPL-3.0 ([ADR 0008](../decisions/0008-license-agpl-3.md)).
