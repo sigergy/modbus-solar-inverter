@@ -1,5 +1,10 @@
 """Fixtures de los tests con hass."""
 
+from collections.abc import AsyncIterator, Generator
+from contextlib import asynccontextmanager
+from typing import Any
+from unittest.mock import MagicMock, patch
+
 import pytest
 from modbus_connection.mock import MockModbusConnection, MockModbusUnit
 
@@ -15,3 +20,15 @@ def ingeteam_unit() -> MockModbusUnit:
     unit = MockModbusConnection().for_unit(1)
     unit.holding.update({0x101D: 3, 0x1021: [0, 50000], 0x1037: [0, 12345]})
     return unit
+
+
+@pytest.fixture
+def temp_unit(ingeteam_unit: MockModbusUnit) -> Generator[MagicMock]:
+    """Sustituye la unit temporal del config flow por ingeteam_unit."""
+
+    @asynccontextmanager
+    async def fake(hass: Any, params: Any, unit_id: int) -> AsyncIterator[MockModbusUnit]:
+        yield ingeteam_unit
+
+    with patch("custom_components.modbus_solar.config_flow.async_get_temporary_unit", side_effect=fake) as mock:
+        yield mock
