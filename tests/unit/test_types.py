@@ -33,7 +33,7 @@ def test_data_type_words_and_sign() -> None:
 
 def test_enum_values_are_stable() -> None:
     # se guardan en config entries y en diagnostics: cambiarlos rompe instalaciones
-    assert [t.value for t in PollTier] == ["fast", "normal", "slow"]
+    assert [t.value for t in PollTier] == ["instant", "fast", "normal", "slow"]
     assert [k.value for k in RegisterKind] == ["holding", "input"]
     assert [w.value for w in WordOrder] == ["big", "little"]
     assert [p.value for p in Platform] == ["sensor"]

@@ -146,6 +146,7 @@ async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> N
     entry.add_to_hass(hass)
     runtime = build_runtime(hass, entry, ONEPLAY_STORAGE, FakeGateway({}), FakeWriter(), set())
     assert {tier: c.always_update for tier, c in runtime.coordinators.items()} == {
+        PollTier.INSTANT: True,
         PollTier.FAST: True,
         PollTier.NORMAL: False,
         PollTier.SLOW: False,

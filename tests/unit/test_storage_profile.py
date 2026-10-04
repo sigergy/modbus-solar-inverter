@@ -102,8 +102,8 @@ def test_all_registers_are_input() -> None:
         ("battery_voltage", 17, DataType.U16, 0.1, "V", PollTier.NORMAL),
         ("battery_power", 19, DataType.S16, 1.0, "W", PollTier.FAST),
         ("battery_temperature", 27, DataType.S16, 0.1, "°C", PollTier.SLOW),
-        ("grid_frequency", 70, DataType.U16, 0.1, "Hz", PollTier.NORMAL),
-        ("grid_power", 71, DataType.S16, 1.0, "W", PollTier.FAST),
+        ("grid_frequency", 70, DataType.U16, 0.1, "Hz", PollTier.INSTANT),
+        ("grid_power", 71, DataType.S16, 1.0, "W", PollTier.INSTANT),
         ("load_power", 78, DataType.U16, 1.0, "W", PollTier.FAST),
         ("operation_time", 6, DataType.U32, 1.0, "h", PollTier.SLOW),
         ("power_factor", 39, DataType.S16, 0.001, None, PollTier.SLOW),
@@ -177,9 +177,9 @@ def test_no_block_over_ten_registers(tier: PollTier) -> None:
         assert block.count <= 10
 
 
-@pytest.mark.parametrize(("tier", "expected"), [(PollTier.FAST, 3.0), (PollTier.NORMAL, 3.0)])
+@pytest.mark.parametrize(("tier", "expected"), [(PollTier.FAST, 3.0), (PollTier.NORMAL, 2.0)])
 def test_tiers_fit_default_intervals(tier: PollTier, expected: float) -> None:
-    # fast: bloques 15-20, 33-37 y 71-78; normal: 17-26, 31-35 y 69-70 (spec §3.1)
+    # fast: bloques 15-20, 33-37 y 78; normal: 17-26 y 31-35 (spec §3.1)
     assert min_tier_interval(ONEPLAY_STORAGE, tier) == expected
     assert min_tier_interval(ONEPLAY_STORAGE, PollTier.INSTANT) == 1.0
 
