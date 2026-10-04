@@ -1,5 +1,7 @@
 """read_tier y min_tier_interval sobre un DeviceGateway falso."""
 
+from dataclasses import replace
+
 import pytest
 
 from custom_components.modbus_solar.application.poller import TierResult, min_tier_interval, read_tier
@@ -59,3 +61,8 @@ def test_fake_gateway_satisfies_port() -> None:
 def test_min_tier_interval_for_ingeteam(tier: PollTier, expected: float) -> None:
     # fast: 0x101D y 0x1037 no son contiguos -> 2 bloques x 1.0 s
     assert min_tier_interval(ONEPLAY_STORAGE, tier) == expected
+
+
+def test_min_tier_interval_uses_profile_max_gap() -> None:
+    # 0x101D y 0x1037 quedan a 25 registros: con max_gap=25 se leen en un bloque
+    assert min_tier_interval(replace(ONEPLAY_STORAGE, max_gap=25), PollTier.FAST) == 1.0

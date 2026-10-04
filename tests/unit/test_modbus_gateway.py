@@ -1,5 +1,7 @@
 """ModbusGateway sobre el mock en memoria de modbus_connection."""
 
+from dataclasses import replace
+
 import pytest
 from modbus_connection import ModbusConnectionError, ModbusExceptionError, ModbusProtocolError, ModbusTimeoutError
 from modbus_connection.mock import MockModbusConnection, MockModbusUnit, ReadEvent
@@ -46,7 +48,7 @@ async def test_contiguous_registers_in_one_request(unit: MockModbusUnit) -> None
 
 async def test_max_gap_reads_through_gaps(unit: MockModbusUnit) -> None:
     specs = [RegisterSpec(address=10, dtype=DataType.U16), RegisterSpec(address=13, dtype=DataType.U16)]
-    await ModbusGateway(unit, ONEPLAY_STORAGE, max_gap=2).read(specs)
+    await ModbusGateway(unit, replace(ONEPLAY_STORAGE, max_gap=2)).read(specs)
     assert unit.read_events == [ReadEvent("holding", 10, 4)]
 
 
