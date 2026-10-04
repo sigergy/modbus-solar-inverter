@@ -199,9 +199,10 @@ class DeviceProfile:
 ```
 
 `Role` es el significado semántico de la entidad, independiente de la marca; lo usará el
-frontend (spec 4) para encontrar entidades sin depender del `entity_id`. Valores en esta
-spec: `INVERTER_STATE` (`inverter_state`), `AC_POWER` (`active_power`) y
-`ENERGY_PRODUCED_TOTAL` (`total_energy`). Cada spec posterior añade los suyos.
+frontend (spec 4) para encontrar entidades sin depender del `entity_id`. Miembros en esta
+spec, con la clave de la entidad Ingeteam que los lleva entre paréntesis: `INVERTER_STATE`
+(`inverter_state`), `AC_POWER` (`active_power`) y `ENERGY_PRODUCED_TOTAL` (`total_energy`).
+El valor de cada miembro es su nombre en minúsculas (`ac_power`). Cada spec posterior añade los suyos.
 
 `validate_profile` comprueba: claves únicas, `probe_key` presente entre las claves del
 perfil, rangos de registro sin solaparse, `enum` si y solo si `device_class == "enum"`
