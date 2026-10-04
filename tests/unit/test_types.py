@@ -3,6 +3,7 @@
 import dataclasses
 
 import pytest
+
 from custom_components.modbus_solar.domain.errors import (
     DecodeError,
     DeviceProtocolError,
