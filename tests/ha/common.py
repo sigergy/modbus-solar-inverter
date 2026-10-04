@@ -18,31 +18,24 @@ DEVICE_DATA: dict[str, Any] = {
     "profile": "ingeteam.oneplay",
     "intervals": {"fast": 5, "normal": 60, "slow": 3600},
 }
-DEVICE = (DEVICE_ID, "Inverter", DEVICE_DATA)
 
 
-def brand_entry(*devices: tuple[str, str, dict[str, Any]]) -> MockConfigEntry:
-    """Entry de marca Ingeteam con una subentry `device` por tupla (subentry_id, title, data)."""
+def device_entry(
+    data: dict[str, Any] = DEVICE_DATA, entry_id: str = DEVICE_ID, title: str = "Inverter"
+) -> MockConfigEntry:
+    """Entry v2 de un inversor."""
     return MockConfigEntry(
         domain=DOMAIN,
-        title="Ingeteam",
-        data={"brand": "ingeteam"},
-        unique_id="ingeteam",
-        subentries_data=[
-            {
-                "subentry_id": subentry_id,
-                "subentry_type": "device",
-                "title": title,
-                "unique_id": f"{data['host']}:{data['port']}:{data['unit_id']}",
-                "data": data,
-            }
-            for subentry_id, title, data in devices
-        ],
+        version=2,
+        entry_id=entry_id,
+        title=title,
+        data=dict(data),
+        unique_id=f"{data['host']}:{data['port']}:{data['unit_id']}",
     )
 
 
-def entity_id_of(hass: HomeAssistant, key: str, subentry_id: str = DEVICE_ID) -> str | None:
-    return er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{subentry_id}_{key}")
+def entity_id_of(hass: HomeAssistant, key: str, entry_id: str = DEVICE_ID) -> str | None:
+    return er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{entry_id}_{key}")
 
 
 def state_of(hass: HomeAssistant, key: str) -> State | None:

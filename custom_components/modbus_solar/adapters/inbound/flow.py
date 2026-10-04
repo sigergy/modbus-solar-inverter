@@ -1,31 +1,33 @@
-"""Config flow de marca y subentry flow de equipo. Catálogo y gateway los inyecta config_flow.py."""
+"""Config flow: una entry por inversor. Catálogo y gateway los inyecta config_flow.py."""
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from typing import Any, ClassVar
 
 import voluptuous as vol
-from homeassistant.config_entries import (
-    ConfigEntry,
-    ConfigFlow,
-    ConfigFlowResult,
-    ConfigSubentryFlow,
-    SubentryFlowResult,
-)
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import section
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
+from homeassistant.helpers.translation import async_get_translations
 
 from ...application.catalog import Catalog
-from ...application.poller import min_tier_interval
+from ...application.poller import TierResult, min_tier_interval
 from ...application.probe import probe_device
 from ...const import (
     BRAND_TITLES,
-    CONF_BRAND,
     CONF_INTERVALS,
     CONF_PROFILE,
     CONF_UNIT_ID,
     DEFAULT_INTERVALS,
-    SUBENTRY_DEVICE,
+    DOMAIN,
 )
 from ...domain.errors import DecodeError, DeviceProtocolError, DeviceUnavailable, EndpointInUse
 from ...domain.profile import DeviceProfile
@@ -41,85 +43,120 @@ PORT = vol.All(vol.Coerce(int), vol.Range(min=1, max=65535))
 UNIT_ID = vol.All(vol.Coerce(int), vol.Range(min=1, max=247))
 INTERVAL = vol.All(vol.Coerce(int), vol.Range(min=1))
 
+CONF_ADVANCED = "advanced"
+# segundos máximos de la sonda: un equipo que no contesta no deja el formulario cargando
+PROBE_TIMEOUT_S = 20
+
 
 def device_unique_id(host: str, port: int, unit_id: int) -> str:
     return f"{host.lower()}:{port}:{unit_id}"
 
 
-class BrandFlow(ConfigFlow):
-    """Una entry por marca, sin datos de conexión: los equipos son subentries."""
-
-    VERSION = 1
-    catalog: ClassVar[Catalog]
-    device_flow: ClassVar[type[ConfigSubentryFlow]]
-
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        if user_input is not None:
-            brand = user_input[CONF_BRAND]
-            await self.async_set_unique_id(brand)
-            self._abort_if_unique_id_configured()
-            return self.async_create_entry(title=BRAND_TITLES[brand], data={CONF_BRAND: brand})
-        brands = {brand: BRAND_TITLES[brand] for brand in self.catalog.brands()}
-        schema = vol.Schema({vol.Required(CONF_BRAND): vol.In(brands)})
-        return self.async_show_form(step_id="user", data_schema=schema)
-
-    @classmethod
-    @callback
-    def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
-        return {SUBENTRY_DEVICE: cls.device_flow}
+def format_readings(profile: DeviceProfile, result: TierResult, translations: Mapping[str, str]) -> str:
+    """Lista markdown de las lecturas de la sonda, con nombres y estados traducidos."""
+    prefix = f"component.{DOMAIN}.entity.sensor"
+    lines: list[str] = []
+    for spec in profile.entities:
+        if spec.key not in result.values:
+            continue
+        value = result.values[spec.key]
+        if value is None:
+            text = "—"
+        elif spec.enum is not None:
+            text = translations.get(f"{prefix}.{spec.key}.state.{value}", str(value))
+        else:
+            text = f"{value} {spec.unit}" if spec.unit else str(value)
+        lines.append(f"- {translations.get(f'{prefix}.{spec.key}.name', spec.key)}: {text}")
+    return "\n".join(lines)
 
 
-class DeviceSubentryFlow(ConfigSubentryFlow):
-    """Alta de un equipo: valida la conexión leyendo la entidad probe_key del perfil."""
+class DeviceConfigFlow(ConfigFlow):
+    """Alta de un inversor: modelo, conexión validada con una lectura real y nombre."""
 
+    VERSION = 2
     catalog: ClassVar[Catalog]
     gateway_factory: ClassVar[GatewayFactory]
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        entry = self._get_entry()
-        profiles = self.catalog.for_brand(entry.data[CONF_BRAND])
+    _profile: DeviceProfile
+    _connection: dict[str, Any]
+    _readings: str
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            self._profile = self.catalog.get(user_input[CONF_PROFILE])
+            return await self.async_step_connection()
+        options = [
+            SelectOptionDict(value=p.id, label=f"{BRAND_TITLES[p.brand]} · {', '.join(p.models)}")
+            for brand in self.catalog.brands()
+            for p in self.catalog.for_brand(brand)
+        ]
+        selector = SelectSelector(SelectSelectorConfig(options=options, mode=SelectSelectorMode.LIST))
+        return self.async_show_form(step_id="user", data_schema=vol.Schema({vol.Required(CONF_PROFILE): selector}))
+
+    async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        profile = self._profile
         errors: dict[str, str] = {}
         if user_input is not None:
-            host, port, unit_id = user_input[CONF_HOST], user_input[CONF_PORT], user_input[CONF_UNIT_ID]
-            profile = self.catalog.get(user_input[CONF_PROFILE])
-            unique_id = device_unique_id(host, port, unit_id)
+            host = user_input[CONF_HOST]
+            port = user_input[CONF_ADVANCED][CONF_PORT]
+            unit_id = user_input[CONF_ADVANCED][CONF_UNIT_ID]
             # el duplicado se detecta antes de abrir conexión
-            if self._unique_id_taken(entry, unique_id):
-                return self.async_abort(reason="already_configured")
-            error = await self._probe(host, port, unit_id, profile)
-            if error is None:
-                return self.async_create_entry(
-                    title=user_input[CONF_NAME],
-                    unique_id=unique_id,
-                    data={
-                        CONF_HOST: host,
-                        CONF_PORT: port,
-                        CONF_UNIT_ID: unit_id,
-                        CONF_PROFILE: profile.id,
-                        CONF_INTERVALS: dict(DEFAULT_INTERVALS),
-                    },
-                )
-            errors["base"] = error
-        default = profiles[0]
+            await self.async_set_unique_id(device_unique_id(host, port, unit_id))
+            self._abort_if_unique_id_configured()
+            try:
+                result = await self._probe(host, port, unit_id, profile)
+            except EndpointInUse:
+                errors["base"] = "endpoint_in_use"
+            except DeviceUnavailable, TimeoutError:
+                errors["base"] = "cannot_connect"
+            except DeviceProtocolError, DecodeError:
+                errors["base"] = "invalid_response"
+            else:
+                self._connection = {CONF_HOST: host, CONF_PORT: port, CONF_UNIT_ID: unit_id}
+                translations = await async_get_translations(self.hass, self.hass.config.language, "entity", {DOMAIN})
+                self._readings = format_readings(profile, result, translations)
+                return await self.async_step_confirm()
         schema = vol.Schema(
             {
-                vol.Required(CONF_NAME): str,
                 vol.Required(CONF_HOST): str,
-                vol.Required(CONF_PORT, default=default.default_port): PORT,
-                vol.Required(CONF_UNIT_ID, default=default.default_unit_id): UNIT_ID,
-                vol.Required(CONF_PROFILE, default=default.id): vol.In({p.id: ", ".join(p.models) for p in profiles}),
+                vol.Required(CONF_ADVANCED): section(
+                    vol.Schema(
+                        {
+                            vol.Required(CONF_PORT, default=profile.default_port): PORT,
+                            vol.Required(CONF_UNIT_ID, default=profile.default_unit_id): UNIT_ID,
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
             }
         )
         return self.async_show_form(
-            step_id="user",
-            data_schema=self.add_suggested_values_to_schema(schema, user_input or {}),
+            step_id="connection",
+            data_schema=self.add_suggested_values_to_schema(schema, user_input),
             errors=errors,
         )
 
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        entry = self._get_entry()
-        subentry = self._get_reconfigure_subentry()
-        profile = self.catalog.get(subentry.data[CONF_PROFILE])
+    async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        profile = self._profile
+        if user_input is not None:
+            return self.async_create_entry(
+                title=user_input[CONF_NAME],
+                data={
+                    **self._connection,
+                    CONF_PROFILE: profile.id,
+                    CONF_INTERVALS: dict(DEFAULT_INTERVALS),
+                },
+            )
+        default_name = f"{BRAND_TITLES[profile.brand]} {profile.models[0]}"
+        return self.async_show_form(
+            step_id="confirm",
+            data_schema=vol.Schema({vol.Required(CONF_NAME, default=default_name): str}),
+            description_placeholders={CONF_HOST: self._connection[CONF_HOST], "readings": self._readings},
+        )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        profile = self.catalog.get(entry.data[CONF_PROFILE])
         errors: dict[str, str] = {}
         if user_input is not None:
             # cada tier tiene que caber en su intervalo con el espaciado entre peticiones
@@ -128,12 +165,14 @@ class DeviceSubentryFlow(ConfigSubentryFlow):
                     errors[tier.value] = "interval_too_short"
             if not errors:
                 host, port = user_input[CONF_HOST], user_input[CONF_PORT]
-                unique_id = device_unique_id(host, port, subentry.data[CONF_UNIT_ID])
-                if self._unique_id_taken(entry, unique_id, exclude=subentry.subentry_id):
+                unique_id = device_unique_id(host, port, entry.data[CONF_UNIT_ID])
+                if any(
+                    e.unique_id == unique_id and e.entry_id != entry.entry_id for e in self._async_current_entries()
+                ):
                     return self.async_abort(reason="already_configured")
-                return self.async_update_and_abort(
+                # actualiza la entry y la recarga: abre la conexión con el endpoint nuevo
+                return self.async_update_reload_and_abort(
                     entry,
-                    subentry,
                     unique_id=unique_id,
                     data_updates={
                         CONF_HOST: host,
@@ -142,10 +181,10 @@ class DeviceSubentryFlow(ConfigSubentryFlow):
                     },
                 )
         current = {
-            CONF_HOST: subentry.data[CONF_HOST],
-            CONF_PORT: subentry.data[CONF_PORT],
+            CONF_HOST: entry.data[CONF_HOST],
+            CONF_PORT: entry.data[CONF_PORT],
             **DEFAULT_INTERVALS,
-            **subentry.data.get(CONF_INTERVALS, {}),
+            **entry.data.get(CONF_INTERVALS, {}),
         }
         schema = vol.Schema(
             {
@@ -160,19 +199,7 @@ class DeviceSubentryFlow(ConfigSubentryFlow):
             errors=errors,
         )
 
-    @staticmethod
-    def _unique_id_taken(entry: ConfigEntry, unique_id: str, exclude: str | None = None) -> bool:
-        return any(s.unique_id == unique_id and s.subentry_id != exclude for s in entry.subentries.values())
-
-    async def _probe(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> str | None:
-        """Clave del error del formulario, o None si el equipo responde bien."""
-        try:
+    async def _probe(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> TierResult:
+        async with asyncio.timeout(PROBE_TIMEOUT_S):
             async with self.gateway_factory(self.hass, host, port, unit_id, profile) as gateway:
-                await probe_device(gateway, profile)
-        except EndpointInUse:
-            return "endpoint_in_use"
-        except DeviceUnavailable:
-            return "cannot_connect"
-        except DeviceProtocolError, DecodeError:
-            return "invalid_response"
-        return None
+                return await probe_device(gateway, profile)

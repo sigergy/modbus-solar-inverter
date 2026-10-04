@@ -15,9 +15,9 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.modbus_solar.const import DOMAIN
-from tests.ha.common import DEVICE_DATA, DEVICE_ID, brand_entry, entity_id_of, setup_entry, state_of
+from tests.ha.common import DEVICE_DATA, DEVICE_ID, device_entry, entity_id_of, setup_entry, state_of
 
-STORAGE = (DEVICE_ID, "Inverter", {**DEVICE_DATA, "profile": "ingeteam.oneplay_storage"})
+STORAGE = {**DEVICE_DATA, "profile": "ingeteam.oneplay_storage"}
 
 
 async def advance(hass: HomeAssistant, freezer: FrozenDateTimeFactory, seconds: float) -> None:
@@ -32,7 +32,7 @@ def kwh(hass: HomeAssistant, key: str) -> float:
 
 
 async def test_core_entities_and_disabled_extra(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
-    await setup_entry(hass, brand_entry(STORAGE))
+    await setup_entry(hass, device_entry(STORAGE))
     assert state_of(hass, "inverter_state").state == "on_grid"
     assert float(state_of(hass, "grid_power").state) == -300
     registry = er.async_get(hass)
@@ -46,7 +46,7 @@ async def test_core_entities_and_disabled_extra(hass: HomeAssistant, patch_stora
 async def test_energy_grows_between_reads(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, patch_storage_unit: MagicMock
 ) -> None:
-    await setup_entry(hass, brand_entry(STORAGE))
+    await setup_entry(hass, device_entry(STORAGE))
     assert kwh(hass, "solar_energy") == 0
     await advance(hass, freezer, 6)
     # 3000 W durante 6 s
@@ -60,7 +60,7 @@ async def test_energy_grows_between_reads(
 async def test_read_failure_adds_no_energy(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, patch_storage_unit: MagicMock, storage_unit: MockModbusUnit
 ) -> None:
-    await setup_entry(hass, brand_entry(STORAGE))
+    await setup_entry(hass, device_entry(STORAGE))
     storage_unit.fail_requests(ModbusConnectionError("no route"))
     await advance(hass, freezer, 6)
     storage_unit.fail_requests(None)
@@ -74,7 +74,7 @@ async def test_read_failure_adds_no_energy(
 async def test_energy_survives_reload(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, patch_storage_unit: MagicMock
 ) -> None:
-    entry = brand_entry(STORAGE)
+    entry = device_entry(STORAGE)
     await setup_entry(hass, entry)
     await advance(hass, freezer, 6)
     assert await hass.config_entries.async_reload(entry.entry_id)
@@ -94,7 +94,7 @@ async def test_energy_restored_after_restart(hass: HomeAssistant, patch_storage_
             )
         ],
     )
-    await setup_entry(hass, brand_entry(STORAGE))
+    await setup_entry(hass, device_entry(STORAGE))
     assert entity_id_of(hass, "solar_energy") == "sensor.inverter_solar_energy"
     assert kwh(hass, "solar_energy") == 1.5
 
@@ -102,7 +102,7 @@ async def test_energy_restored_after_restart(hass: HomeAssistant, patch_storage_
 async def test_energy_counts_with_power_sensor_disabled(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, patch_storage_unit: MagicMock
 ) -> None:
-    entry = brand_entry(STORAGE)
+    entry = device_entry(STORAGE)
     entry.add_to_hass(hass)
     for key in ("pv1_power", "pv2_power"):
         er.async_get(hass).async_get_or_create(
@@ -110,7 +110,6 @@ async def test_energy_counts_with_power_sensor_disabled(
             DOMAIN,
             f"{DEVICE_ID}_{key}",
             config_entry=entry,
-            config_subentry_id=DEVICE_ID,
             disabled_by=er.RegistryEntryDisabler.USER,
         )
     assert await hass.config_entries.async_setup(entry.entry_id)

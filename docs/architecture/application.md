@@ -35,16 +35,19 @@ Errores:
 
 ## `min_tier_interval` (`poller.py:46-49`)
 
-`min_tier_interval(profile, tier) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(registros, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s` (`poller.py:49`): agrupa igual que el gateway. No lanza errores propios. Lo usa el reconfigure para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:127`).
+`min_tier_interval(profile, tier) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(registros, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s` (`poller.py:49`): agrupa igual que el gateway. No lanza errores propios. Lo usa el reconfigure para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:164`).
 
-## `probe_device` (`probe.py:8-12`)
+## `probe_device` (`probe.py:10-17`)
 
-`async probe_device(gateway, profile) -> None`: lee la entidad `profile.probe_key` con el gateway y la decodifica. No devuelve valor: sirve para validar que el equipo responde.
+`async probe_device(gateway, profile) -> TierResult`: valida que el equipo responde y devuelve lecturas para el paso de confirmación del config flow.
+
+1. Lee la entidad `profile.probe_key` con el gateway y la decodifica (`probe.py:11-14`).
+2. Lee el tier `fast` con `read_tier`, limitado a las entidades `enabled_default`, y devuelve su `TierResult` (`probe.py:16-17`).
 
 Errores:
 
-- `DeviceUnavailable` y `DeviceProtocolError` se propagan desde `gateway.read` (`probe.py:10`).
-- `DecodeError` se propaga si el valor no es válido, por ejemplo fuera del `enum` (`probe.py:11-12`).
-- Si `probe_key` no existe en el perfil, el `next(...)` sin valor por defecto falla sin gestionar (`probe.py:9`). `validate_profile` lo detecta antes (`custom_components/modbus_solar/domain/validate.py:22-23`).
+- `DeviceUnavailable` y `DeviceProtocolError` se propagan desde `gateway.read`, en los dos pasos (`probe.py:12`, `:17`).
+- `DecodeError` se propaga si el valor no es válido, por ejemplo fuera del `enum` (`probe.py:13-14`). En el paso 2, como en `read_tier`, un `DecodeError` queda en `decode_errors` y el valor en `None`.
+- Si `probe_key` no existe en el perfil, el `next(...)` sin valor por defecto falla sin gestionar (`probe.py:11`). `validate_profile` lo detecta antes (`custom_components/modbus_solar/domain/validate.py:22-23`).
 
 El config flow traduce estos errores a claves de formulario (ver [inbound](adapters/inbound.md)).

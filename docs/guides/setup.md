@@ -34,9 +34,8 @@ Si una lectura falla por la conexión, se traduce a `DeviceUnavailable` (`custom
 
 No hay reintento agresivo: se reintenta en el siguiente tick del tier (spec §5, `docs/changes/2026-10-04-skeleton/spec.md:353-355`). Cuando la lectura vuelve a funcionar, el equipo se recupera solo. Los dos perfiles Ingeteam espacian las peticiones 1 s, como recomienda Ingeteam (`custom_components/modbus_solar/profiles/ingeteam/oneplay.py:11-12`, `custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:95-96`).
 
-## Cambio de perfil en equipos ya configurados
+## Entries de versiones anteriores
 
-Hasta la versión `0.1.0b1`, el id `ingeteam.oneplay_storage` leía el mapa del 1Play sin storage (`ACL2010IMB05`). Ahora lee el del STORAGE 1Play TL M (`ABH2010IMB08`). Un equipo ya configurado con ese id pasa al mapa nuevo sin migrar la subentry.
+Hasta `0.1.0b2` había una entry por marca con un subentry por equipo. Ahora hay una entry por inversor (ADR [0010](../decisions/0010-entry-per-device.md)). Una entry antigua queda en «Migration error»: se borra y se añade cada inversor de nuevo. Detalle: [device-setup](../features/device-setup.md#entries-de-la-versión-1).
 
-- `inverter_state` y `active_power` conservan clave y `unique_id`. Cambian su registro y las opciones del enum.
-- `total_energy` ya no existe en el perfil. Su entidad queda huérfana en el entity registry: HA la marca como que la integración ya no la proporciona. Se borra a mano desde la UI. Sus estadísticas no pasan a `solar_energy`.
+Las entidades nuevas tienen otro `unique_id`, basado en el `entry_id` (`custom_components/modbus_solar/adapters/inbound/runtime.py:30-32`): los históricos de las antiguas no pasan a las nuevas.

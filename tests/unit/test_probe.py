@@ -1,4 +1,6 @@
-"""Sonda del config flow: lee y decodifica la entidad probe_key."""
+"""Sonda del config flow: valida probe_key y devuelve las lecturas del tier fast."""
+
+from dataclasses import replace
 
 import pytest
 
@@ -8,10 +10,21 @@ from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
 from tests.fakes import INGETEAM_WORDS, FakeGateway
 
 
-async def test_reads_only_the_probe_register() -> None:
+async def test_reads_probe_register_then_fast_tier() -> None:
     gateway = FakeGateway(INGETEAM_WORDS)
     await probe_device(gateway, ONEPLAY)
-    assert [[spec.address for spec in call] for call in gateway.calls] == [[0x101D]]
+    assert [[spec.address for spec in call] for call in gateway.calls] == [[0x101D], [0x101D, 0x1037]]
+
+
+async def test_returns_fast_readings() -> None:
+    result = await probe_device(FakeGateway(INGETEAM_WORDS), ONEPLAY)
+    assert result.values == {"inverter_state": "grid_connected", "active_power": 1234.5}
+
+
+async def test_entities_disabled_by_default_are_not_read() -> None:
+    entities = tuple(replace(e, enabled_default=e.key != "active_power") for e in ONEPLAY.entities)
+    result = await probe_device(FakeGateway(INGETEAM_WORDS), replace(ONEPLAY, entities=entities))
+    assert result.values == {"inverter_state": "grid_connected"}
 
 
 async def test_value_outside_enum_raises_decode_error() -> None:

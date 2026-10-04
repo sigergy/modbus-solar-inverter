@@ -26,6 +26,6 @@ Contrato (`device.py:11`):
 ## Consumidores
 
 - `read_tier` (`custom_components/modbus_solar/application/poller.py:21-26`).
-- `probe_device` (`custom_components/modbus_solar/application/probe.py:8`).
+- `probe_device` (`custom_components/modbus_solar/application/probe.py:10`).
 - `TierCoordinator` y `DeviceRuntime` lo guardan sin conocer la implementación (`custom_components/modbus_solar/adapters/inbound/coordinator.py:30`, `custom_components/modbus_solar/adapters/inbound/runtime.py:23`).
-- `DeviceSubentryFlow` lo recibe a través de `gateway_factory` (`custom_components/modbus_solar/adapters/inbound/flow.py:36-38`).
+- `DeviceConfigFlow` lo recibe a través de `gateway_factory` (`custom_components/modbus_solar/adapters/inbound/flow.py:37-40`, `:202-205`).

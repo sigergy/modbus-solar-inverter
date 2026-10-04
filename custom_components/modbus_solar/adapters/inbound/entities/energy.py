@@ -17,10 +17,8 @@ class ModbusSolarEnergySensor(ModbusSolarEntity, RestoreSensor):
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 3
 
-    def __init__(
-        self, coordinator: TierCoordinator, runtime: DeviceRuntime, spec: EnergySpec, brand_device_id: str
-    ) -> None:
-        super().__init__(coordinator, runtime, spec, brand_device_id)
+    def __init__(self, coordinator: TierCoordinator, runtime: DeviceRuntime, spec: EnergySpec) -> None:
+        super().__init__(coordinator, runtime, spec)
         self._energy = spec
         # tres intervalos sin muestra = hueco que no se integra
         self._max_gap_s = 3 * runtime.intervals[coordinator.tier]

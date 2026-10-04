@@ -16,13 +16,13 @@ from custom_components.modbus_solar.domain.types import PollTier
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
 from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
 from tests.fakes import INGETEAM_WORDS, FakeGateway
-from tests.ha.common import DEVICE, DEVICE_ID, brand_entry
+from tests.ha.common import DEVICE_ID, device_entry
 
 ALL_KEYS = frozenset({"inverter_state", "active_power", "total_energy"})
 
 
 def make_coordinator(hass: HomeAssistant, gateway: FakeGateway) -> TierCoordinator:
-    entry = brand_entry(DEVICE)
+    entry = device_entry()
     entry.add_to_hass(hass)
     return TierCoordinator(
         hass,
@@ -78,7 +78,7 @@ async def test_decode_warning_once_per_key_until_recovery(
 
 
 async def test_enabled_keys_follow_entity_registry(hass: HomeAssistant) -> None:
-    entry = brand_entry(DEVICE)
+    entry = device_entry()
     entry.add_to_hass(hass)
     registry = er.async_get(hass)
     # sin entidades registradas: manda enabled_default del perfil
@@ -88,7 +88,6 @@ async def test_enabled_keys_follow_entity_registry(hass: HomeAssistant) -> None:
         DOMAIN,
         f"{DEVICE_ID}_active_power",
         config_entry=entry,
-        config_subentry_id=DEVICE_ID,
         disabled_by=er.RegistryEntryDisabler.USER,
     )
     assert enabled_keys(registry, DEVICE_ID, ONEPLAY) == ALL_KEYS - {"active_power"}
@@ -101,11 +100,11 @@ async def test_enabled_keys_respect_enabled_default(hass: HomeAssistant) -> None
 
 
 async def test_build_runtime_one_coordinator_per_tier_with_entities(hass: HomeAssistant) -> None:
-    entry = brand_entry(DEVICE)
+    entry = device_entry()
     entry.add_to_hass(hass)
     gateway = FakeGateway(INGETEAM_WORDS)
-    runtime = build_runtime(hass, entry, entry.subentries[DEVICE_ID], ONEPLAY, gateway, ALL_KEYS)
-    assert (runtime.subentry_id, runtime.title, runtime.profile.id) == (DEVICE_ID, "Inverter", ONEPLAY.id)
+    runtime = build_runtime(hass, entry, ONEPLAY, gateway, ALL_KEYS)
+    assert (runtime.entry_id, runtime.title, runtime.profile.id) == (DEVICE_ID, "Inverter", ONEPLAY.id)
     assert runtime.intervals == {"fast": 5, "normal": 60, "slow": 3600}
     assert runtime.gateway is gateway
     # el perfil Ingeteam no tiene entidades slow
@@ -116,7 +115,7 @@ async def test_build_runtime_one_coordinator_per_tier_with_entities(hass: HomeAs
 
 
 async def test_energy_sources_are_read_with_power_sensor_disabled(hass: HomeAssistant) -> None:
-    entry = brand_entry(DEVICE)
+    entry = device_entry()
     entry.add_to_hass(hass)
     registry = er.async_get(hass)
     registry.async_get_or_create(
@@ -124,7 +123,6 @@ async def test_energy_sources_are_read_with_power_sensor_disabled(hass: HomeAssi
         DOMAIN,
         f"{DEVICE_ID}_pv1_power",
         config_entry=entry,
-        config_subentry_id=DEVICE_ID,
         disabled_by=er.RegistryEntryDisabler.USER,
     )
     # solar_energy sigue activa: necesita pv1_power aunque su sensor esté deshabilitado
@@ -134,16 +132,15 @@ async def test_energy_sources_are_read_with_power_sensor_disabled(hass: HomeAssi
         DOMAIN,
         f"{DEVICE_ID}_solar_energy",
         config_entry=entry,
-        config_subentry_id=DEVICE_ID,
         disabled_by=er.RegistryEntryDisabler.USER,
     )
     assert "pv1_power" not in enabled_keys(registry, DEVICE_ID, ONEPLAY_STORAGE)
 
 
 async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> None:
-    entry = brand_entry(DEVICE)
+    entry = device_entry()
     entry.add_to_hass(hass)
-    runtime = build_runtime(hass, entry, entry.subentries[DEVICE_ID], ONEPLAY_STORAGE, FakeGateway({}), set())
+    runtime = build_runtime(hass, entry, ONEPLAY_STORAGE, FakeGateway({}), set())
     assert {tier: c.always_update for tier, c in runtime.coordinators.items()} == {
         PollTier.FAST: True,
         PollTier.NORMAL: False,
