@@ -36,6 +36,21 @@ class Role(StrEnum):
     INVERTER_STATE = "inverter_state"
     AC_POWER = "ac_power"
     ENERGY_PRODUCED_TOTAL = "energy_produced_total"
+    PV_VOLTAGE = "pv_voltage"
+    PV_CURRENT = "pv_current"
+    PV_POWER = "pv_power"
+    BATTERY_VOLTAGE = "battery_voltage"
+    BATTERY_CURRENT = "battery_current"
+    BATTERY_POWER = "battery_power"
+    BATTERY_SOC = "battery_soc"
+    BATTERY_SOH = "battery_soh"
+    BATTERY_STATE = "battery_state"
+    BATTERY_TEMPERATURE = "battery_temperature"
+    GRID_VOLTAGE = "grid_voltage"
+    GRID_FREQUENCY = "grid_frequency"
+    GRID_POWER = "grid_power"
+    LOAD_POWER = "load_power"
+    DIAGNOSTIC = "diagnostic"  # entidades extra sin significado común entre marcas
 
 
 class Platform(StrEnum):

@@ -60,7 +60,18 @@
         "state": {
           "factory_default": "Factory default",
           "grid_disconnected": "Disconnected from grid",
-          "grid_connected": "Connected to grid"
+          "grid_connected": "Connected to grid",
+          "stopped": "Stopped",
+          "starting": "Starting",
+          "off_grid": "Off-grid",
+          "on_grid": "On-grid",
+          "on_grid_battery_standby": "On-grid, battery standby",
+          "waiting_to_connect": "Waiting to connect to grid",
+          "critical_loads_bypassed": "Critical loads bypassed to grid",
+          "emergency_charge_pv": "Emergency charge from PV",
+          "emergency_charge_grid": "Emergency charge from grid",
+          "locked_waiting_reset": "Locked, waiting for reset",
+          "error": "Error"
         }
       },
       "active_power": {
@@ -68,6 +79,133 @@
       },
       "total_energy": {
         "name": "Total energy"
+      },
+      "pv1_voltage": {
+        "name": "PV1 voltage"
+      },
+      "pv1_current": {
+        "name": "PV1 current"
+      },
+      "pv1_power": {
+        "name": "PV1 power"
+      },
+      "pv2_voltage": {
+        "name": "PV2 voltage"
+      },
+      "pv2_current": {
+        "name": "PV2 current"
+      },
+      "pv2_power": {
+        "name": "PV2 power"
+      },
+      "battery_voltage": {
+        "name": "Battery voltage"
+      },
+      "battery_current": {
+        "name": "Battery current"
+      },
+      "battery_power": {
+        "name": "Battery power"
+      },
+      "battery_soc": {
+        "name": "Battery state of charge"
+      },
+      "battery_soh": {
+        "name": "Battery state of health"
+      },
+      "battery_state": {
+        "name": "Battery state",
+        "state": {
+          "standby": "Standby",
+          "discharging": "Discharging",
+          "charging_constant_current": "Constant current charging",
+          "charging_constant_voltage": "Constant voltage charging",
+          "floating": "Floating",
+          "equalizing": "Equalizing",
+          "bms_communication_error": "BMS communication error",
+          "not_configured": "Not configured",
+          "calibration_step_1": "Capacity calibration, step 1",
+          "calibration_step_2": "Capacity calibration, step 2",
+          "standby_manual": "Manual standby"
+        }
+      },
+      "battery_temperature": {
+        "name": "Battery temperature"
+      },
+      "grid_voltage": {
+        "name": "Grid voltage"
+      },
+      "grid_frequency": {
+        "name": "Grid frequency"
+      },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "load_power": {
+        "name": "Load power"
+      },
+      "operation_time": {
+        "name": "Operation time"
+      },
+      "battery_discharge_limit_reason": {
+        "name": "Battery discharge limit reason"
+      },
+      "battery_charge_limit_reason": {
+        "name": "Battery charge limit reason"
+      },
+      "reactive_power": {
+        "name": "Reactive power"
+      },
+      "power_factor": {
+        "name": "Power factor"
+      },
+      "power_reduction_ratio": {
+        "name": "Power reduction ratio"
+      },
+      "power_reduction_reason": {
+        "name": "Power reduction reason"
+      },
+      "critical_load_voltage": {
+        "name": "Critical loads voltage"
+      },
+      "critical_load_current": {
+        "name": "Critical loads current"
+      },
+      "critical_load_frequency": {
+        "name": "Critical loads frequency"
+      },
+      "critical_load_power": {
+        "name": "Critical loads power"
+      },
+      "internal_meter_voltage": {
+        "name": "Internal meter voltage"
+      },
+      "internal_meter_current": {
+        "name": "Internal meter current"
+      },
+      "internal_meter_frequency": {
+        "name": "Internal meter frequency"
+      },
+      "internal_meter_power": {
+        "name": "Internal meter power"
+      },
+      "dc_bus_voltage": {
+        "name": "DC bus voltage"
+      },
+      "inverter_temperature": {
+        "name": "Inverter temperature"
+      },
+      "isolation_positive": {
+        "name": "Positive isolation resistance"
+      },
+      "isolation_negative": {
+        "name": "Negative isolation resistance"
+      },
+      "external_pv_power": {
+        "name": "External PV power"
+      },
+      "ev_charger_power": {
+        "name": "EV charger power"
       }
     }
   }
