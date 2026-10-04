@@ -32,6 +32,10 @@ def test_manifest_uses_core_modbus() -> None:
     assert manifest["requirements"] == []
 
 
+def test_manifest_one_device_per_entry() -> None:
+    assert load_manifest()["integration_type"] == "device"
+
+
 def test_hacs_json() -> None:
     hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
     assert hacs == {

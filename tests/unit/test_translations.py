@@ -44,10 +44,11 @@ def test_every_entity_and_enum_state_is_translated() -> None:
         assert set(sensors[key]["state"]) == values, key
 
 
-def test_flow_errors_and_aborts_are_translated() -> None:
+def test_flow_steps_errors_and_aborts_are_translated() -> None:
     strings = load("strings.json")
-    device = strings["config_subentries"]["device"]
-    assert set(device["error"]) == {"cannot_connect", "endpoint_in_use", "invalid_response", "interval_too_short"}
-    assert set(device["abort"]) == {"already_configured", "reconfigure_successful"}
-    assert set(device["step"]) == {"user", "reconfigure"}
-    assert set(strings["config"]["abort"]) == {"already_configured"}
+    config = strings["config"]
+    assert set(config["step"]) == {"user", "connection", "confirm", "reconfigure"}
+    assert set(config["step"]["connection"]["sections"]) == {"advanced"}
+    assert set(config["error"]) == {"cannot_connect", "endpoint_in_use", "invalid_response", "interval_too_short"}
+    assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
+    assert "config_subentries" not in strings
