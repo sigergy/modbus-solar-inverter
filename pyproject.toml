@@ -1,0 +1,57 @@
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+# ruff 0.16 formatea también los bloques de código de los .md: los docs no se tocan
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+# Se ejecuta desde custom_components/ (namespace package sin __init__.py): ver spec §3.2
+[tool.importlinter]
+root_package = "modbus_solar"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Hexagonal layers"
+type = "layers"
+layers = [
+    "modbus_solar.adapters",
+    "modbus_solar.application",
+    "modbus_solar.ports",
+    "modbus_solar.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Core does not import Home Assistant or Modbus"
+type = "forbidden"
+source_modules = [
+    "modbus_solar.domain",
+    "modbus_solar.ports",
+    "modbus_solar.application",
+    "modbus_solar.profiles",
+]
+forbidden_modules = ["homeassistant", "modbus_connection"]
+
+[[tool.importlinter.contracts]]
+name = "Profiles only import domain"
+type = "forbidden"
+source_modules = ["modbus_solar.profiles"]
+forbidden_modules = ["modbus_solar.ports", "modbus_solar.application", "modbus_solar.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "Core does not know concrete profiles"
+type = "forbidden"
+source_modules = ["modbus_solar.domain", "modbus_solar.ports", "modbus_solar.application"]
+forbidden_modules = ["modbus_solar.profiles"]
+
+[[tool.importlinter.contracts]]
+name = "Inbound and outbound adapters are independent"
+type = "independence"
+modules = ["modbus_solar.adapters.inbound", "modbus_solar.adapters.outbound"]

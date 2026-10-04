@@ -1,0 +1,1 @@
+"""Domain: solo stdlib."""
