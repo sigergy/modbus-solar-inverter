@@ -11,9 +11,9 @@ from .base import ModbusSolarEntity
 
 class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
     def __init__(
-        self, coordinator: TierCoordinator, runtime: DeviceRuntime, spec: EntitySpec, brand_entry_id: str
+        self, coordinator: TierCoordinator, runtime: DeviceRuntime, spec: EntitySpec, brand_device_id: str
     ) -> None:
-        super().__init__(coordinator, runtime, spec, brand_entry_id)
+        super().__init__(coordinator, runtime, spec, brand_device_id)
         # domain guarda cadenas; aquí se convierten a los enums de HA
         if spec.device_class is not None:
             self._attr_device_class = SensorDeviceClass(spec.device_class)
@@ -30,9 +30,9 @@ class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
         return self.coordinator.data.values.get(self._spec.key)
 
 
-def build_sensors(runtime: DeviceRuntime, brand_entry_id: str) -> list[ModbusSolarSensor]:
+def build_sensors(runtime: DeviceRuntime, brand_device_id: str) -> list[ModbusSolarSensor]:
     return [
-        ModbusSolarSensor(runtime.coordinators[spec.poll], runtime, spec, brand_entry_id)
+        ModbusSolarSensor(runtime.coordinators[spec.poll], runtime, spec, brand_device_id)
         for spec in runtime.profile.entities
         if spec.platform is Platform.SENSOR
     ]
