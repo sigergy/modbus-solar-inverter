@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from .energy import EnergySpec
 from .types import DataType, Platform, PollTier, RegisterKind, Role, WordOrder
 
 
@@ -44,3 +45,4 @@ class DeviceProfile:
     default_unit_id: int
     probe_key: str  # entidad que lee el config flow para validar el equipo
     entities: tuple[EntitySpec, ...]
+    energies: tuple[EnergySpec, ...] = ()  # contadores calculados por la integración

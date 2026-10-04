@@ -206,6 +206,21 @@
       },
       "ev_charger_power": {
         "name": "EV charger power"
+      },
+      "solar_energy": {
+        "name": "Solar energy"
+      },
+      "grid_import_energy": {
+        "name": "Grid import energy"
+      },
+      "grid_export_energy": {
+        "name": "Grid export energy"
+      },
+      "battery_charge_energy": {
+        "name": "Battery charge energy"
+      },
+      "battery_discharge_energy": {
+        "name": "Battery discharge energy"
       }
     }
   }

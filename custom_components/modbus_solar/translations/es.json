@@ -206,6 +206,21 @@
       },
       "ev_charger_power": {
         "name": "Potencia del cargador VE"
+      },
+      "solar_energy": {
+        "name": "Energía solar"
+      },
+      "grid_import_energy": {
+        "name": "Energía importada de red"
+      },
+      "grid_export_energy": {
+        "name": "Energía exportada a red"
+      },
+      "battery_charge_energy": {
+        "name": "Energía de carga de la batería"
+      },
+      "battery_discharge_energy": {
+        "name": "Energía de descarga de la batería"
       }
     }
   }

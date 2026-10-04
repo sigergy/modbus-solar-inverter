@@ -1,5 +1,6 @@
 """INGECON SUN STORAGE 1Play TL M. Fuente: PDF ABH2010IMB08 (docs/wiki/brands/ingeteam/storage-1-play-tl-m/)."""
 
+from ...domain.energy import EnergySpec, SignFilter
 from ...domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from ...domain.types import DataType, Platform, PollTier, RegisterKind, Role
 
@@ -210,5 +211,33 @@ ONEPLAY_STORAGE = DeviceProfile(
         _extra("isolation_negative", _input(30061), unit="kΩ"),
         _extra("external_pv_power", _input(30080), device_class="power", unit="W"),
         _extra("ev_charger_power", _input(30081, DataType.S16), device_class="power", unit="W"),
+    ),
+    # el mapa no trae contadores: la integración integra la potencia (spec §4).
+    # Signos supuestos (spec §3.5): grid_power > 0 importa de red; battery_power > 0 descarga
+    energies=(
+        EnergySpec(
+            key="solar_energy",
+            role=Role.ENERGY_SOLAR,
+            sources=("pv1_power", "pv2_power"),
+            sign=SignFilter.POSITIVE,
+        ),
+        EnergySpec(
+            key="grid_import_energy", role=Role.ENERGY_GRID_IMPORT, sources=("grid_power",), sign=SignFilter.POSITIVE
+        ),
+        EnergySpec(
+            key="grid_export_energy", role=Role.ENERGY_GRID_EXPORT, sources=("grid_power",), sign=SignFilter.NEGATIVE
+        ),
+        EnergySpec(
+            key="battery_charge_energy",
+            role=Role.ENERGY_BATTERY_CHARGE,
+            sources=("battery_power",),
+            sign=SignFilter.NEGATIVE,
+        ),
+        EnergySpec(
+            key="battery_discharge_energy",
+            role=Role.ENERGY_BATTERY_DISCHARGE,
+            sources=("battery_power",),
+            sign=SignFilter.POSITIVE,
+        ),
     ),
 )
