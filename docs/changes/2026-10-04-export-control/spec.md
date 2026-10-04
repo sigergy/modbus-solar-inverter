@@ -2,7 +2,7 @@
 type: feature
 area: control
 layers: [domain, ports, application, adapters, profiles]
-status: draft
+status: done
 date: 2026-10-04
 ---
 

@@ -13,11 +13,11 @@ Los dos van en el catálogo (`profiles/__init__.py:7`).
 
 ## Sensores del STORAGE 1Play TL M
 
-Todos son input registers. Dirección = registro − 30001 (`profiles/ingeteam/oneplay_storage.py:38-40`).
+Todos son input registers. Dirección = registro − 30001 (`profiles/ingeteam/oneplay_storage.py:39-41`).
 
 ### Núcleo (activos)
 
-Definidos en `profiles/ingeteam/oneplay_storage.py:104-183`. Potencia, tensión, corriente, frecuencia y temperatura llevan `state_class=measurement`.
+Definidos en `profiles/ingeteam/oneplay_storage.py:111-190`. Potencia, tensión, corriente, frecuencia y temperatura llevan `state_class=measurement`.
 
 | Clave | Registro | Tipo | Escala | Unidad | Tier |
 |---|---|---|---|---|---|
@@ -42,12 +42,12 @@ La red se lee del vatímetro externo (30070-30073).
 
 Estados:
 
-- `inverter_state` (Nota 2): `stopped`, `starting`, `off_grid`, `on_grid`, `on_grid_battery_standby`, `waiting_to_connect`, `critical_loads_bypassed`, `emergency_charge_pv`, `emergency_charge_grid`, `locked_waiting_reset`, `error` (`profiles/ingeteam/oneplay_storage.py:8-20`).
-- `battery_state` (Nota 3): `standby`, `discharging`, `charging_constant_current`, `charging_constant_voltage`, `floating`, `equalizing`, `bms_communication_error`, `not_configured`, `calibration_step_1`, `calibration_step_2`, `standby_manual` (`profiles/ingeteam/oneplay_storage.py:23-35`).
+- `inverter_state` (Nota 2): `stopped`, `starting`, `off_grid`, `on_grid`, `on_grid_battery_standby`, `waiting_to_connect`, `critical_loads_bypassed`, `emergency_charge_pv`, `emergency_charge_grid`, `locked_waiting_reset`, `error` (`profiles/ingeteam/oneplay_storage.py:9-21`).
+- `battery_state` (Nota 3): `standby`, `discharging`, `charging_constant_current`, `charging_constant_voltage`, `floating`, `equalizing`, `bms_communication_error`, `not_configured`, `calibration_step_1`, `calibration_step_2`, `standby_manual` (`profiles/ingeteam/oneplay_storage.py:24-36`).
 
 ### Extra (deshabilitadas por defecto)
 
-Definidas en `profiles/ingeteam/oneplay_storage.py:184-213`. Todas en el tier `slow`, con `entity_category=diagnostic` y rol `diagnostic` (`profiles/ingeteam/oneplay_storage.py:67-87`). Se activan desde la UI de HA.
+Definidas en `profiles/ingeteam/oneplay_storage.py:191-220`. Todas en el tier `slow`, con `entity_category=diagnostic` y rol `diagnostic` (`profiles/ingeteam/oneplay_storage.py:74-94`). Se activan desde la UI de HA.
 
 `operation_time`, `battery_discharge_limit_reason`, `battery_charge_limit_reason`, `reactive_power`, `power_factor`, `power_reduction_ratio`, `power_reduction_reason`, `critical_load_voltage`, `critical_load_current`, `critical_load_frequency`, `critical_load_power`, `internal_meter_voltage`, `internal_meter_current`, `internal_meter_frequency`, `internal_meter_power`, `dc_bus_voltage`, `inverter_temperature`, `isolation_positive`, `isolation_negative`, `external_pv_power`, `ev_charger_power`.
 
@@ -55,7 +55,7 @@ Los motivos de las Notas 7 y 9 (`*_limit_reason`, `power_reduction_reason`) sale
 
 ### Energía calculada
 
-`ABH2010IMB08` no trae contadores de energía. La integración integra la potencia (`profiles/ingeteam/oneplay_storage.py:215-242`). Decisión: [ADR 0009](../decisions/0009-computed-energy.md).
+`ABH2010IMB08` no trae contadores de energía. La integración integra la potencia (`profiles/ingeteam/oneplay_storage.py:222-249`). Decisión: [ADR 0009](../decisions/0009-computed-energy.md).
 
 | Clave | Fuentes | Cuenta |
 |---|---|---|
@@ -69,10 +69,10 @@ Los motivos de las Notas 7 y 9 (`*_limit_reason`, `power_reduction_reason`) sale
 - Regla del trapecio sobre la suma de las fuentes, ya filtrada por signo (`domain/energy.py:38-50`).
 - No se integra: un tramo con una lectura fallida o una fuente sin valor (`adapters/inbound/entities/energy.py:45-53`), ni un tramo de más de 3 intervalos del tier (`adapters/inbound/entities/energy.py:26`).
 - Tras reiniciar o recargar, siguen desde el último total guardado. Lo que pasa con HA apagado no se cuenta (`adapters/inbound/entities/energy.py:29-35`).
-- Las fuentes se leen aunque su sensor de potencia esté deshabilitado (`adapters/inbound/runtime.py:44-54`).
+- Las fuentes se leen aunque su sensor de potencia esté deshabilitado (`adapters/inbound/runtime.py:47-57`).
 - `solar_energy` integra la potencia DC de los MPPT, antes de las pérdidas del inversor.
 
-**Signos supuestos.** El PDF no documenta el signo de `grid_power` ni de `battery_power`. Se asume `grid_power` > 0 = importación y `battery_power` > 0 = descarga (`profiles/ingeteam/oneplay_storage.py:216`). Se verifica en la VM con diagnostics. Si el equipo dice otra cosa, se invierte el `sign` de las energías afectadas en el perfil.
+**Signos supuestos.** El PDF no documenta el signo de `grid_power` ni de `battery_power`. Se asume `grid_power` > 0 = importación y `battery_power` > 0 = descarga (`profiles/ingeteam/oneplay_storage.py:223`). Se verifica en la VM con diagnostics. Si el equipo dice otra cosa, se invierte el `sign` de las energías afectadas en el perfil.
 
 Las escalas del PDF tampoco están verificadas en equipo, sobre todo `[A x100]`, `[Hz x10]` y `[V x 10]`.
 
@@ -96,7 +96,7 @@ La escala `[X x 10]` y el orden de palabras de los registros de 32 bits siguen s
 
 - Cada tier lee todos sus registros o falla entero. Si la lectura falla (`DeviceUnavailable` o `DeviceProtocolError`), el coordinator lanza `UpdateFailed` y las entidades del tier pasan a `unavailable` (`adapters/inbound/coordinator.py:56-60`).
 - Vuelven en la siguiente lectura correcta, sin intervención. El log de pérdida (`error`) y de recuperación (`info`) lo emite `DataUpdateCoordinator`, una vez por cambio de estado y no en cada tick (`adapters/inbound/coordinator.py:59`).
-- Un equipo caído al arrancar no bloquea la entry: no se lanza `ConfigEntryNotReady` y el primer refresh va en segundo plano (`__init__.py:34-36`). Las entidades nacen `unavailable` hasta su primera lectura correcta (`adapters/inbound/entities/base.py:34-37`).
+- Un equipo caído al arrancar no bloquea la entry: no se lanza `ConfigEntryNotReady` y el primer refresh va en segundo plano (`__init__.py:35-37`). Las entidades nacen `unavailable` hasta su primera lectura correcta (`adapters/inbound/entities/base.py:43-46`).
 - Un segundo cliente Modbus (por ejemplo, el EMS) va contra la recomendación de Ingeteam y su efecto no está verificado. Ver [setup](../guides/setup.md).
 
 ## Valor fuera del enum

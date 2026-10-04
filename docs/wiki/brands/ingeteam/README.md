@@ -20,3 +20,4 @@ Solo PDF oficiales y públicos de Ingeteam (ADR 0006).
 - Tablas de registros extraídas:
   - 1Play/3Play sin storage: [1-play-tl-m/registers.md](1-play-tl-m/registers.md);
   - STORAGE 1Play TL M: [storage-1-play-tl-m/registers.md](storage-1-play-tl-m/registers.md).
+- Vertido a red del STORAGE 1Play TL M: CMD 26, dato `0x0A` «Grid power» de `AAA0030IMB03_N` (págs. 7, 19-20). La potencia contratada («Hired Grid Power», `ABH2014IQM01` pág. 54) no tiene comando ni registro Modbus documentado.
