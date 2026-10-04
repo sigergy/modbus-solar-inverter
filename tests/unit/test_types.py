@@ -36,7 +36,31 @@ def test_enum_values_are_stable() -> None:
     assert [k.value for k in RegisterKind] == ["holding", "input"]
     assert [w.value for w in WordOrder] == ["big", "little"]
     assert [p.value for p in Platform] == ["sensor"]
-    assert [r.value for r in Role] == ["inverter_state", "ac_power", "energy_produced_total"]
+    assert [r.value for r in Role] == [
+        "inverter_state",
+        "ac_power",
+        "energy_produced_total",
+        "pv_voltage",
+        "pv_current",
+        "pv_power",
+        "battery_voltage",
+        "battery_current",
+        "battery_power",
+        "battery_soc",
+        "battery_soh",
+        "battery_state",
+        "battery_temperature",
+        "grid_voltage",
+        "grid_frequency",
+        "grid_power",
+        "load_power",
+        "diagnostic",
+        "energy_solar",
+        "energy_grid_import",
+        "energy_grid_export",
+        "energy_battery_charge",
+        "energy_battery_discharge",
+    ]
 
 
 def test_register_spec_defaults() -> None:

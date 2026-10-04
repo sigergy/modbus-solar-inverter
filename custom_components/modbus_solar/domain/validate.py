@@ -22,6 +22,21 @@ def validate_profile(profile: DeviceProfile) -> list[str]:
     if profile.probe_key not in seen:
         problems.append(f"probe_key missing: {profile.probe_key}")
 
+    by_key = {spec.key: spec for spec in profile.entities}
+    for energy in profile.energies:
+        if energy.key in seen:
+            problems.append(f"duplicate key: {energy.key}")
+        seen.add(energy.key)
+        sources = [by_key.get(key) for key in energy.sources]
+        for key, source in zip(energy.sources, sources, strict=True):
+            if source is None:
+                problems.append(f"{energy.key}: unknown source {key}")
+            elif source.device_class != "power":
+                problems.append(f"{energy.key}: source {key} is not power")
+        # el sensor de energía se suscribe a un solo coordinator
+        if len({source.poll for source in sources if source is not None}) > 1:
+            problems.append(f"{energy.key}: sources in different tiers")
+
     for a, b in combinations(profile.entities, 2):
         if _overlaps(a.register, b.register):
             problems.append(f"overlap: {a.key} and {b.key}")

@@ -17,9 +17,9 @@ from ...domain.types import RegisterKind
 
 
 class ModbusGateway:
-    def __init__(self, unit: ModbusUnit, profile: DeviceProfile, max_gap: int = 0) -> None:
+    def __init__(self, unit: ModbusUnit, profile: DeviceProfile) -> None:
         self._unit = unit
-        self._max_gap = max_gap
+        self._max_gap = profile.max_gap
         self._max_count = profile.max_block_registers
         # la librería espacia las peticiones de esta unit dentro de la conexión compartida
         unit.set_message_spacing(profile.min_request_interval_s)

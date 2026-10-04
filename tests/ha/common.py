@@ -15,7 +15,7 @@ DEVICE_DATA: dict[str, Any] = {
     "host": "192.168.1.50",
     "port": 502,
     "unit_id": 1,
-    "profile": "ingeteam.oneplay_storage",
+    "profile": "ingeteam.oneplay",
     "intervals": {"fast": 5, "normal": 60, "slow": 3600},
 }
 DEVICE = (DEVICE_ID, "Inverter", DEVICE_DATA)

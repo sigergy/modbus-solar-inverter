@@ -17,3 +17,4 @@ Flujo: `research/` → `decisions/` → `changes/` → al cerrar, `features/`, `
 | Cambio | Estado |
 |---|---|
 | [2026-10-04-skeleton](changes/2026-10-04-skeleton/spec.md) | cerrado |
+| [2026-10-04-storage-profile](changes/2026-10-04-storage-profile/spec.md) | cerrado |

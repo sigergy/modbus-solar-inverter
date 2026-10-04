@@ -43,7 +43,7 @@ async def read_tier(
     return TierResult(values=values, raw=raw, decode_errors=errors)
 
 
-def min_tier_interval(profile: DeviceProfile, tier: PollTier, max_gap: int = 0) -> float:
+def min_tier_interval(profile: DeviceProfile, tier: PollTier) -> float:
     """Segundos mínimos para leer el tier entero respetando el espaciado entre peticiones."""
     registers = [e.register for e in profile.entities if e.poll is tier]
-    return len(plan_blocks(registers, max_gap, profile.max_block_registers)) * profile.min_request_interval_s
+    return len(plan_blocks(registers, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s

@@ -39,3 +39,22 @@ def patch_unit(ingeteam_unit: MockModbusUnit) -> Generator[MagicMock]:
     """Sustituye la unit compartida del setup por ingeteam_unit."""
     with patch("custom_components.modbus_solar.async_get_unit", return_value=ingeteam_unit) as mock:
         yield mock
+
+
+# palabras crudas del STORAGE por dirección (registro - 30001); el mock devuelve 0 en el resto
+STORAGE_INPUT = {15: 3, 19: 500, 20: 80, 33: 2000, 36: 1000, 37: 2500, 71: 0x10000 - 300, 78: 2200}
+
+
+@pytest.fixture
+def storage_unit() -> MockModbusUnit:
+    # on_grid; batería descarga 500 W; FV 2000 + 1000 W; red exporta 300 W
+    unit = MockModbusConnection().for_unit(1)
+    unit.input.update(STORAGE_INPUT)
+    return unit
+
+
+@pytest.fixture
+def patch_storage_unit(storage_unit: MockModbusUnit) -> Generator[MagicMock]:
+    """Sustituye la unit compartida del setup por storage_unit."""
+    with patch("custom_components.modbus_solar.async_get_unit", return_value=storage_unit) as mock:
+        yield mock

@@ -31,11 +31,17 @@ def test_es_has_the_same_keys() -> None:
 
 def test_every_entity_and_enum_state_is_translated() -> None:
     sensors = load("strings.json")["entity"]["sensor"]
+    options: dict[str, set[str]] = {}
     for profile in ALL_PROFILES:
         for spec in profile.entities:
             assert "name" in sensors[spec.key], spec.key
             if spec.enum is not None:
-                assert set(sensors[spec.key]["state"]) == set(spec.enum.values()), spec.key
+                options.setdefault(spec.key, set()).update(spec.enum.values())
+        for energy in profile.energies:
+            assert "name" in sensors[energy.key], energy.key
+    # la clave es translation_key en todos los perfiles: state lleva la unión de sus opciones
+    for key, values in options.items():
+        assert set(sensors[key]["state"]) == values, key
 
 
 def test_flow_errors_and_aborts_are_translated() -> None:

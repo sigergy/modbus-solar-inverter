@@ -1,4 +1,4 @@
-# 1Play Storage: input registers (ACL2010IMB05)
+# INGECON SUN 1Play/3Play: datos de monitorización (ACL2010IMB05)
 
 Extraído de `ACL2010IMB05.pdf`. Ante discrepancia, manda el PDF.
 Escala `[X x 10]` y orden de palabras de los registros de 32 bits sin verificar en equipo:

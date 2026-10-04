@@ -30,12 +30,12 @@ Perfiles por marca e id. No conoce perfiles concretos: se los inyecta la raíz (
 
 Errores:
 
-- `DeviceUnavailable` y `DeviceProtocolError` **se propagan** sin tocar: vienen del gateway (`poller.py:31`) y las gestiona el `TierCoordinator` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:54-58`).
+- `DeviceUnavailable` y `DeviceProtocolError` **se propagan** sin tocar: vienen del gateway (`poller.py:31`) y las gestiona el `TierCoordinator` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:54-60`).
 - `DecodeError` **se captura por entidad**: su valor queda en `None` y el mensaje en `decode_errors`, sin abortar el tier (`poller.py:39-42`).
 
 ## `min_tier_interval` (`poller.py:46-49`)
 
-`min_tier_interval(profile, tier, max_gap=0) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(...)) * profile.min_request_interval_s`. No lanza errores propios. Lo usa el reconfigure para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:127`).
+`min_tier_interval(profile, tier) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(registros, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s` (`poller.py:49`): agrupa igual que el gateway. No lanza errores propios. Lo usa el reconfigure para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:127`).
 
 ## `probe_device` (`probe.py:8-12`)
 
