@@ -1,0 +1,74 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose a brand",
+        "description": "One entry per brand. Add each device afterwards from the entry.",
+        "data": {
+          "brand": "Brand"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This brand is already configured."
+    }
+  },
+  "config_subentries": {
+    "device": {
+      "entry_type": "Device",
+      "initiate_flow": {
+        "user": "Add device"
+      },
+      "step": {
+        "user": {
+          "title": "Add device",
+          "data": {
+            "name": "Name",
+            "host": "Host",
+            "port": "Port",
+            "unit_id": "Unit ID",
+            "profile": "Model"
+          }
+        },
+        "reconfigure": {
+          "title": "Reconfigure device",
+          "data": {
+            "host": "Host",
+            "port": "Port",
+            "fast": "Fast poll interval (s)",
+            "normal": "Normal poll interval (s)",
+            "slow": "Slow poll interval (s)"
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "The device does not answer. Check host, port and unit ID, and that no other Modbus client is using the device.",
+        "endpoint_in_use": "This endpoint is already in use with different connection settings.",
+        "invalid_response": "The device answered with an unexpected value. Check the model and the unit ID.",
+        "interval_too_short": "Too short for this device: reading all its registers takes longer."
+      },
+      "abort": {
+        "already_configured": "This device is already configured.",
+        "reconfigure_successful": "The device was reconfigured."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "inverter_state": {
+        "name": "Inverter state",
+        "state": {
+          "factory_default": "Factory default",
+          "grid_disconnected": "Disconnected from grid",
+          "grid_connected": "Connected to grid"
+        }
+      },
+      "active_power": {
+        "name": "Active power"
+      },
+      "total_energy": {
+        "name": "Total energy"
+      }
+    }
+  }
+}
