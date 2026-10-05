@@ -20,7 +20,7 @@ from homeassistant.helpers.translation import async_get_translations
 
 from ...application.catalog import Catalog
 from ...application.poller import TierResult, min_tier_interval
-from ...application.probe import probe_device
+from ...application.probe import ProbeResult, probe_device
 from ...const import (
     BRAND_TITLES,
     CONF_INTERVALS,
@@ -114,7 +114,7 @@ class DeviceConfigFlow(ConfigFlow):
             else:
                 self._connection = {CONF_HOST: host, CONF_PORT: port, CONF_UNIT_ID: unit_id}
                 translations = await async_get_translations(self.hass, self.hass.config.language, "entity", {DOMAIN})
-                self._readings = format_readings(profile, result, translations)
+                self._readings = format_readings(profile, result.readings, translations)
                 return await self.async_step_confirm()
         schema = vol.Schema(
             {
@@ -199,7 +199,7 @@ class DeviceConfigFlow(ConfigFlow):
             errors=errors,
         )
 
-    async def _probe(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> TierResult:
+    async def _probe(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> ProbeResult:
         async with asyncio.timeout(PROBE_TIMEOUT_S):
             async with self.gateway_factory(self.hass, host, port, unit_id, profile) as gateway:
                 return await probe_device(gateway, profile)
