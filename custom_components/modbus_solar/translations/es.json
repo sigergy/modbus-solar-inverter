@@ -28,7 +28,7 @@
         "sections": {
           "advanced": {
             "name": "Opciones avanzadas",
-            "description": "Cámbialos solo si los cambiaste en el dispositivo.",
+            "description": "Cámbialas solo si las cambiaste en el dispositivo.",
             "data": {
               "port": "Puerto",
               "unit_id": "Unit ID"
@@ -57,7 +57,7 @@
         "data": {
           "name": "Nombre",
           "device_id": "Device ID",
-          "serial_number": "Número de serie"
+          "serial_number": "Número de serie (opcional)"
         },
         "data_description": {
           "name": "Así se llama el grupo de dispositivos en Home Assistant. Se puede cambiar después.",
@@ -185,7 +185,7 @@
       },
       "reconfigure_rename": {
         "title": "Renombrar entidades",
-        "description": "El ID pasa de {old_id} a {new_id}. Los dispositivos se llamarán con el ID nuevo.\n\nSe renombran: {renamed_count}\n{examples}\n\nSe mantienen: {kept_count} (tienen un entity_id personalizado).\n\nNo se renombran: {collision_count} (el entity_id nuevo ya existe).\n{collisions}\n\nRevisa las automatizaciones y tarjetas que usen los nombres viejos.",
+        "description": "El ID pasa de {old_id} a {new_id}. Los dispositivos se llamarán con el ID nuevo.\n\nSe renombran: {renamed_count}\n{examples}\n\nSe mantienen: {kept_count} (no siguen el patrón generado).\n\nNo se renombran: {collision_count} (el entity_id nuevo ya existe).\n{collisions}\n\nRevisa las automatizaciones y tarjetas que usen los nombres viejos.",
         "submit": "Confirmar"
       }
     },
