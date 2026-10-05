@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from custom_components.modbus_solar.domain.types import PollTier
+from custom_components.modbus_solar.domain.types import Component, PollTier
 from custom_components.modbus_solar.profiles import ALL_PROFILES
 
 ROOT = Path(__file__).parents[2] / "custom_components" / "modbus_solar"
@@ -124,3 +124,12 @@ def test_interval_fields_cover_every_tier() -> None:
         data = load(name)["config"]["step"]["reconfigure"]["data"]
         for tier in PollTier:
             assert tier.value in data, (name, tier)
+
+
+def test_every_device_has_numbered_variant() -> None:
+    keys = {p.device_type for p in ALL_PROFILES} | {c.value for c in Component if c is not Component.MAIN}
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        devices = load(name)["device"]
+        for key in keys:
+            assert devices[key]["name"], (name, key)
+            assert "{device_id}" in devices[f"{key}_numbered"]["name"], (name, key)

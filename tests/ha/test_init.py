@@ -99,6 +99,9 @@ async def test_entry_without_components_loads_all_optional(hass: HomeAssistant, 
 async def test_deselecting_removes_entities_and_device(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
     entry = await setup_storage_entry(hass, components=["battery"])
     registry = er.async_get(hass)
+    battery = (DOMAIN, f"{entry.entry_id}_battery")
+    # el dispositivo del componente existe mientras está elegido
+    assert any(battery in d.identifiers for d in dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id))
     assert any(
         e.unique_id.endswith("_battery_soc") for e in er.async_entries_for_config_entry(registry, entry.entry_id)
     )

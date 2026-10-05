@@ -57,9 +57,25 @@ async def tick(hass: HomeAssistant, seconds: float) -> None:
     await hass.async_block_till_done(wait_background_tasks=True)
 
 
-async def setup_storage_entry(hass: HomeAssistant, components: list[str] | None) -> MockConfigEntry:
+async def setup_storage_entry(
+    hass: HomeAssistant,
+    components: list[str] | None,
+    *,
+    device_id: int | None = None,
+    serial_number: str | None = None,
+    host: str | None = None,
+) -> MockConfigEntry:
     """Entry del STORAGE con los componentes elegidos; None = sin la clave (entry anterior a v2)."""
     data = dict(STORAGE_DATA) if components is None else {**STORAGE_DATA, "components": components}
-    entry = device_entry(data)
+    if device_id is not None:
+        data["device_id"] = device_id
+    if serial_number is not None:
+        data["serial_number"] = serial_number
+    # varias entries en un test: el host distingue unique_id y entry_id
+    entry_id = DEVICE_ID
+    if host is not None:
+        data["host"] = host
+        entry_id = f"{DEVICE_ID}_{host}"
+    entry = device_entry(data, entry_id)
     await setup_entry(hass, entry)
     return entry

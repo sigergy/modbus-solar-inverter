@@ -13,7 +13,7 @@ from custom_components.modbus_solar.diagnostics import (
     async_get_config_entry_diagnostics,
     async_get_device_diagnostics,
 )
-from tests.ha.common import DEVICE_ID, device_entry, setup_entry, tick
+from tests.ha.common import DEVICE_DATA, DEVICE_ID, device_entry, setup_entry, tick
 
 
 async def test_entry_diagnostics(hass: HomeAssistant, patch_unit: MagicMock) -> None:
@@ -36,6 +36,14 @@ async def test_entry_diagnostics(hass: HomeAssistant, patch_unit: MagicMock) -> 
     }
     assert diagnostics["entities"]["inverter_state"]["value"] == "grid_connected"
     assert "192.168.1.50" not in json.dumps(diagnostics)
+
+
+async def test_serial_number_is_redacted(hass: HomeAssistant, patch_unit: MagicMock) -> None:
+    entry = device_entry({**DEVICE_DATA, "serial_number": "AB1234"})
+    await setup_entry(hass, entry)
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["entry"]["serial_number"] == "**REDACTED**"
+    assert "AB1234" not in json.dumps(diagnostics)
 
 
 async def test_tier_error_is_reported(
