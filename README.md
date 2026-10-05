@@ -7,7 +7,7 @@ Usa la conexión compartida de la integración `modbus` del core.
 
 | Marca | Modelo | Entidades |
 |---|---|---|
-| Ingeteam | INGECON SUN STORAGE 1Play TL M | inversor, FV, batería, red y consumo; energía solar, de red y de batería calculada por la integración; switch y límite de vertido a red |
+| Ingeteam | INGECON SUN STORAGE 1Play TL M | inversor, FV, batería (con las alarmas y estados del BMS), red y consumo; energía solar, de red y de batería calculada por la integración; switch y límite de vertido a red |
 | Ingeteam | INGECON SUN 1Play TL M (sin storage) | estado del inversor, potencia activa, energía total |
 | Ingenieurbüro Mencke & Tegtmeyer | Si-RS485TC-T-MB, -2T-MB, -2T-v-MB, -T-Tm-MB (sensor de irradiancia, vía pasarela RS485 → Modbus TCP) | irradiancia, velocidad del viento, temperatura de la célula y temperatura externa |
 
@@ -25,12 +25,16 @@ Usa la conexión compartida de la integración `modbus` del core.
 ## Configuración
 
 1. Ajustes → Dispositivos y servicios → Añadir integración → «Modbus Solar».
-2. Elegir el modelo. Para un STORAGE, «Ingeteam · STORAGE 1Play TL M».
+2. Elegir la marca y el modelo. Para un STORAGE, «Ingeteam · STORAGE 1Play TL M».
 3. Escribir la IP o el nombre de host del equipo. Puerto e ID de unidad van en «Avanzado».
    La integración prueba la conexión antes de seguir.
-4. Revisar las lecturas del equipo y darle un nombre.
+4. Marcar los componentes que tiene el equipo (vatímetro interno, cargas críticas, cargador VE...).
+5. Revisar las lecturas y escribir el nombre, el Device ID y, si se quiere, el número de serie.
+6. Ajustar los intervalos de sondeo. La integración avisa si piden más de una petición por segundo.
    Se crea una entrada por equipo: para otro equipo, repetir desde el paso 1.
-5. «Reconfigurar» en la entrada cambia host, puerto e intervalos de sondeo.
+7. «Reconfigurar» en la entrada cambia host, puerto, número de serie, Device ID, componentes e intervalos.
+
+Cada componente del equipo sale como un dispositivo propio en Home Assistant.
 
 Detalle: [docs/features/device-setup.md](docs/features/device-setup.md) y
 [docs/features/monitoring.md](docs/features/monitoring.md).

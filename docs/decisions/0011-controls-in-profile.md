@@ -24,7 +24,7 @@ El perfil declara los controles como datos. La escritura es dominio puro hasta e
 - `DeviceWriter` es un puerto aparte de `DeviceGateway` (`custom_components/modbus_solar/ports/device.py:16-21`). `ModbusGateway` implementa los dos (`custom_components/modbus_solar/adapters/outbound/modbus_gateway.py:33-60`).
 - Los casos de uso `set_limit` y `set_enabled` validan, escriben y solo entonces cambian el estado (`custom_components/modbus_solar/application/control.py:9-20`).
 - `number` y `switch` son plataformas genéricas: crean una entidad por cada control del perfil (`custom_components/modbus_solar/adapters/inbound/entities/factory.py:56-63`).
-- El STORAGE declara su control en `custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:250-265`.
+- El STORAGE declara su control en `custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:419-434`.
 
 ## Consecuencias
 

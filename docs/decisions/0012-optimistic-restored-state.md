@@ -11,7 +11,7 @@ Ningún documento da un registro que lea el ajuste «Grid power» (`AAA0030IMB03
 
 Alternativas descartadas:
 
-- Leer el registro 30042 «Active Power Reduction Reason»: solo dice si el inversor limita ahora por este motivo, no cuál es el ajuste (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:206`).
+- Leer el registro 30042 «Active Power Reduction Reason»: solo dice si el inversor limita ahora por este motivo, no cuál es el ajuste (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:271`).
 - Leer los holding 1000-1002: son la zona de comandos y no documentan el último valor aplicado.
 - Escribir al arrancar HA para sincronizar: cambiaría el equipo sin que el usuario lo pida.
 

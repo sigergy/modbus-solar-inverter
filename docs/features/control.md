@@ -1,6 +1,6 @@
 # Funcionalidad: control del vertido a red
 
-Documento vivo. Rutas bajo `custom_components/modbus_solar/` salvo indicación. Solo el perfil `ingeteam.oneplay_storage` declara controles (`profiles/ingeteam/oneplay_storage.py:250-265`); `ingeteam.oneplay` no crea ninguna entidad `number` ni `switch`. Nombres de las entidades en `strings.json:226-235`.
+Documento vivo. Rutas bajo `custom_components/modbus_solar/` salvo indicación. Solo el perfil `ingeteam.oneplay_storage` declara controles (`profiles/ingeteam/oneplay_storage.py:419-434`); `ingeteam.oneplay` no crea ninguna entidad `number` ni `switch`. Nombres de las entidades en `strings.json:488-497`.
 
 ## Entidades
 
@@ -9,13 +9,13 @@ Documento vivo. Rutas bajo `custom_components/modbus_solar/` salvo indicación. 
 | Límite de vertido a red | `number` | `export_limit` | 0-6000 W, paso 1, modo caja | Potencia máxima que el equipo inyecta a la red |
 | Vertido a red | `switch` | `export_enabled` | — | ON: vertido activado. OFF: vertido desactivado |
 
-Rango, paso, unidad y valor por defecto salen de la declaración del perfil (`profiles/ingeteam/oneplay_storage.py:258-263`). El máximo de 6000 W es el del rango del PDF (`AAA0030IMB03_N` pág. 7), no el de la ficha del equipo.
+Rango, paso, unidad y valor por defecto salen de la declaración del perfil (`profiles/ingeteam/oneplay_storage.py:427-432`). El máximo de 6000 W es el del rango del PDF (`AAA0030IMB03_N` pág. 7), no el de la ficha del equipo.
 
 Son dos entidades independientes: apagar el switch no cambia el valor del number (`tests/ha/test_control.py:142-154`). Un solo `GatedLimitSpec` da las dos (`domain/control.py:16-30`, ADR [0011](../decisions/0011-controls-in-profile.md)).
 
 ## Qué se escribe
 
-Una escritura FC16 de tres palabras en la dirección 1000, en una sola trama: `[26, 0x0A, W]`. Código 26 (`0x1A`) «Battery Control Values», dato 1 `0x0A` «Grid power», dato 2 los vatios (`AAA0030IMB03_N` págs. 7 y 19-20; `profiles/ingeteam/oneplay_storage.py:44-47`, `:256-257`). Con FC16 código y datos van en la misma escritura (`AAA0030IMB03_N` pág. 8, Nota 3; `adapters/outbound/modbus_gateway.py:56-60`).
+Una escritura FC16 de tres palabras en la dirección 1000, en una sola trama: `[26, 0x0A, W]`. Código 26 (`0x1A`) «Battery Control Values», dato 1 `0x0A` «Grid power», dato 2 los vatios (`AAA0030IMB03_N` págs. 7 y 19-20; `profiles/ingeteam/oneplay_storage.py:77-80`, `:425-426`). Con FC16 código y datos van en la misma escritura (`AAA0030IMB03_N` pág. 8, Nota 3; `adapters/outbound/modbus_gateway.py:56-60`).
 
 | Acción | Palabras |
 |---|---|
@@ -37,12 +37,12 @@ El equipo no tiene registro de lectura de este ajuste (ADR [0012](../decisions/0
 - Sobrevive a recargar la entry y no vuelve a escribir (`tests/ha/test_control.py:201-213`).
 - El switch lleva `assumed_state` (`adapters/inbound/entities/switch.py:17-18`).
 - Si alguien cambia el vertido desde los ajustes del inversor, HA no se entera.
-- El sensor extra `power_reduction_reason` (registro 30042, valor 16 «PV Surplus Injected to the Grid») indica que el inversor está limitando por este motivo ahora mismo (`profiles/ingeteam/oneplay_storage.py:206`; `ABH2010IMB08` Nota 7, pág. 7). No da el valor del ajuste.
+- El sensor extra `power_reduction_reason` (registro 30042, valor 16 «PV Surplus Injected to the Grid») indica que el inversor está limitando por este motivo ahora mismo (`profiles/ingeteam/oneplay_storage.py:271`; `ABH2010IMB08` Nota 7, pág. 7). No da el valor del ajuste.
 
 ## Disponibilidad y errores
 
-- Number y switch cuelgan del coordinator del tier de `probe_key`, `inverter_state` en el STORAGE (`adapters/inbound/entities/factory.py:50-53`, `profiles/ingeteam/oneplay_storage.py:109`, `:111-119`). Nacen `unavailable` hasta la primera lectura correcta y vuelven a `unavailable` si el equipo cae: con el equipo sin responder no se ofrece escribir (`tests/ha/test_control.py:109-124`, `:216-221`).
-- Una escritura fallida lanza `HomeAssistantError` con el mensaje traducible `write_failed` y no cambia el estado (`adapters/inbound/entities/control.py:16-24`, `strings.json:237-241`; `tests/ha/test_control.py:84-97`, `:169-182`). Cubre `DeviceUnavailable`, `DeviceProtocolError` y `EncodeError`.
+- Number y switch cuelgan del coordinator del tier de `probe_key`, `inverter_state` en el STORAGE (`adapters/inbound/entities/factory.py:60-63`, `profiles/ingeteam/oneplay_storage.py:162`, `:174-182`). Nacen `unavailable` hasta la primera lectura correcta y vuelven a `unavailable` si el equipo cae: con el equipo sin responder no se ofrece escribir (`tests/ha/test_control.py:109-124`, `:216-221`).
+- Una escritura fallida lanza `HomeAssistantError` con el mensaje traducible `write_failed` y no cambia el estado (`adapters/inbound/entities/control.py:16-24`, `strings.json:499-503`; `tests/ha/test_control.py:84-97`, `:169-182`). Cubre `DeviceUnavailable`, `DeviceProtocolError` y `EncodeError`.
 - Una escritura espera detrás de las lecturas en curso: `modbus_connection` espacia las peticiones de la unit y no mezcla tramas. Un ciclo de lectura largo retrasa la escritura unos segundos (`docs/changes/2026-10-04-export-control/spec.md` §2.2).
 
 ## Pendiente de verificar en el equipo

@@ -2,7 +2,7 @@
 type: feature
 area: config-flow
 layers: [domain, application, adapters]
-status: draft
+status: done
 date: 2026-10-04
 ---
 
