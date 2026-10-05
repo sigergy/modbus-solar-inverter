@@ -77,7 +77,7 @@ def test_entity_short_names() -> None:
 def test_flow_steps_errors_and_aborts_are_translated() -> None:
     strings = load("strings.json")
     config = strings["config"]
-    assert set(config["step"]) == {"user", "connection", "confirm", "reconfigure"}
+    assert set(config["step"]) == {"user", "model", "connection", "confirm", "reconfigure"}
     assert set(config["step"]["connection"]["sections"]) == {"advanced"}
     assert set(config["error"]) == {"cannot_connect", "endpoint_in_use", "invalid_response", "interval_too_short"}
     assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
