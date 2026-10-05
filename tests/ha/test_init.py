@@ -7,12 +7,16 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from modbus_connection import ModbusTcpParams
 from modbus_connection.mock import MockModbusUnit
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.modbus_solar.const import DOMAIN
-from tests.ha.common import DEVICE_ID, device_entry, setup_entry
+from custom_components.modbus_solar.application.selection import select
+from custom_components.modbus_solar.domain.types import Platform
+from custom_components.modbus_solar.profiles import ALL_PROFILES
+from tests.ha.common import DEVICE_ID, device_entry, setup_entry, setup_storage_entry
 
 
 async def test_setup_builds_runtime_and_device(
@@ -69,3 +73,37 @@ async def test_reconfigure_reloads_with_new_endpoint(hass: HomeAssistant, patch_
     assert entry.state is ConfigEntryState.LOADED
     _, _, params, _ = patch_unit.call_args.args
     assert params == ModbusTcpParams(host="192.168.1.60", port=1502)
+
+
+async def test_unselected_component_has_no_entities(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    await setup_storage_entry(hass, components=["pv", "grid"])
+    states = hass.states.async_entity_ids("sensor")
+    assert not any("battery" in s for s in states)
+
+
+async def test_entry_without_components_loads_all_optional(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    entry = await setup_storage_entry(hass, components=None)
+    profile = next(p for p in ALL_PROFILES if p.id == "ingeteam.oneplay_storage")
+    selection = select(profile, None)
+    # solo sensor, number y switch tienen plataforma; las desactivadas por defecto también están en el registro
+    expected = (
+        sum(1 for e in selection.entities if e.platform is Platform.SENSOR)
+        + len(selection.energies)
+        + 2 * len(selection.controls)
+    )
+    assert len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)) == expected
+
+
+async def test_deselecting_removes_entities_and_device(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    entry = await setup_storage_entry(hass, components=["battery"])
+    registry = er.async_get(hass)
+    assert any(
+        e.unique_id.endswith("_battery_soc") for e in er.async_entries_for_config_entry(registry, entry.entry_id)
+    )
+    hass.config_entries.async_update_entry(entry, data=entry.data | {"components": []})
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert all(
+        not e.unique_id.endswith("_battery_soc") for e in er.async_entries_for_config_entry(registry, entry.entry_id)
+    )
+    assert dr.async_get(hass).async_get_device({(DOMAIN, f"{entry.entry_id}_battery")}) is None
