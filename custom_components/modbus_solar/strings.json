@@ -528,6 +528,11 @@
         "reconfigure": "Leave it empty to read it over Modbus."
       }
     },
+    "rename_old_id": {
+      "options": {
+        "none": "no ID"
+      }
+    },
     "entity_list": {
       "options": {
         "disabled": "(disabled)",

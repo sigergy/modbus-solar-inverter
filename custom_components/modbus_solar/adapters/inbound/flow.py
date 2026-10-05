@@ -741,8 +741,10 @@ class DeviceConfigFlow(ConfigFlow):
         def lines(items: Sequence[str]) -> str:
             return "\n".join(f"- {item}" for item in items)
 
+        translations = await self._translations()
+        no_id = translations.get(f"component.{DOMAIN}.selector.rename_old_id.options.none", "none")
         placeholders = {
-            "old_id": "-" if old_id is None else str(old_id),
+            "old_id": no_id if old_id is None else str(old_id),
             "new_id": str(self._device_id),
             "renamed_count": str(len(plan.renamed)),
             "examples": lines([f"`{old}` → `{new}`" for old, new in plan.renamed[:3]]),

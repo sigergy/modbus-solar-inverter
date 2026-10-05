@@ -528,6 +528,11 @@
         "reconfigure": "Déjalo vacío para leerlo por Modbus."
       }
     },
+    "rename_old_id": {
+      "options": {
+        "none": "sin ID"
+      }
+    },
     "entity_list": {
       "options": {
         "disabled": "(desactivada)",
