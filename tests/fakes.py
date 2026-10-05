@@ -12,15 +12,24 @@ INGETEAM_WORDS: dict[int, tuple[int, ...]] = {0x101D: (3,), 0x1021: (0, 50000), 
 class FakeGateway:
     """DeviceGateway en memoria: devuelve `words[address]` o lanza `error`."""
 
-    def __init__(self, words: Mapping[int, tuple[int, ...]], error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        words: Mapping[int, tuple[int, ...]],
+        error: Exception | None = None,
+        fail_on: Mapping[int, Exception] | None = None,
+    ) -> None:
         self.words = dict(words)
         self.error = error
+        self.fail_on = dict(fail_on or {})  # error por dirección: falla solo si la lectura incluye esa dirección
         self.calls: list[tuple[RegisterSpec, ...]] = []
 
     async def read(self, specs: Sequence[RegisterSpec]) -> Mapping[RegisterSpec, tuple[int, ...]]:
         self.calls.append(tuple(specs))
         if self.error is not None:
             raise self.error
+        for spec in specs:
+            if spec.address in self.fail_on:
+                raise self.fail_on[spec.address]
         return {spec: self.words[spec.address] for spec in specs}
 
 
