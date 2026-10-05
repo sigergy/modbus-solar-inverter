@@ -55,6 +55,8 @@ class Role(StrEnum):
     GRID_POWER = "grid_power"
     LOAD_POWER = "load_power"
     DIAGNOSTIC = "diagnostic"  # entidades extra sin significado común entre marcas
+    BMS_ALARM = "bms_alarm"
+    BMS_FLAG = "bms_flag"
     ENERGY_SOLAR = "energy_solar"
     ENERGY_GRID_IMPORT = "energy_grid_import"
     ENERGY_GRID_EXPORT = "energy_grid_export"
@@ -70,6 +72,7 @@ class Role(StrEnum):
 
 class Platform(StrEnum):
     SENSOR = "sensor"
+    BINARY_SENSOR = "binary_sensor"
 
 
 class WordOrder(StrEnum):

@@ -36,6 +36,7 @@ class EntitySpec:
     enum: Mapping[int, str] | None = None
     entity_category: str | None = None
     enabled_default: bool = True
+    bit: int | None = None  # bit de un U16; exige platform binary_sensor
 
 
 @dataclass(frozen=True, kw_only=True)

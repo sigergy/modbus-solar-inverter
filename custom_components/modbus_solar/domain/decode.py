@@ -7,7 +7,7 @@ from .profile import EntitySpec, RegisterSpec
 from .types import WordOrder
 
 
-def decode(entity: EntitySpec, words: Sequence[int]) -> int | float | str:
+def decode(entity: EntitySpec, words: Sequence[int]) -> int | float | str | bool:
     reg = entity.register
     count = reg.words
     if len(words) != count:
@@ -24,6 +24,8 @@ def decode(entity: EntitySpec, words: Sequence[int]) -> int | float | str:
     if reg.dtype.signed and raw >= 1 << (bits - 1):
         raw -= 1 << bits
 
+    if entity.bit is not None:
+        return bool(raw >> entity.bit & 1)
     if entity.enum is not None:
         if raw not in entity.enum:
             raise DecodeError(f"{entity.key}: value {raw} not in enum")

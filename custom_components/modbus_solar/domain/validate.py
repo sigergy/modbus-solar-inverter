@@ -6,7 +6,7 @@ from .control import GatedLimitSpec
 from .encode import encode
 from .errors import EncodeError
 from .profile import DeviceProfile, RegisterSpec
-from .types import DataType, WordOrder
+from .types import DataType, Platform, WordOrder
 
 
 def _overlaps(a: RegisterSpec, b: RegisterSpec) -> bool:
@@ -79,6 +79,9 @@ def validate_profile(profile: DeviceProfile) -> list[str]:
         problems.extend(_control_problems(control, profile.max_block_registers))
 
     for a, b in combinations(profile.entities, 2):
+        # dos bits del mismo registro no se solapan
+        if a.bit is not None and b.bit is not None:
+            continue
         if _overlaps(a.register, b.register):
             problems.append(f"overlap: {a.key} and {b.key}")
 
@@ -92,6 +95,15 @@ def validate_profile(profile: DeviceProfile) -> list[str]:
         if reg.dtype is DataType.ASCII:
             problems.append(f"{spec.key}: ascii only for serial")
             continue
+        if spec.bit is not None:
+            if spec.platform is not Platform.BINARY_SENSOR:
+                problems.append(f"{spec.key}: bit requires binary_sensor")
+            elif reg.dtype is not DataType.U16:
+                problems.append(f"{spec.key}: bit requires u16")
+            elif not 0 <= spec.bit <= 15:
+                problems.append(f"{spec.key}: bit out of range")
+        elif spec.platform is Platform.BINARY_SENSOR:
+            problems.append(f"{spec.key}: binary_sensor requires bit")
         if reg.scale == 0:
             problems.append(f"{spec.key}: scale 0")
         if reg.dtype is not DataType.ASCII and reg.words == 1 and reg.word_order is not WordOrder.BIG:
