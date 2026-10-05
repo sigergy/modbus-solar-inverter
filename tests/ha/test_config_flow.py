@@ -159,7 +159,7 @@ async def submit_name(hass: HomeAssistant, result: dict[str, Any], **values: Any
     return await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "x", **values})
 
 
-async def test_device_id_defaults_to_lowest_free(hass: HomeAssistant) -> None:
+async def test_device_id_defaults_to_lowest_free(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     add_entry(hass, device_id=0)
     add_entry(hass, device_id=2, host="10.0.0.2")
     result = await to_name(hass)
@@ -167,7 +167,7 @@ async def test_device_id_defaults_to_lowest_free(hass: HomeAssistant) -> None:
     assert [str(k) for k in result["data_schema"].schema] == ["name", "device_id", "serial_number"]
 
 
-async def test_device_id_in_use_shows_error(hass: HomeAssistant) -> None:
+async def test_device_id_in_use_shows_error(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     add_entry(hass, device_id=0)
     result = await to_name(hass)
     result = await submit_name(hass, result, device_id=0)
@@ -177,7 +177,7 @@ async def test_device_id_in_use_shows_error(hass: HomeAssistant) -> None:
     assert result["description_placeholders"]["device_id"] == "0"
 
 
-async def test_device_id_free_across_device_types(hass: HomeAssistant) -> None:
+async def test_device_id_free_across_device_types(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     add_entry(hass, device_id=0, profile="mencke_tegtmeyer.si_rs485")
     result = await to_name(hass)
     assert suggested(result, "device_id") == 0
@@ -185,7 +185,7 @@ async def test_device_id_free_across_device_types(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
-async def test_entries_without_device_id_do_not_block(hass: HomeAssistant) -> None:
+async def test_entries_without_device_id_do_not_block(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     add_entry(hass)
     result = await to_name(hass)
     assert suggested(result, "device_id") == 0
@@ -193,14 +193,14 @@ async def test_entries_without_device_id_do_not_block(hass: HomeAssistant) -> No
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
-async def test_invalid_serial_number(hass: HomeAssistant) -> None:
+async def test_invalid_serial_number(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await to_name(hass)
     result = await submit_name(hass, result, device_id=0, serial_number="AB 1")
     assert result["errors"] == {"serial_number": "invalid_serial_number"}
     assert result["step_id"] == "name"
 
 
-async def test_serial_number_is_stripped_and_saved(hass: HomeAssistant) -> None:
+async def test_serial_number_is_stripped_and_saved(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await to_name(hass)
     result = await submit_name(hass, result, device_id=3, serial_number=" AB123 ")
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -208,7 +208,7 @@ async def test_serial_number_is_stripped_and_saved(hass: HomeAssistant) -> None:
     assert result["data"]["serial_number"] == "AB123"
 
 
-async def test_empty_serial_number_is_not_saved(hass: HomeAssistant) -> None:
+async def test_empty_serial_number_is_not_saved(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await to_name(hass)
     result = await submit_name(hass, result, device_id=0, serial_number="  ")
     assert result["type"] is FlowResultType.CREATE_ENTRY
