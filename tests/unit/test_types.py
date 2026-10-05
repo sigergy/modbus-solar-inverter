@@ -36,7 +36,7 @@ def test_enum_values_are_stable() -> None:
     assert [t.value for t in PollTier] == ["instant", "fast", "normal", "slow"]
     assert [k.value for k in RegisterKind] == ["holding", "input"]
     assert [w.value for w in WordOrder] == ["big", "little"]
-    assert [p.value for p in Platform] == ["sensor"]
+    assert [p.value for p in Platform] == ["sensor", "binary_sensor"]
     assert [r.value for r in Role] == [
         "inverter_state",
         "ac_power",
@@ -56,6 +56,8 @@ def test_enum_values_are_stable() -> None:
         "grid_power",
         "load_power",
         "diagnostic",
+        "bms_alarm",
+        "bms_flag",
         "energy_solar",
         "energy_grid_import",
         "energy_grid_export",
