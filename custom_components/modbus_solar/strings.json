@@ -17,7 +17,7 @@
       },
       "connection": {
         "title": "Connect to the device",
-        "description": "{brand} {model}. The connection is tested before going on ({timeout} s at most).",
+        "description": "{brand} {model}. The connection is tested before continuing ({timeout} s at most).",
         "data": {
           "host": "IP address",
           "profile": "Model"
@@ -38,16 +38,16 @@
       },
       "components": {
         "title": "What does your installation have?",
-        "description": "{model}. {main} is always added. Tick the other parts of your installation: each one shows up in Home Assistant as its own device. You can change this later in «Reconfigure».",
+        "description": "{model}. {main} is always added. Select the other parts of your installation: each one shows up in Home Assistant as its own device. You can change this later in «Reconfigure».",
         "data": {
           "components": "Components"
         }
       },
       "readings": {
         "title": "Device found",
-        "description": "✓ Answers at {host}. Check that these values match the display of the device:\n\n{readings}",
+        "description": "✓ Responding at {host}. Check that these values match the device display:\n\n{readings}",
         "menu_options": {
-          "name": "Values are correct: continue",
+          "name": "Values look right: continue",
           "model": "Change the model",
           "connection": "Change the connection"
         }
@@ -61,20 +61,20 @@
         },
         "data_description": {
           "name": "This is the name of the group of devices in Home Assistant. You can change it later.",
-          "device_id": "Internal ID of the integration. It tells apart devices of the same type. It has nothing to do with the Modbus Unit ID.",
+          "device_id": "Internal ID of the integration. It distinguishes devices of the same type. It has nothing to do with the Modbus Unit ID.",
           "serial_number": "{serial_help}"
         }
       },
       "reconfigure": {
         "title": "Change the connection",
-        "description": "{brand} {model}. The connection is tested before going on ({timeout} s at most).",
+        "description": "{brand} {model}. The connection is tested before continuing ({timeout} s at most).",
         "data": {
           "host": "IP address",
           "device_id": "Device ID",
           "serial_number": "Serial number (optional)"
         },
         "data_description": {
-          "device_id": "Internal ID of the integration. It tells apart devices of the same type. It has nothing to do with the Modbus Unit ID.",
+          "device_id": "Internal ID of the integration. It distinguishes devices of the same type. It has nothing to do with the Modbus Unit ID.",
           "serial_number": "{serial_help}"
         },
         "sections": {
@@ -100,7 +100,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Grid power, voltage and frequency. Minimum: {instant_min} s.\n\nEntities of this reading:\n{instant_entities}"
+              "interval": "Grid power, voltage and frequency. Minimum: {instant_min} s.\n\nEntities in this reading:\n{instant_entities}"
             }
           },
           "fast": {
@@ -109,7 +109,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Status, power, battery charge and BMS alarms. Minimum for this model: {fast_min} s.\n\nEntities of this reading:\n{fast_entities}"
+              "interval": "Status, power, battery charge and BMS alarms. Minimum for this model: {fast_min} s.\n\nEntities in this reading:\n{fast_entities}"
             }
           },
           "normal": {
@@ -118,7 +118,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Voltages, currents and limit reasons. Minimum: {normal_min} s.\n\nEntities of this reading:\n{normal_entities}"
+              "interval": "Voltages, currents and limit reasons. Minimum: {normal_min} s.\n\nEntities in this reading:\n{normal_entities}"
             }
           },
           "slow": {
@@ -127,7 +127,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Data that rarely changes, such as battery health. Minimum: {slow_min} s.\n\nEntities of this reading:\n{slow_entities}"
+              "interval": "Data that rarely changes, such as battery health. Minimum: {slow_min} s.\n\nEntities in this reading:\n{slow_entities}"
             }
           }
         }
@@ -151,7 +151,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Grid power, voltage and frequency. Minimum: {instant_min} s.\n\nEntities of this reading:\n{instant_entities}"
+              "interval": "Grid power, voltage and frequency. Minimum: {instant_min} s.\n\nEntities in this reading:\n{instant_entities}"
             }
           },
           "fast": {
@@ -160,7 +160,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Status, power, battery charge and BMS alarms. Minimum for this model: {fast_min} s.\n\nEntities of this reading:\n{fast_entities}"
+              "interval": "Status, power, battery charge and BMS alarms. Minimum for this model: {fast_min} s.\n\nEntities in this reading:\n{fast_entities}"
             }
           },
           "normal": {
@@ -169,7 +169,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Voltages, currents and limit reasons. Minimum: {normal_min} s.\n\nEntities of this reading:\n{normal_entities}"
+              "interval": "Voltages, currents and limit reasons. Minimum: {normal_min} s.\n\nEntities in this reading:\n{normal_entities}"
             }
           },
           "slow": {
@@ -178,7 +178,7 @@
               "interval": "Interval (s)"
             },
             "data_description": {
-              "interval": "Data that rarely changes, such as battery health. Minimum: {slow_min} s.\n\nEntities of this reading:\n{slow_entities}"
+              "interval": "Data that rarely changes, such as battery health. Minimum: {slow_min} s.\n\nEntities in this reading:\n{slow_entities}"
             }
           }
         }
@@ -190,13 +190,13 @@
       }
     },
     "error": {
-      "cannot_connect": "No answer at {host}:{port} after {timeout} s. Check the IP, enable Modbus TCP on the device and close other Modbus clients, such as the EMS.",
+      "cannot_connect": "No response from {host}:{port} after {timeout} s. Check the IP, enable Modbus TCP on the device and close other Modbus clients, such as the EMS.",
       "endpoint_in_use": "Another device already uses this IP and port with a different configuration.",
-      "invalid_response": "Unexpected answer from {host}:{port}. The model or the Unit ID may not be the right ones.",
+      "invalid_response": "Unexpected response from {host}:{port}. The model or the Unit ID may not be the right ones.",
       "interval_too_short": "Too short for this device: reading all its registers takes longer.",
       "device_id_in_use": "There is already a {device_type} with ID {device_id}.",
       "invalid_serial_number": "Use only letters and numbers, with no spaces.",
-      "interval_budget_exceeded": "These intervals ask for {rate} reads per second and the device allows 1. Raise one of them."
+      "interval_budget_exceeded": "These intervals request {rate} reads per second, but the device allows 1. Raise one of them."
     },
     "abort": {
       "already_configured": "This device is already added.",
@@ -516,7 +516,7 @@
         "grid": "Grid (external meter) — voltage, frequency, power and grid energies",
         "internal_meter": "Internal meter",
         "critical_loads": "Critical loads — backup output",
-        "load": "Load — total consumption of the house",
+        "load": "Load — total household consumption",
         "ev_charger": "EV charger"
       }
     },
