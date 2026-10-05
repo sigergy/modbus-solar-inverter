@@ -16,10 +16,15 @@ class Selection:
     controls: tuple[GatedLimitSpec, ...]
 
 
-def select(profile: DeviceProfile, components: Collection[Component] | None) -> Selection:
-    # None = entry anterior a v2: todos los opcionales
+def chosen_components(profile: DeviceProfile, components: Collection[Component] | None) -> set[Component]:
+    """Componentes elegidos más el principal. None = entry anterior a v2: todos los opcionales."""
     chosen = {c.component for c in profile.components} if components is None else set(components)
     chosen.add(Component.MAIN)
+    return chosen
+
+
+def select(profile: DeviceProfile, components: Collection[Component] | None) -> Selection:
+    chosen = chosen_components(profile, components)
     return Selection(
         entities=tuple(e for e in profile.entities if e.component in chosen),
         energies=tuple(e for e in profile.energies if e.component in chosen),
