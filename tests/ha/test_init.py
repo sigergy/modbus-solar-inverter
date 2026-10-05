@@ -108,4 +108,5 @@ async def test_deselecting_removes_entities_and_device(hass: HomeAssistant, patc
     assert all(
         not e.unique_id.endswith("_battery_soc") for e in er.async_entries_for_config_entry(registry, entry.entry_id)
     )
-    assert dr.async_get(hass).async_get_device({(DOMAIN, f"{entry.entry_id}_battery")}) is None
+    devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    assert all((DOMAIN, f"{entry.entry_id}_battery") not in d.identifiers for d in devices)

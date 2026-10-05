@@ -44,11 +44,12 @@ def _remove_unselected(
         if key in all_keys and key not in kept:
             registry.async_remove(entity.entity_id)
     devices = dr.async_get(hass)
-    for spec in profile.components:
-        if spec.component in chosen:
-            continue
-        device = devices.async_get_device({(DOMAIN, f"{entry.entry_id}_{spec.component}")})
-        if device is not None:
+    gone = {
+        (DOMAIN, f"{entry.entry_id}_{spec.component}") for spec in profile.components if spec.component not in chosen
+    }
+    # async_get_device está deprecada: se filtran los dispositivos de la entry por identificador
+    for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
+        if device.identifiers & gone:
             devices.async_remove_device(device.id)
 
 
