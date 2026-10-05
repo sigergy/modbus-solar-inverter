@@ -75,3 +75,8 @@ def test_missing_translation_falls_back_to_key() -> None:
     assert format_readings(ONEPLAY, select(ONEPLAY, []), result, {}, "en") == (
         "**inverter**\n- inverter_state: grid_connected\n- active_power: 5.0 W"
     )
+
+
+def test_bool_is_not_formatted_as_number() -> None:
+    result = probed({"active_power": True})
+    assert format_readings(ONEPLAY, select(ONEPLAY, []), result, {}, "en").endswith("active_power: True W")

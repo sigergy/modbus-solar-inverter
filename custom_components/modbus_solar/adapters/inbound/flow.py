@@ -92,7 +92,11 @@ def format_readings(
             elif spec.enum is not None:
                 text = translations.get(f"{prefix}.{spec.key}.state.{value}", str(value))
             else:
-                shown = format_number(value, language) if isinstance(value, int | float) else str(value)
+                shown = (
+                    format_number(value, language)
+                    if isinstance(value, int | float) and not isinstance(value, bool)
+                    else str(value)
+                )
                 text = f"{shown} {spec.unit}" if spec.unit else shown
             lines.append(f"- {translations.get(f'{prefix}.{spec.key}.name', spec.key)}: {text}")
         if lines:

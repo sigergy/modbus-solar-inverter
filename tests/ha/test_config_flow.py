@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Generator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +16,9 @@ from modbus_connection import ModbusConnectionError, ModbusExceptionError, Modbu
 from modbus_connection.mock import MockModbusUnit
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.modbus_solar import CATALOG
+from custom_components.modbus_solar.application.catalog import Catalog
+from custom_components.modbus_solar.config_flow import ModbusSolarConfigFlow
 from custom_components.modbus_solar.const import DOMAIN
 from tests.ha.common import DEVICE_DATA, device_entry
 
@@ -280,6 +284,40 @@ async def test_storage_entry_saves_components_in_profile_order(
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "House"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["components"] == ["pv", "battery"]
+
+
+async def switch_model_after_error(
+    hass: HomeAssistant, ingeteam_unit: MockModbusUnit, temp_unit: MagicMock, advanced: dict[str, int]
+) -> Any:
+    """Error de conexión con el 1Play y reenvío con el STORAGE, cuyos valores por defecto son 1502 y 3."""
+    profiles = [
+        replace(p, default_port=1502, default_unit_id=3) if p.id == "ingeteam.oneplay_storage" else p
+        for p in CATALOG.for_brand("ingeteam")
+    ]
+    ingeteam_unit.fail_requests(ModbusConnectionError("refused"))
+    with patch.object(ModbusSolarConfigFlow, "catalog", Catalog(profiles)):
+        result = await connect(hass)
+        assert result["errors"] == {"base": "cannot_connect"}
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"host": "10.0.0.9", "profile": "ingeteam_oneplay_storage", "advanced": advanced}
+        )
+    params, unit_id = temp_unit.call_args.args[1:]
+    return params.port, unit_id
+
+
+async def test_model_change_after_error_uses_new_defaults_if_advanced_untouched(
+    hass: HomeAssistant, temp_unit: MagicMock, ingeteam_unit: MockModbusUnit
+) -> None:
+    # 502 y 1 son los valores por defecto del 1Play: no se tocaron
+    got = await switch_model_after_error(hass, ingeteam_unit, temp_unit, {"port": 502, "unit_id": 1})
+    assert got == (1502, 3)
+
+
+async def test_model_change_after_error_keeps_touched_advanced(
+    hass: HomeAssistant, temp_unit: MagicMock, ingeteam_unit: MockModbusUnit
+) -> None:
+    got = await switch_model_after_error(hass, ingeteam_unit, temp_unit, {"port": 1600, "unit_id": 1})
+    assert got == (1600, 1)
 
 
 RECONFIGURE_INPUT = {"host": "192.168.1.60", "port": 1502, "instant": 5, "fast": 10, "normal": 120, "slow": 3600}
