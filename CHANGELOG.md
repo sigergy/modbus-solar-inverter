@@ -4,6 +4,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0b6] - 2026-10-05
+
 ### Añadido
 
 - Alta en más pasos: marca, modelo, conexión, componentes, lecturas, nombre y intervalos.
