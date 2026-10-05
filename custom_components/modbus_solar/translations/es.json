@@ -57,7 +57,7 @@
   "entity": {
     "sensor": {
       "inverter_state": {
-        "name": "Estado del inversor",
+        "name": "Estado",
         "state": {
           "factory_default": "Configuración de fábrica",
           "grid_disconnected": "Desconectado de la red",
@@ -100,22 +100,22 @@
         "name": "Potencia FV2"
       },
       "battery_voltage": {
-        "name": "Tensión de la batería"
+        "name": "Tensión"
       },
       "battery_current": {
-        "name": "Corriente de la batería"
+        "name": "Corriente"
       },
       "battery_power": {
-        "name": "Potencia de la batería"
+        "name": "Potencia"
       },
       "battery_soc": {
-        "name": "Estado de carga de la batería"
+        "name": "Estado de carga"
       },
       "battery_soh": {
-        "name": "Estado de salud de la batería"
+        "name": "Estado de salud"
       },
       "battery_state": {
-        "name": "Estado de la batería",
+        "name": "Estado",
         "state": {
           "standby": "En espera",
           "discharging": "Descargando",
@@ -131,19 +131,19 @@
         }
       },
       "battery_temperature": {
-        "name": "Temperatura de la batería"
+        "name": "Temperatura"
       },
       "grid_voltage": {
-        "name": "Tensión de red"
+        "name": "Tensión"
       },
       "grid_frequency": {
-        "name": "Frecuencia de red"
+        "name": "Frecuencia"
       },
       "grid_power": {
-        "name": "Potencia de red"
+        "name": "Potencia"
       },
       "load_power": {
-        "name": "Potencia de consumo"
+        "name": "Potencia"
       },
       "operation_time": {
         "name": "Tiempo de funcionamiento"
@@ -161,40 +161,40 @@
         "name": "Factor de potencia"
       },
       "power_reduction_ratio": {
-        "name": "Reducción de potencia"
+        "name": "Ratio de reducción de potencia"
       },
       "power_reduction_reason": {
         "name": "Motivo de reducción de potencia"
       },
       "critical_load_voltage": {
-        "name": "Tensión de cargas críticas"
+        "name": "Tensión"
       },
       "critical_load_current": {
-        "name": "Corriente de cargas críticas"
+        "name": "Corriente"
       },
       "critical_load_frequency": {
-        "name": "Frecuencia de cargas críticas"
+        "name": "Frecuencia"
       },
       "critical_load_power": {
-        "name": "Potencia de cargas críticas"
+        "name": "Potencia"
       },
       "internal_meter_voltage": {
-        "name": "Tensión del vatímetro interno"
+        "name": "Tensión"
       },
       "internal_meter_current": {
-        "name": "Corriente del vatímetro interno"
+        "name": "Corriente"
       },
       "internal_meter_frequency": {
-        "name": "Frecuencia del vatímetro interno"
+        "name": "Frecuencia"
       },
       "internal_meter_power": {
-        "name": "Potencia del vatímetro interno"
+        "name": "Potencia"
       },
       "dc_bus_voltage": {
         "name": "Tensión del bus DC"
       },
       "inverter_temperature": {
-        "name": "Temperatura del inversor"
+        "name": "Temperatura"
       },
       "isolation_positive": {
         "name": "Resistencia de aislamiento positiva"
@@ -206,22 +206,22 @@
         "name": "Potencia FV externa"
       },
       "ev_charger_power": {
-        "name": "Potencia del cargador VE"
+        "name": "Potencia"
       },
       "solar_energy": {
-        "name": "Energía solar"
+        "name": "Energía FV"
       },
       "grid_import_energy": {
-        "name": "Energía importada de red"
+        "name": "Energía importada"
       },
       "grid_export_energy": {
-        "name": "Energía exportada a red"
+        "name": "Energía exportada"
       },
       "battery_charge_energy": {
-        "name": "Energía de carga de la batería"
+        "name": "Energía de carga"
       },
       "battery_discharge_energy": {
-        "name": "Energía de descarga de la batería"
+        "name": "Energía de descarga"
       },
       "irradiance": {
         "name": "Irradiancia"
@@ -234,6 +234,50 @@
       },
       "external_temperature": {
         "name": "Temperatura externa"
+      }
+    },
+    "binary_sensor": {
+      "bms_alarm_high_charge_current": {
+        "name": "Alarma: corriente de carga alta"
+      },
+      "bms_alarm_high_voltage": {
+        "name": "Alarma: tensión alta"
+      },
+      "bms_alarm_low_voltage": {
+        "name": "Alarma: tensión baja"
+      },
+      "bms_alarm_high_temperature": {
+        "name": "Alarma: temperatura alta"
+      },
+      "bms_alarm_low_temperature": {
+        "name": "Alarma: temperatura baja"
+      },
+      "bms_alarm_internal": {
+        "name": "Alarma: fallo interno del BMS"
+      },
+      "bms_alarm_cell_imbalance": {
+        "name": "Alarma: desequilibrio de celdas"
+      },
+      "bms_alarm_high_discharge_current": {
+        "name": "Alarma: corriente de descarga alta"
+      },
+      "bms_alarm_system_error": {
+        "name": "Alarma: error del sistema BMS"
+      },
+      "bms_stop_charge": {
+        "name": "Carga bloqueada"
+      },
+      "bms_stop_discharge": {
+        "name": "Descarga bloqueada"
+      },
+      "bms_forced_charge": {
+        "name": "Carga forzada por el BMS"
+      },
+      "bms_calibration": {
+        "name": "Calibración de SOC pendiente"
+      },
+      "bms_forced_charge_soc": {
+        "name": "Carga forzada por SOC bajo"
       }
     },
     "number": {

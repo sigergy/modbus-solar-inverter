@@ -70,7 +70,7 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "confirm")
     assert result["description_placeholders"] == {
         "host": "Inverter.LAN",
-        "readings": "- Inverter state: Connected to grid\n- Active power: 1234.5 W",
+        "readings": "- State: Connected to grid\n- Active power: 1234.5 W",
     }
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Roof"})
     assert result["type"] is FlowResultType.CREATE_ENTRY

@@ -57,7 +57,7 @@
   "entity": {
     "sensor": {
       "inverter_state": {
-        "name": "Inverter state",
+        "name": "State",
         "state": {
           "factory_default": "Factory default",
           "grid_disconnected": "Disconnected from grid",
@@ -100,22 +100,22 @@
         "name": "PV2 power"
       },
       "battery_voltage": {
-        "name": "Battery voltage"
+        "name": "Voltage"
       },
       "battery_current": {
-        "name": "Battery current"
+        "name": "Current"
       },
       "battery_power": {
-        "name": "Battery power"
+        "name": "Power"
       },
       "battery_soc": {
-        "name": "Battery state of charge"
+        "name": "State of charge"
       },
       "battery_soh": {
-        "name": "Battery state of health"
+        "name": "State of health"
       },
       "battery_state": {
-        "name": "Battery state",
+        "name": "State",
         "state": {
           "standby": "Standby",
           "discharging": "Discharging",
@@ -131,28 +131,28 @@
         }
       },
       "battery_temperature": {
-        "name": "Battery temperature"
+        "name": "Temperature"
       },
       "grid_voltage": {
-        "name": "Grid voltage"
+        "name": "Voltage"
       },
       "grid_frequency": {
-        "name": "Grid frequency"
+        "name": "Frequency"
       },
       "grid_power": {
-        "name": "Grid power"
+        "name": "Power"
       },
       "load_power": {
-        "name": "Load power"
+        "name": "Power"
       },
       "operation_time": {
         "name": "Operation time"
       },
       "battery_discharge_limit_reason": {
-        "name": "Battery discharge limit reason"
+        "name": "Discharge limit reason"
       },
       "battery_charge_limit_reason": {
-        "name": "Battery charge limit reason"
+        "name": "Charge limit reason"
       },
       "reactive_power": {
         "name": "Reactive power"
@@ -167,34 +167,34 @@
         "name": "Power reduction reason"
       },
       "critical_load_voltage": {
-        "name": "Critical loads voltage"
+        "name": "Voltage"
       },
       "critical_load_current": {
-        "name": "Critical loads current"
+        "name": "Current"
       },
       "critical_load_frequency": {
-        "name": "Critical loads frequency"
+        "name": "Frequency"
       },
       "critical_load_power": {
-        "name": "Critical loads power"
+        "name": "Power"
       },
       "internal_meter_voltage": {
-        "name": "Internal meter voltage"
+        "name": "Voltage"
       },
       "internal_meter_current": {
-        "name": "Internal meter current"
+        "name": "Current"
       },
       "internal_meter_frequency": {
-        "name": "Internal meter frequency"
+        "name": "Frequency"
       },
       "internal_meter_power": {
-        "name": "Internal meter power"
+        "name": "Power"
       },
       "dc_bus_voltage": {
         "name": "DC bus voltage"
       },
       "inverter_temperature": {
-        "name": "Inverter temperature"
+        "name": "Temperature"
       },
       "isolation_positive": {
         "name": "Positive isolation resistance"
@@ -206,22 +206,22 @@
         "name": "External PV power"
       },
       "ev_charger_power": {
-        "name": "EV charger power"
+        "name": "Power"
       },
       "solar_energy": {
-        "name": "Solar energy"
+        "name": "PV energy"
       },
       "grid_import_energy": {
-        "name": "Grid import energy"
+        "name": "Import energy"
       },
       "grid_export_energy": {
-        "name": "Grid export energy"
+        "name": "Export energy"
       },
       "battery_charge_energy": {
-        "name": "Battery charge energy"
+        "name": "Charge energy"
       },
       "battery_discharge_energy": {
-        "name": "Battery discharge energy"
+        "name": "Discharge energy"
       },
       "irradiance": {
         "name": "Irradiance"
@@ -234,6 +234,50 @@
       },
       "external_temperature": {
         "name": "External temperature"
+      }
+    },
+    "binary_sensor": {
+      "bms_alarm_high_charge_current": {
+        "name": "Alarm: high charge current"
+      },
+      "bms_alarm_high_voltage": {
+        "name": "Alarm: high voltage"
+      },
+      "bms_alarm_low_voltage": {
+        "name": "Alarm: low voltage"
+      },
+      "bms_alarm_high_temperature": {
+        "name": "Alarm: high temperature"
+      },
+      "bms_alarm_low_temperature": {
+        "name": "Alarm: low temperature"
+      },
+      "bms_alarm_internal": {
+        "name": "Alarm: BMS internal fault"
+      },
+      "bms_alarm_cell_imbalance": {
+        "name": "Alarm: cell imbalance"
+      },
+      "bms_alarm_high_discharge_current": {
+        "name": "Alarm: high discharge current"
+      },
+      "bms_alarm_system_error": {
+        "name": "Alarm: BMS system error"
+      },
+      "bms_stop_charge": {
+        "name": "Charge blocked"
+      },
+      "bms_stop_discharge": {
+        "name": "Discharge blocked"
+      },
+      "bms_forced_charge": {
+        "name": "Forced charge by BMS"
+      },
+      "bms_calibration": {
+        "name": "SOC calibration pending"
+      },
+      "bms_forced_charge_soc": {
+        "name": "Forced charge due to low SOC"
       }
     },
     "number": {
