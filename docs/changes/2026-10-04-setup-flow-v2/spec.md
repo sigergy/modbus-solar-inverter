@@ -583,7 +583,8 @@ por bloque (`application/poller.py:46-49`):
 - 6 s no cabe en el `fast` por defecto de hoy, 5 s (`const.py:10`): el paso de intervalos del alta (§3.6) daría
   `interval_too_short` con el valor propuesto. `DEFAULT_INTERVALS` pasa a `fast` 10 s en todos los perfiles.
   `normal` y `slow` no cambian.
-- 30043 (42), de reason-labels, queda solo en `slow`: una petición más, ya contada.
+- 30043 (42), de reason-labels, queda solo en `slow`: una petición más, ya contada. Sin reason-labels, `slow` son
+  3 bloques, 3 s.
 
 Entries anteriores:
 
@@ -596,7 +597,7 @@ Entries anteriores:
 - Las extras siguen desactivadas: el registro de entidades conserva `disabled_by`, y cambiar `enabled_default` no
   las activa. Sin migración.
 
-Tests: `tests/unit/test_storage_profile.py:180-182` pasa a `fast` 6.0 y `normal` 5.0, y gana `slow` 4.0.
+Tests: `tests/unit/test_storage_profile.py:180-182` pasa a `fast` 6.0 y `normal` 5.0, y gana `slow` 3.0; reason-labels lo sube a 4.0.
 `tests/ha/test_config_flow.py:77` espera `fast` 10.
 
 Documentación: `docs/decisions/0005-poll-tiers.md` (5, 60 y 3600 s), `docs/features/device-setup.md:90` y la wiki

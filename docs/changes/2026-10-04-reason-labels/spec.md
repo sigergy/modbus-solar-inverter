@@ -151,6 +151,7 @@ Código y clave de opción de cada valor. Los textos `es` y `en` están en la wi
 
 - `tests/unit/test_storage_profile.py`:
   - `EXTRA` gana `reactive_setpoint_type`;
+  - `test_tier_minimums`: `slow` pasa de 3.0 a 4.0, por el bloque de 30043;
   - `test_classes`: `power_reduction_reason` pasa a `("enum", None)`; se añaden las otras tres;
   - `test_enums`: opciones y códigos de las tres tablas, en el orden del PDF.
 - `tests/unit/test_decode.py`: un motivo con código fuera de tabla lanza `DecodeError`.
