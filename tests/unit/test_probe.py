@@ -1,4 +1,4 @@
-"""Sonda del config flow: valida probe_key y devuelve las lecturas del tier fast."""
+"""Sonda del config flow: valida probe_key y devuelve las lecturas del tier instant."""
 
 from dataclasses import replace
 

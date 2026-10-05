@@ -20,7 +20,7 @@ Alta, en este orden:
   - Con error, vuelve el formulario con lo escrito y un selector de modelo para corregirlo; los puertos del modelo nuevo solo se aplican si no se tocaron (`flow.py:342-357`, `:406-408`).
   - Con componentes opcionales sigue a `components`; sin ellos, a `readings` (`flow.py:397-400`).
 - Paso `components`: selector múltiple con los componentes opcionales del perfil; por defecto, los marcados `default`, o lo ya elegido al volver atrás (`flow.py:439-465`).
-- Paso `readings`: menú con las lecturas de la sonda de los componentes elegidos y tres salidas, `name`, `model` y `connection` (`flow.py:467-479`). Sin paso `confirm`.
+- Paso `readings`: menú con las lecturas de la sonda de los componentes elegidos y tres salidas, `name`, `model` y `connection` (`flow.py:467-479`).
 - Paso `name`: nombre, Device ID y número de serie (`flow.py:481-534`).
   - El Device ID propuesto es el menor entero libre entre las entries del mismo `device_type` (`flow.py:73-91`, `:487`). Uno repetido da `device_id_in_use` (`flow.py:492-493`).
   - Un número de serie escrito solo admite letras y números ASCII; si no, `invalid_serial_number` (`flow.py:68-70`, `:494-495`).
