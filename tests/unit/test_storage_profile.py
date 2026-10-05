@@ -1,13 +1,17 @@
 """Perfil INGECON SUN STORAGE 1Play TL M (ABH2010IMB08)."""
 
+from collections import Counter
+
 import pytest
 
 from custom_components.modbus_solar.application.poller import min_tier_interval
 from custom_components.modbus_solar.domain.blocks import plan_blocks
 from custom_components.modbus_solar.domain.energy import SignFilter
-from custom_components.modbus_solar.domain.types import DataType, PollTier, RegisterKind, Role
+from custom_components.modbus_solar.domain.types import Component, DataType, PollTier, RegisterKind, Role
 from custom_components.modbus_solar.domain.validate import validate_profile
 from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
+
+PROFILE = ONEPLAY_STORAGE
 
 CORE = [
     "inverter_state",
@@ -73,19 +77,13 @@ def test_identity_and_limits() -> None:
     assert validate_profile(p) == []
 
 
-def test_core_enabled_and_extra_disabled() -> None:
-    assert [e.key for e in ONEPLAY_STORAGE.entities] == CORE + EXTRA
+def test_core_enabled_and_extra_keys() -> None:
+    assert [e.key for e in ONEPLAY_STORAGE.entities if e.bit is None] == CORE + EXTRA
     for key in CORE:
         assert entity(key).enabled_default, key
         assert entity(key).entity_category is None, key
     for key in EXTRA:
-        e = entity(key)
-        assert (e.enabled_default, e.poll, e.entity_category, e.role) == (
-            False,
-            PollTier.SLOW,
-            "diagnostic",
-            Role.DIAGNOSTIC,
-        ), key
+        assert entity(key).role is Role.DIAGNOSTIC, key
 
 
 def test_all_registers_are_input() -> None:
@@ -106,8 +104,8 @@ def test_all_registers_are_input() -> None:
         ("grid_power", 71, DataType.S16, 1.0, "W", PollTier.INSTANT),
         ("load_power", 78, DataType.U16, 1.0, "W", PollTier.FAST),
         ("operation_time", 6, DataType.U32, 1.0, "h", PollTier.SLOW),
-        ("power_factor", 39, DataType.S16, 0.001, None, PollTier.SLOW),
-        ("ev_charger_power", 80, DataType.S16, 1.0, "W", PollTier.SLOW),
+        ("power_factor", 39, DataType.S16, 0.001, None, PollTier.FAST),
+        ("ev_charger_power", 80, DataType.S16, 1.0, "W", PollTier.FAST),
     ],
 )
 def test_sample_registers_match_pdf(
@@ -177,13 +175,6 @@ def test_no_block_over_ten_registers(tier: PollTier) -> None:
         assert block.count <= 10
 
 
-@pytest.mark.parametrize(("tier", "expected"), [(PollTier.FAST, 3.0), (PollTier.NORMAL, 2.0)])
-def test_tiers_fit_default_intervals(tier: PollTier, expected: float) -> None:
-    # fast: bloques 15-20, 33-37 y 78; normal: 17-26 y 31-35 (spec §3.1)
-    assert min_tier_interval(ONEPLAY_STORAGE, tier) == expected
-    assert min_tier_interval(ONEPLAY_STORAGE, PollTier.INSTANT) == 1.0
-
-
 def test_energies() -> None:
     # signos supuestos (spec §3.5): grid_power > 0 importa; battery_power > 0 descarga
     assert [(e.key, e.role, e.sources, e.sign, e.enabled_default) for e in ONEPLAY_STORAGE.energies] == [
@@ -204,3 +195,100 @@ def test_export_control() -> None:
     # rango del PDF [6000 W, -6000 W]: los negativos no se exponen
     assert (control.min_value, control.max_value, control.step, control.unit) == (0, 6000, 1, "W")
     assert (control.default, control.off_value, control.device_class) == (6000, 0, "power")
+
+
+def test_tier_minimums() -> None:
+    assert min_tier_interval(PROFILE, PollTier.INSTANT) == 1.0
+    assert min_tier_interval(PROFILE, PollTier.FAST) == 6.0
+    assert min_tier_interval(PROFILE, PollTier.NORMAL) == 5.0
+    assert min_tier_interval(PROFILE, PollTier.SLOW) == 3.0
+
+
+def test_entities_per_component() -> None:
+    counts = Counter(e.component for e in PROFILE.entities)
+    counts.update(e.component for e in PROFILE.energies)
+    counts.update(c.component for c in PROFILE.controls)  # cada control da número y switch: cuenta 2
+    counts.update(c.component for c in PROFILE.controls)
+    assert counts == {
+        Component.MAIN: 13,
+        Component.PV: 8,
+        Component.BATTERY: 25,
+        Component.GRID: 5,
+        Component.INTERNAL_METER: 4,
+        Component.CRITICAL_LOADS: 4,
+        Component.LOAD: 1,
+        Component.EV_CHARGER: 1,
+    }
+
+
+def test_optional_components_and_defaults() -> None:
+    assert [(c.component, c.default) for c in PROFILE.components] == [
+        (Component.PV, True),
+        (Component.BATTERY, True),
+        (Component.GRID, True),
+        (Component.INTERNAL_METER, False),
+        (Component.CRITICAL_LOADS, True),
+        (Component.LOAD, True),
+        (Component.EV_CHARGER, False),
+    ]
+
+
+BMS_BITS = {
+    "bms_alarm_high_charge_current": (28, 0),
+    "bms_alarm_high_voltage": (28, 1),
+    "bms_alarm_low_voltage": (28, 2),
+    "bms_alarm_high_temperature": (28, 3),
+    "bms_alarm_low_temperature": (28, 4),
+    "bms_alarm_internal": (28, 5),
+    "bms_alarm_cell_imbalance": (28, 6),
+    "bms_alarm_high_discharge_current": (28, 7),
+    "bms_alarm_system_error": (28, 8),
+    "bms_stop_charge": (68, 0),
+    "bms_stop_discharge": (68, 1),
+    "bms_forced_charge": (68, 2),
+    "bms_calibration": (68, 3),
+    "bms_forced_charge_soc": (68, 4),
+}
+
+
+def test_bms_bits() -> None:
+    bits = {e.key: e for e in PROFILE.entities if e.bit is not None}
+    assert {k: (e.register.address, e.bit) for k, e in bits.items()} == BMS_BITS
+    for e in bits.values():
+        assert (e.component, e.poll, e.enabled_default, e.entity_category) == (
+            Component.BATTERY,
+            PollTier.FAST,
+            True,
+            "diagnostic",
+        )
+        assert e.role is (Role.BMS_ALARM if e.key.startswith("bms_alarm_") else Role.BMS_FLAG)
+        assert e.device_class == ("problem" if e.role is Role.BMS_ALARM else None)
+
+
+EXTRA_TIERS = {
+    "operation_time": (PollTier.SLOW, False),
+    "reactive_power": (PollTier.FAST, False),
+    "power_factor": (PollTier.FAST, False),
+    "power_reduction_ratio": (PollTier.NORMAL, False),
+    "power_reduction_reason": (PollTier.NORMAL, False),
+    "dc_bus_voltage": (PollTier.FAST, False),
+    "inverter_temperature": (PollTier.NORMAL, False),
+    "isolation_positive": (PollTier.SLOW, False),
+    "isolation_negative": (PollTier.SLOW, False),
+    "external_pv_power": (PollTier.FAST, False),
+    "battery_charge_limit_reason": (PollTier.NORMAL, False),
+    "battery_discharge_limit_reason": (PollTier.NORMAL, False),
+}
+
+
+def test_extra_tiers_and_enabled() -> None:
+    by_key = {e.key: e for e in PROFILE.entities}
+    for key, (tier, enabled) in EXTRA_TIERS.items():
+        assert (by_key[key].poll, by_key[key].enabled_default, by_key[key].entity_category) == (
+            tier,
+            enabled,
+            "diagnostic",
+        ), key
+    for prefix in ("internal_meter_", "critical_load_", "ev_charger_"):
+        for e in (e for e in PROFILE.entities if e.key.startswith(prefix)):
+            assert (e.poll, e.enabled_default, e.entity_category) == (PollTier.FAST, True, None), e.key

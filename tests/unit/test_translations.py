@@ -31,18 +31,43 @@ def test_es_has_the_same_keys() -> None:
 
 
 def test_every_entity_and_enum_state_is_translated() -> None:
-    sensors = load("strings.json")["entity"]["sensor"]
+    entities = load("strings.json")["entity"]
     options: dict[str, set[str]] = {}
     for profile in ALL_PROFILES:
         for spec in profile.entities:
-            assert "name" in sensors[spec.key], spec.key
+            # el nombre está en la sección de su plataforma (sensor, binary_sensor)
+            assert "name" in entities[spec.platform.value][spec.key], spec.key
             if spec.enum is not None:
                 options.setdefault(spec.key, set()).update(spec.enum.values())
         for energy in profile.energies:
-            assert "name" in sensors[energy.key], energy.key
+            assert "name" in entities["sensor"][energy.key], energy.key
     # la clave es translation_key en todos los perfiles: state lleva la unión de sus opciones
     for key, values in options.items():
-        assert set(sensors[key]["state"]) == values, key
+        assert set(entities["sensor"][key]["state"]) == values, key
+
+
+def test_entity_short_names() -> None:
+    # spec §5.4: la entidad no repite su dispositivo
+    expected = {
+        "strings.json": {
+            "battery_soc": "State of charge",
+            "grid_power": "Power",
+            "solar_energy": "PV energy",
+            "power_reduction_ratio": "Power reduction ratio",
+            "bms_alarm_high_voltage": "Alarm: high voltage",
+        },
+        "translations/es.json": {
+            "battery_soc": "Estado de carga",
+            "grid_power": "Potencia",
+            "solar_energy": "Energía FV",
+            "power_reduction_ratio": "Ratio de reducción de potencia",
+            "bms_alarm_high_voltage": "Alarma: tensión alta",
+        },
+    }
+    for name, names in expected.items():
+        entities = load(name)["entity"]
+        got = {k: entities["binary_sensor" if k.startswith("bms_") else "sensor"][k]["name"] for k in names}
+        assert got == names, name
 
 
 def test_flow_steps_errors_and_aborts_are_translated() -> None:
