@@ -595,7 +595,8 @@ async def test_reconfigure_rejects_interval_shorter_than_blocks(hass: HomeAssist
 
 async def test_reconfigure_interval_budget_exceeded(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
     result = await reconfigure(hass, storage_entry())
-    result = await configure(hass, result, {"components": ["battery"]})
+    # el tier instant solo existe con la red
+    result = await configure(hass, result, {"components": ["grid", "battery"]})
     result = await configure(hass, result, {**STORAGE_INTERVALS, "instant": {"interval": 1}})
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_intervals")
     assert result["errors"] == {"base": "interval_budget_exceeded"}
