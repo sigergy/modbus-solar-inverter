@@ -828,7 +828,7 @@ async def test_reconfigure_rename_from_entry_without_id(hass: HomeAssistant, sto
     main = seed_entity(hass, entry, "ac_power", "inverter_power", component=None)
     battery = seed_entity(hass, entry, "battery_voltage", "battery_voltage")
     result = await to_rename(hass, entry)
-    assert result["description_placeholders"]["old_id"] == "-"
+    assert result["description_placeholders"]["old_id"] == "no ID"
     assert result["description_placeholders"]["renamed_count"] == "2"
     result = await configure(hass, result, {})
     assert result["reason"] == "reconfigure_successful"
