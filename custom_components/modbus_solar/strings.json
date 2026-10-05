@@ -498,7 +498,7 @@
   },
   "exceptions": {
     "write_failed": {
-      "message": "Could not write to the inverter: {error}"
+      "message": "Could not write to the device: {error}"
     }
   },
   "selector": {

@@ -498,7 +498,7 @@
   },
   "exceptions": {
     "write_failed": {
-      "message": "No se pudo escribir en el inversor: {error}"
+      "message": "No se pudo escribir en el dispositivo: {error}"
     }
   },
   "selector": {
