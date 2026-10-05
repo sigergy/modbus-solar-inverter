@@ -479,7 +479,7 @@ class DeviceConfigFlow(ConfigFlow):
         defaults: Mapping[str, int],
         errors: dict[str, str],
         rate: float | None,
-        suggested: Mapping[str, Any] | None,
+        typed: Mapping[str, Any] | None,
     ) -> ConfigFlowResult:
         """Formulario de intervalos: un campo por tier con entidades. Lo comparten el alta y reconfigure."""
         selection = select(profile, components)
@@ -488,10 +488,12 @@ class DeviceConfigFlow(ConfigFlow):
         placeholders = intervals_placeholders(profile, selection, tiers, translations)
         if rate is not None:
             placeholders["rate"] = format_number(round(rate, 2), self.hass.config.language)
-        schema = intervals_schema(tiers, defaults)
+        # tras un error el formulario conserva lo escrito
+        if typed is not None:
+            defaults = {**defaults, **{tier.value: int(typed[tier.value][CONF_INTERVAL]) for tier in tiers}}
         return self.async_show_form(
             step_id=step_id,
-            data_schema=self.add_suggested_values_to_schema(schema, suggested) if suggested else schema,
+            data_schema=intervals_schema(tiers, defaults),
             errors=errors,
             description_placeholders=placeholders,
         )
@@ -562,7 +564,7 @@ class DeviceConfigFlow(ConfigFlow):
         fields: dict[Any, Any] = {
             vol.Required(CONF_HOST): str,
             vol.Optional(CONF_SERIAL_NUMBER): TextSelector(),
-            (vol.Required if stored_id is not None else vol.Optional)(CONF_DEVICE_ID): NumberSelector(
+            self._device_id_key(stored_id): NumberSelector(
                 NumberSelectorConfig(min=0, step=1, mode=NumberSelectorMode.BOX)
             ),
             vol.Required(CONF_ADVANCED): section(
@@ -600,6 +602,13 @@ class DeviceConfigFlow(ConfigFlow):
             errors=errors,
             description_placeholders=placeholders,
         )
+
+    @staticmethod
+    def _device_id_key(stored_id: int | None) -> vol.Marker:
+        """Obligatorio con el ID guardado como valor por defecto; opcional si la entry no tiene ID."""
+        if stored_id is None:
+            return vol.Optional(CONF_DEVICE_ID)
+        return vol.Required(CONF_DEVICE_ID, default=stored_id)
 
     async def async_step_reconfigure_components(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()

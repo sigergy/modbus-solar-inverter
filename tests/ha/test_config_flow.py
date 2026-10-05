@@ -397,7 +397,8 @@ async def test_storage_entry_saves_components_in_profile_order(
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery", "pv"]})
     result = await choose(hass, result, "name")
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "House", "device_id": 0})
-    result = await create(hass, result, STORAGE_INTERVALS)
+    # sin red no hay tier instant: el formulario no lo muestra
+    result = await create(hass, result, {k: v for k, v in STORAGE_INTERVALS.items() if k != "instant"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["components"] == ["pv", "battery"]
 
