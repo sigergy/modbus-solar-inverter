@@ -88,13 +88,13 @@ async def test_energy_restored_after_restart(hass: HomeAssistant, patch_storage_
         hass,
         [
             (
-                State("sensor.inverter_solar_energy", "1.5"),
+                State("sensor.inverter_pv_energy", "1.5"),
                 {"native_value": 1.5, "native_unit_of_measurement": "kWh"},
             )
         ],
     )
     await setup_entry(hass, device_entry(STORAGE))
-    assert entity_id_of(hass, "solar_energy") == "sensor.inverter_solar_energy"
+    assert entity_id_of(hass, "solar_energy") == "sensor.inverter_pv_energy"
     assert kwh(hass, "solar_energy") == 1.5
 
 
