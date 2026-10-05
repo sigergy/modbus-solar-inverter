@@ -22,7 +22,7 @@ from .profiles import ALL_PROFILES
 _LOGGER = logging.getLogger(__name__)
 
 CATALOG = Catalog(ALL_PROFILES)
-PLATFORMS = [HaPlatform.SENSOR, HaPlatform.NUMBER, HaPlatform.SWITCH]
+PLATFORMS = [HaPlatform.SENSOR, HaPlatform.BINARY_SENSOR, HaPlatform.NUMBER, HaPlatform.SWITCH]
 
 
 def _remove_unselected(

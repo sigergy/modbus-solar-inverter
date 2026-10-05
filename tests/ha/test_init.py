@@ -87,9 +87,9 @@ async def test_entry_without_components_loads_all_optional(hass: HomeAssistant, 
     entry = await setup_storage_entry(hass, components=None)
     profile = next(p for p in ALL_PROFILES if p.id == "ingeteam.oneplay_storage")
     selection = select(profile, None)
-    # solo sensor, number y switch tienen plataforma; las desactivadas por defecto también están en el registro
+    # todas las plataformas; las desactivadas por defecto también están en el registro
     expected = (
-        sum(1 for e in selection.entities if e.platform is Platform.SENSOR)
+        sum(1 for e in selection.entities if e.platform in (Platform.SENSOR, Platform.BINARY_SENSOR))
         + len(selection.energies)
         + 2 * len(selection.controls)
     )
