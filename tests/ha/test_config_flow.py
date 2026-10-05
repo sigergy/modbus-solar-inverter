@@ -20,6 +20,7 @@ from modbus_connection.mock import MockModbusUnit
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.modbus_solar import CATALOG
+from custom_components.modbus_solar.adapters.inbound.flow import device_label
 from custom_components.modbus_solar.application.catalog import Catalog
 from custom_components.modbus_solar.config_flow import ModbusSolarConfigFlow
 from custom_components.modbus_solar.const import DOMAIN
@@ -839,3 +840,10 @@ async def test_reconfigure_rename_from_entry_without_id(hass: HomeAssistant, sto
     assert renamed_main.entity_id == "sensor.inverter_2_power"
     assert renamed_battery.entity_id == "sensor.battery_2_voltage"
     assert entry.data["device_id"] == 2
+
+
+def test_device_label_appends_id_to_plain_name() -> None:
+    # prefijo del entity_id: nombre traducido del dispositivo más el ID, sin claves *_numbered
+    translations = {f"component.{DOMAIN}.device.grid.name": "Red"}
+    assert device_label(translations, "grid", 0) == "Red 0"
+    assert device_label(translations, "grid", None) == "Red"
