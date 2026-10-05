@@ -8,10 +8,13 @@ class DataType(StrEnum):
     S16 = "s16"
     U32 = "u32"
     S32 = "s32"
+    ASCII = "ascii"  # texto de N registros; N en RegisterSpec.length
 
     @property
     def words(self) -> int:
-        """Número de registros de 16 bits que ocupa."""
+        """Número de registros de 16 bits que ocupa. ASCII depende del registro: usar RegisterSpec.words."""
+        if self is DataType.ASCII:
+            raise ValueError("ascii length is per register")
         return 1 if self in (DataType.U16, DataType.S16) else 2
 
     @property
@@ -25,6 +28,7 @@ class RegisterKind(StrEnum):
 
 
 class PollTier(StrEnum):
+    INSTANT = "instant"  # primero: el formulario de intervalos recorre el enum en orden
     FAST = "fast"
     NORMAL = "normal"
     SLOW = "slow"
@@ -51,6 +55,8 @@ class Role(StrEnum):
     GRID_POWER = "grid_power"
     LOAD_POWER = "load_power"
     DIAGNOSTIC = "diagnostic"  # entidades extra sin significado común entre marcas
+    BMS_ALARM = "bms_alarm"
+    BMS_FLAG = "bms_flag"
     ENERGY_SOLAR = "energy_solar"
     ENERGY_GRID_IMPORT = "energy_grid_import"
     ENERGY_GRID_EXPORT = "energy_grid_export"
@@ -64,8 +70,22 @@ class Role(StrEnum):
     EXTERNAL_TEMPERATURE = "external_temperature"  # ambiente o módulo, según el modelo
 
 
+class Component(StrEnum):
+    """Parte física del equipo a la que pertenece una entidad."""
+
+    MAIN = "main"
+    PV = "pv"
+    BATTERY = "battery"
+    GRID = "grid"
+    INTERNAL_METER = "internal_meter"
+    CRITICAL_LOADS = "critical_loads"
+    LOAD = "load"
+    EV_CHARGER = "ev_charger"
+
+
 class Platform(StrEnum):
     SENSOR = "sensor"
+    BINARY_SENSOR = "binary_sensor"
 
 
 class WordOrder(StrEnum):

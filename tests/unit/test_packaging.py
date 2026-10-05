@@ -32,8 +32,9 @@ def test_manifest_uses_core_modbus() -> None:
     assert manifest["requirements"] == []
 
 
-def test_manifest_one_device_per_entry() -> None:
-    assert load_manifest()["integration_type"] == "device"
+def test_manifest_is_hub() -> None:
+    # una entry agrupa varios dispositivos (principal y componentes)
+    assert load_manifest()["integration_type"] == "hub"
 
 
 def test_hacs_json() -> None:

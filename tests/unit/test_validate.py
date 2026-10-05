@@ -4,8 +4,9 @@ from dataclasses import replace
 
 from custom_components.modbus_solar.domain.control import GatedLimitSpec, WriteSpec
 from custom_components.modbus_solar.domain.energy import EnergySpec, SignFilter
-from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
+from custom_components.modbus_solar.domain.profile import ComponentSpec, DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
+    Component,
     DataType,
     Platform,
     PollTier,
@@ -198,3 +199,71 @@ def test_control_prefix_words_are_16_bit() -> None:
 
 def test_control_range_must_encode() -> None:
     assert validate_profile(with_controls(gated(max_value=40000, default=40000))) == ["limit: 40000 does not encode"]
+
+
+def test_serial_must_be_ascii_with_length() -> None:
+    good = RegisterSpec(address=100, dtype=DataType.ASCII, length=8)
+    assert validate_profile(replace(profile(ent("a", 0)), serial=good)) == []
+    bad_type = RegisterSpec(address=100, dtype=DataType.U16)
+    assert validate_profile(replace(profile(ent("a", 0)), serial=bad_type)) == ["serial: dtype must be ascii"]
+    no_length = RegisterSpec(address=100, dtype=DataType.ASCII)
+    assert validate_profile(replace(profile(ent("a", 0)), serial=no_length)) == ["serial: length must be >= 1"]
+
+
+def test_entity_cannot_be_ascii() -> None:
+    reg = RegisterSpec(address=0, dtype=DataType.ASCII, length=2)
+    problems = validate_profile(profile(replace(ent("a", 0), register=reg)))
+    assert problems == ["a: ascii only for serial"]
+
+
+def flag(key: str, address: int, bit: int, dtype: DataType = DataType.U16) -> EntitySpec:
+    return replace(ent(key, address, dtype), platform=Platform.BINARY_SENSOR, bit=bit)
+
+
+def test_bits_may_share_a_register() -> None:
+    assert validate_profile(profile(ent("a", 0), flag("b0", 5, 0), flag("b1", 5, 1))) == []
+
+
+def test_bit_and_plain_entity_still_overlap() -> None:
+    assert validate_profile(profile(ent("a", 5), flag("b0", 5, 0))) == ["overlap: a and b0"]
+
+
+def test_bit_rules() -> None:
+    assert validate_profile(profile(ent("a", 0), flag("b", 5, 16))) == ["b: bit out of range"]
+    assert validate_profile(profile(ent("a", 0), flag("b", 5, 0, DataType.U32))) == ["b: bit requires u16"]
+    no_bit = replace(ent("b", 5), platform=Platform.BINARY_SENSOR)
+    assert validate_profile(profile(ent("a", 0), no_bit)) == ["b: binary_sensor requires bit"]
+    sensor_bit = replace(ent("b", 5), bit=0)
+    assert validate_profile(profile(ent("a", 0), sensor_bit)) == ["b: bit requires binary_sensor"]
+
+
+def with_components(*entities: EntitySpec, components: tuple[ComponentSpec, ...]) -> DeviceProfile:
+    return replace(profile(*entities), components=components)
+
+
+def test_components_valid() -> None:
+    entities = (ent("a", 0), replace(ent("b", 1), component=Component.BATTERY))
+    assert validate_profile(with_components(*entities, components=(ComponentSpec(Component.BATTERY),))) == []
+
+
+def test_component_not_declared() -> None:
+    entities = (ent("a", 0), replace(ent("b", 1), component=Component.BATTERY))
+    assert validate_profile(with_components(*entities, components=())) == ["b: component battery not declared"]
+
+
+def test_components_no_main_no_repeats_no_empty() -> None:
+    battery = ComponentSpec(Component.BATTERY)
+    entities = (ent("a", 0), replace(ent("b", 1), component=Component.BATTERY))
+    assert validate_profile(with_components(*entities, components=(battery, battery))) == [
+        "components: battery repeated"
+    ]
+    assert validate_profile(with_components(*entities, components=(ComponentSpec(Component.MAIN), battery))) == [
+        "components: main is implicit"
+    ]
+    assert validate_profile(with_components(ent("a", 0), components=(battery,))) == ["components: battery is empty"]
+
+
+def test_energy_in_component_of_its_sources() -> None:
+    entities = (power("a", 0), replace(power("b", 1), component=Component.PV))
+    bad = replace(with_energies(energy("e", "b"), entities=entities), components=(ComponentSpec(Component.PV),))
+    assert validate_profile(bad) == ["e: component differs from sources"]

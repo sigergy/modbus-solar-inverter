@@ -15,5 +15,5 @@ En `docs/wiki/brands/` solo entran PDF oficiales y públicos, con SHA-256 y revi
 
 ## Consecuencias
 
-- Un registro sin fuente oficial no entra en un perfil. El perfil actual cita la página del PDF en cada decisión (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:1`, `:12`, `:26`).
+- Un registro sin fuente oficial no entra en un perfil. El perfil actual cita la página del PDF en cada decisión (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:1`, `:8`, `:23`).
 - Una revisión anterior de un PDF se descarta: la F de `AAA0030IMB03` es anterior a la N y no entra (`docs/changes/2026-10-04-skeleton/spec.md:536-537`).

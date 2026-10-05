@@ -11,7 +11,7 @@ Escalas y orden de palabras de los registros de 32 bits sin verificar en equipo.
 - `Componente`: dispositivo de HA donde va o iría la entidad del registro (enum `Component`, spec
   setup-flow-v2 §5.1). `—`: reservado.
 - `En HA`: si el registro sale como entidad en Home Assistant. `sí`: hoy; `prevista`: en una spec en curso
-  (30029 y 30069, setup-flow-v2 §5.3; 30043, reason-labels); `no`: no se lee.
+  (30043, reason-labels); `no`: no se lee.
 - `entity_id`: el que HA generará al crear la entidad en una entry nueva con Device ID 0:
   `<plataforma>.<dispositivo>_<device_id>_<nombre>`, sin tildes ni signos. Dispositivo y nombre de entidad en
   español, patrón A de setup-flow-v2 §5.4 (la entidad no repite su dispositivo). Con otro Device ID cambia el
@@ -54,7 +54,7 @@ Escalas y orden de palabras de los registros de 32 bits sin verificar en equipo.
 | `30026` | Battery. Max. Discharging Current | Corriente máx. descarga | UINT16 | [A x 100] | 3 | Batería | no | — | — |
 | `30027` | Battery. Status | Estado batería | UINT16 | [Note 3] | 3 | Batería | sí | normal | `sensor.bateria_0_estado` |
 | `30028` | Battery. Temperature | Temperatura batería | INT16 | [ºC x 10] | 3 | Batería | sí | slow | `sensor.bateria_0_temperatura` |
-| `30029` | Battery. BMS Alarms | Alarmas BMS | UINT16 | [Note 4] | 3 | Batería | prevista | fast | `binary_sensor.bateria_0_alarma_corriente_de_carga_alta`<br>`binary_sensor.bateria_0_alarma_tension_alta`<br>`binary_sensor.bateria_0_alarma_tension_baja`<br>`binary_sensor.bateria_0_alarma_temperatura_alta`<br>`binary_sensor.bateria_0_alarma_temperatura_baja`<br>`binary_sensor.bateria_0_alarma_fallo_interno_del_bms`<br>`binary_sensor.bateria_0_alarma_desequilibrio_de_celdas`<br>`binary_sensor.bateria_0_alarma_corriente_de_descarga_alta`<br>`binary_sensor.bateria_0_alarma_error_del_sistema_bms` |
+| `30029` | Battery. BMS Alarms | Alarmas BMS | UINT16 | [Note 4] | 3 | Batería | sí | fast | `binary_sensor.bateria_0_alarma_corriente_de_carga_alta`<br>`binary_sensor.bateria_0_alarma_tension_alta`<br>`binary_sensor.bateria_0_alarma_tension_baja`<br>`binary_sensor.bateria_0_alarma_temperatura_alta`<br>`binary_sensor.bateria_0_alarma_temperatura_baja`<br>`binary_sensor.bateria_0_alarma_fallo_interno_del_bms`<br>`binary_sensor.bateria_0_alarma_desequilibrio_de_celdas`<br>`binary_sensor.bateria_0_alarma_corriente_de_descarga_alta`<br>`binary_sensor.bateria_0_alarma_error_del_sistema_bms` |
 | `30030` | Battery. Discharge Limitation Reason | Motivo límite descarga | UINT16 | [Note 9] | 3 | Batería | sí | normal | `sensor.bateria_0_motivo_de_limitacion_de_descarga` |
 | `30031` | Battery. Voltage Internal Sensor | Tensión interna batería | UINT16 | [V x 10] | 3 | Batería | no | — | — |
 | `30032` | PV1. Voltage | Tensión FV1 | UINT16 | [V] | 3 | Campo solar | sí | normal | `sensor.campo_solar_0_tension_fv1` |
@@ -94,7 +94,7 @@ Escalas y orden de palabras de los registros de 32 bits sin verificar en equipo.
 | `30066` | Digital Input 2. Status | Estado DI2 | UINT16 | [0: OFF, 1:ON] | 4 | Inversor | no | — | — |
 | `30067` | Digital Input 3. Status | Estado DI3 | UINT16 | [0: OFF, 1:ON] | 4 | Inversor | no | — | — |
 | `30068` | Reserved for Ingeteam | Reservado |  |  | 4 | — | no | — | — |
-| `30069` | Battery. BMS Flags | Flags BMS | UINT16 | [Note 10] | 4 | Batería | prevista | fast | `binary_sensor.bateria_0_carga_bloqueada`<br>`binary_sensor.bateria_0_descarga_bloqueada`<br>`binary_sensor.bateria_0_carga_forzada_por_el_bms`<br>`binary_sensor.bateria_0_calibracion_de_soc_pendiente`<br>`binary_sensor.bateria_0_carga_forzada_por_soc_bajo` |
+| `30069` | Battery. BMS Flags | Flags BMS | UINT16 | [Note 10] | 4 | Batería | sí | fast | `binary_sensor.bateria_0_carga_bloqueada`<br>`binary_sensor.bateria_0_descarga_bloqueada`<br>`binary_sensor.bateria_0_carga_forzada_por_el_bms`<br>`binary_sensor.bateria_0_calibracion_de_soc_pendiente`<br>`binary_sensor.bateria_0_carga_forzada_por_soc_bajo` |
 | `30070` | External Wattmeter Grid. Voltage | Tensión vatímetro red | UINT16 | [V] | 4 | Red | sí | instant | `sensor.red_0_tension` |
 | `30071` | External Wattmeter Grid. Frequency | Frecuencia vatímetro red | UINT16 | [Hz x10] | 5 | Red | sí | instant | `sensor.red_0_frecuencia` |
 | `30072` | External Wattmeter Grid. Active Power | Potencia vatímetro red | INT16 | [W] | 5 | Red | sí | instant | `sensor.red_0_potencia` |
@@ -110,7 +110,7 @@ Escalas y orden de palabras de los registros de 32 bits sin verificar en equipo.
 
 ## Tier y activación de las entidades de diagnóstico
 
-Propuesta para `ingeteam.oneplay_storage` con un dispositivo por componente
+Reparto de `ingeteam.oneplay_storage` con un dispositivo por componente
 ([spec setup-flow-v2](../../../../changes/2026-10-04-setup-flow-v2/spec.md), §5.1 y §5.3). Hoy todas las extras van al tier lento y desactivadas
 (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:82-93`).
 

@@ -17,7 +17,7 @@ class Block:
 def plan_blocks(registers: Iterable[RegisterSpec], max_gap: int, max_count: int) -> list[Block]:
     blocks: list[Block] = []
     for reg in sorted(set(registers), key=lambda r: (r.kind, r.address)):
-        end = reg.address + reg.dtype.words
+        end = reg.address + reg.words
         if blocks:
             last = blocks[-1]
             last_end = last.address + last.count
@@ -27,5 +27,5 @@ def plan_blocks(registers: Iterable[RegisterSpec], max_gap: int, max_count: int)
             if last.kind is reg.kind and fits:
                 blocks[-1] = Block(last.kind, last.address, new_end - last.address)
                 continue
-        blocks.append(Block(reg.kind, reg.address, reg.dtype.words))
+        blocks.append(Block(reg.kind, reg.address, reg.words))
     return blocks

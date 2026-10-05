@@ -107,7 +107,7 @@ async def test_build_runtime_one_coordinator_per_tier_with_entities(hass: HomeAs
     writer = FakeWriter()
     runtime = build_runtime(hass, entry, ONEPLAY, gateway, writer, ALL_KEYS)
     assert (runtime.entry_id, runtime.title, runtime.profile.id) == (DEVICE_ID, "Inverter", ONEPLAY.id)
-    assert runtime.intervals == {"fast": 5, "normal": 60, "slow": 3600}
+    assert runtime.intervals == {"instant": 5, "fast": 5, "normal": 60, "slow": 3600}
     assert runtime.gateway is gateway
     assert runtime.writer is writer
     assert runtime.control_states == {}
@@ -146,6 +146,7 @@ async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> N
     entry.add_to_hass(hass)
     runtime = build_runtime(hass, entry, ONEPLAY_STORAGE, FakeGateway({}), FakeWriter(), set())
     assert {tier: c.always_update for tier, c in runtime.coordinators.items()} == {
+        PollTier.INSTANT: True,
         PollTier.FAST: True,
         PollTier.NORMAL: False,
         PollTier.SLOW: False,

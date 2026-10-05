@@ -3,13 +3,13 @@
 from collections.abc import Sequence
 
 from .errors import DecodeError
-from .profile import EntitySpec
+from .profile import EntitySpec, RegisterSpec
 from .types import WordOrder
 
 
-def decode(entity: EntitySpec, words: Sequence[int]) -> int | float | str:
+def decode(entity: EntitySpec, words: Sequence[int]) -> int | float | str | bool:
     reg = entity.register
-    count = reg.dtype.words
+    count = reg.words
     if len(words) != count:
         raise DecodeError(f"{entity.key}: expected {count} words, got {len(words)}")
     for word in words:
@@ -24,6 +24,8 @@ def decode(entity: EntitySpec, words: Sequence[int]) -> int | float | str:
     if reg.dtype.signed and raw >= 1 << (bits - 1):
         raw -= 1 << bits
 
+    if entity.bit is not None:
+        return bool(raw >> entity.bit & 1)
     if entity.enum is not None:
         if raw not in entity.enum:
             raise DecodeError(f"{entity.key}: value {raw} not in enum")
@@ -32,3 +34,11 @@ def decode(entity: EntitySpec, words: Sequence[int]) -> int | float | str:
         return raw
     # el redondeo quita el ruido de coma flotante de la escala (3 * 0.1)
     return round(raw * reg.scale + reg.offset, 6)
+
+
+def decode_text(register: RegisterSpec, words: Sequence[int]) -> str:
+    """Texto ASCII, dos caracteres por palabra con el alto primero; sin nulos ni espacios al final."""
+    if len(words) != register.words:
+        raise DecodeError(f"text: expected {register.words} words, got {len(words)}")
+    data = b"".join(word.to_bytes(2, "big") for word in words)
+    return data.decode("ascii", errors="replace").rstrip("\x00 ")

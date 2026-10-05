@@ -1,5 +1,7 @@
 """Perfil Ingeteam 1Play TL M (sin storage) y catálogo de perfiles."""
 
+from pathlib import Path
+
 import pytest
 
 from custom_components.modbus_solar import CATALOG
@@ -63,6 +65,13 @@ def test_total_energy() -> None:
     assert (e.register.address, e.register.dtype, e.register.scale) == (0x1021, DataType.U32, 0.1)
     assert (e.device_class, e.state_class, e.unit) == ("energy", "total_increasing", "Wh")
     assert (e.poll, e.role) == (PollTier.NORMAL, Role.ENERGY_PRODUCED_TOTAL)
+
+
+def test_brand_matches_profiles_folder() -> None:
+    # spec §3.1: el brand de cada perfil es el nombre de su carpeta en profiles/
+    root = Path(__file__).parents[2] / "custom_components" / "modbus_solar" / "profiles"
+    for profile in ALL_PROFILES:
+        assert (root / profile.brand).is_dir(), profile.id
 
 
 def test_catalog_lookup() -> None:

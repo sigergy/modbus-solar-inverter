@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
-from .types import Role
+from .types import Component, Role
 
 
 class SignFilter(StrEnum):
@@ -20,6 +20,7 @@ class EnergySpec:
     sources: tuple[str, ...]  # claves de entidades de potencia (W); se suman
     sign: SignFilter
     enabled_default: bool = True
+    component: Component = Component.MAIN
 
 
 class EnergyAccumulator:

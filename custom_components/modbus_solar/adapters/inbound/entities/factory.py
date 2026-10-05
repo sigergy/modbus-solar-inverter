@@ -1,5 +1,6 @@
 """Construye las entidades de un equipo a partir de su perfil."""
 
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.number import NumberEntity
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.components.switch import SwitchEntity
@@ -9,6 +10,7 @@ from ....domain.types import Platform
 from ..coordinator import TierCoordinator
 from ..runtime import DeviceRuntime
 from .base import ModbusSolarEntity
+from .binary_sensor import ModbusSolarBinarySensor
 from .energy import ModbusSolarEnergySensor
 from .number import ModbusSolarNumber
 from .switch import ModbusSolarSwitch
@@ -36,15 +38,23 @@ class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
 def build_sensors(runtime: DeviceRuntime) -> list[SensorEntity]:
     sensors: list[SensorEntity] = [
         ModbusSolarSensor(runtime.coordinators[spec.poll], runtime, spec)
-        for spec in runtime.profile.entities
+        for spec in runtime.selection.entities
         if spec.platform is Platform.SENSOR
     ]
-    by_key = {spec.key: spec for spec in runtime.profile.entities}
-    for energy in runtime.profile.energies:
+    by_key = {spec.key: spec for spec in runtime.selection.entities}
+    for energy in runtime.selection.energies:
         # validate_profile garantiza que todas las fuentes van en el mismo tier
         coordinator = runtime.coordinators[by_key[energy.sources[0]].poll]
         sensors.append(ModbusSolarEnergySensor(coordinator, runtime, energy))
     return sensors
+
+
+def build_binary_sensors(runtime: DeviceRuntime) -> list[BinarySensorEntity]:
+    return [
+        ModbusSolarBinarySensor(runtime.coordinators[spec.poll], runtime, spec)
+        for spec in runtime.selection.entities
+        if spec.platform is Platform.BINARY_SENSOR
+    ]
 
 
 def _control_coordinator(runtime: DeviceRuntime) -> TierCoordinator:
@@ -55,9 +65,9 @@ def _control_coordinator(runtime: DeviceRuntime) -> TierCoordinator:
 
 def build_numbers(runtime: DeviceRuntime) -> list[NumberEntity]:
     coordinator = _control_coordinator(runtime)
-    return [ModbusSolarNumber(coordinator, runtime, spec) for spec in runtime.profile.controls]
+    return [ModbusSolarNumber(coordinator, runtime, spec) for spec in runtime.selection.controls]
 
 
 def build_switches(runtime: DeviceRuntime) -> list[SwitchEntity]:
     coordinator = _control_coordinator(runtime)
-    return [ModbusSolarSwitch(coordinator, runtime, spec) for spec in runtime.profile.controls]
+    return [ModbusSolarSwitch(coordinator, runtime, spec) for spec in runtime.selection.controls]

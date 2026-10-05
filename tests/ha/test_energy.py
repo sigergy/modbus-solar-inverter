@@ -84,6 +84,10 @@ async def test_energy_survives_reload(
 
 
 async def test_energy_restored_after_restart(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    # la entidad se crea antes con un entity_id fijo para no depender del nombre del dispositivo
+    er.async_get(hass).async_get_or_create(
+        "sensor", DOMAIN, f"{DEVICE_ID}_solar_energy", suggested_object_id="inverter_solar_energy"
+    )
     mock_restore_cache_with_extra_data(
         hass,
         [

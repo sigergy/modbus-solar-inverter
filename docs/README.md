@@ -21,5 +21,5 @@ Flujo: `research/` → `decisions/` → `changes/` → al cerrar, `features/`, `
 | [2026-10-04-setup-flow](changes/2026-10-04-setup-flow/spec.md) | cerrado |
 | [2026-10-04-export-control](changes/2026-10-04-export-control/spec.md) | cerrado |
 | [2026-10-04-irradiance-sensor](changes/2026-10-04-irradiance-sensor/spec.md) | cerrado |
-| [2026-10-04-setup-flow-v2](changes/2026-10-04-setup-flow-v2/spec.md) | borrador |
+| [2026-10-04-setup-flow-v2](changes/2026-10-04-setup-flow-v2/spec.md) | cerrado |
 | [2026-10-04-reason-labels](changes/2026-10-04-reason-labels/spec.md) | borrador |

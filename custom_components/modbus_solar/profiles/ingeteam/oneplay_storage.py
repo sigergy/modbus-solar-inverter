@@ -2,8 +2,8 @@
 
 from ...domain.control import GatedLimitSpec, WriteSpec
 from ...domain.energy import EnergySpec, SignFilter
-from ...domain.profile import DeviceProfile, EntitySpec, RegisterSpec
-from ...domain.types import DataType, Platform, PollTier, RegisterKind, Role
+from ...domain.profile import ComponentSpec, DeviceProfile, EntitySpec, RegisterSpec
+from ...domain.types import Component, DataType, Platform, PollTier, RegisterKind, Role
 
 # Nota 2 (pág. 6), registro 30016
 INVERTER_STATES = {
@@ -33,6 +33,39 @@ BATTERY_STATES = {
     8: "calibration_step_1",
     9: "calibration_step_2",
     10: "standby_manual",
+}
+
+
+COMPONENT_OF = {
+    **dict.fromkeys(
+        ("pv1_voltage", "pv1_current", "pv1_power", "pv2_voltage", "pv2_current", "pv2_power", "external_pv_power"),
+        Component.PV,
+    ),
+    **dict.fromkeys(
+        (
+            "battery_voltage",
+            "battery_current",
+            "battery_power",
+            "battery_soc",
+            "battery_soh",
+            "battery_state",
+            "battery_temperature",
+            "battery_charge_limit_reason",
+            "battery_discharge_limit_reason",
+        ),
+        Component.BATTERY,
+    ),
+    **dict.fromkeys(("grid_voltage", "grid_frequency", "grid_power"), Component.GRID),
+    **dict.fromkeys(
+        ("internal_meter_voltage", "internal_meter_current", "internal_meter_frequency", "internal_meter_power"),
+        Component.INTERNAL_METER,
+    ),
+    **dict.fromkeys(
+        ("critical_load_voltage", "critical_load_current", "critical_load_frequency", "critical_load_power"),
+        Component.CRITICAL_LOADS,
+    ),
+    "load_power": Component.LOAD,
+    "ev_charger_power": Component.EV_CHARGER,
 }
 
 
@@ -68,6 +101,7 @@ def _core(
         state_class=state_class,
         unit=unit,
         enum=enum,
+        component=COMPONENT_OF.get(key, Component.MAIN),
     )
 
 
@@ -75,22 +109,41 @@ def _extra(
     key: str,
     register: RegisterSpec,
     *,
+    poll: PollTier = PollTier.SLOW,
+    enabled_default: bool = False,
+    entity_category: str | None = "diagnostic",
     device_class: str | None = None,
     unit: str | None = None,
     state_class: str | None = "measurement",
 ) -> EntitySpec:
-    # extra: diagnóstico, deshabilitadas por defecto y en el tier lento
+    # extra: por defecto diagnóstico, deshabilitada y en el tier lento; el perfil ajusta tier y activación (spec §5.7)
     return EntitySpec(
         key=key,
         role=Role.DIAGNOSTIC,
         platform=Platform.SENSOR,
         register=register,
-        poll=PollTier.SLOW,
+        poll=poll,
         device_class=device_class,
         state_class=state_class,
         unit=unit,
+        entity_category=entity_category,
+        enabled_default=enabled_default,
+        component=COMPONENT_OF.get(key, Component.MAIN),
+    )
+
+
+def _bms_bit(key: str, register: int, bit: int, role: Role) -> EntitySpec:
+    # ABH2010IMB08 págs. 6-8: un binary_sensor por bit de 30029 (alarmas) y 30069 (estados)
+    return EntitySpec(
+        key=key,
+        role=role,
+        platform=Platform.BINARY_SENSOR,
+        register=_input(register),
+        poll=PollTier.FAST,
+        bit=bit,
+        component=Component.BATTERY,
+        device_class="problem" if role is Role.BMS_ALARM else None,
         entity_category="diagnostic",
-        enabled_default=False,
     )
 
 
@@ -107,6 +160,16 @@ ONEPLAY_STORAGE = DeviceProfile(
     default_port=502,
     default_unit_id=1,
     probe_key="inverter_state",
+    # componentes opcionales en orden (spec §5.1); main siempre está
+    components=(
+        ComponentSpec(Component.PV),
+        ComponentSpec(Component.BATTERY),
+        ComponentSpec(Component.GRID),
+        ComponentSpec(Component.INTERNAL_METER, default=False),
+        ComponentSpec(Component.CRITICAL_LOADS),
+        ComponentSpec(Component.LOAD),
+        ComponentSpec(Component.EV_CHARGER, default=False),
+    ),
     entities=(
         _core(
             "inverter_state",
@@ -175,17 +238,17 @@ ONEPLAY_STORAGE = DeviceProfile(
             unit="°C",
         ),
         # red: vatímetro externo (30070-30073), el que mide el punto de conexión
-        _core("grid_voltage", Role.GRID_VOLTAGE, _input(30070), PollTier.NORMAL, device_class="voltage", unit="V"),
+        _core("grid_voltage", Role.GRID_VOLTAGE, _input(30070), PollTier.INSTANT, device_class="voltage", unit="V"),
         _core(
             "grid_frequency",
             Role.GRID_FREQUENCY,
             _input(30071, scale=0.1),
-            PollTier.NORMAL,
+            PollTier.INSTANT,
             device_class="frequency",
             unit="Hz",
         ),
         _core(
-            "grid_power", Role.GRID_POWER, _input(30072, DataType.S16), PollTier.FAST, device_class="power", unit="W"
+            "grid_power", Role.GRID_POWER, _input(30072, DataType.S16), PollTier.INSTANT, device_class="power", unit="W"
         ),
         _core("load_power", Role.LOAD_POWER, _input(30079), PollTier.FAST, device_class="power", unit="W"),
         _extra(
@@ -196,28 +259,123 @@ ONEPLAY_STORAGE = DeviceProfile(
             state_class="total_increasing",
         ),
         # Nota 9: motivo como valor crudo
-        _extra("battery_discharge_limit_reason", _input(30030), state_class=None),
-        _extra("battery_charge_limit_reason", _input(30078), state_class=None),
-        _extra("reactive_power", _input(30039, DataType.S16), device_class="reactive_power", unit="var"),
+        _extra("battery_discharge_limit_reason", _input(30030), poll=PollTier.NORMAL, state_class=None),
+        _extra("battery_charge_limit_reason", _input(30078), poll=PollTier.NORMAL, state_class=None),
+        _extra(
+            "reactive_power", _input(30039, DataType.S16), poll=PollTier.FAST, device_class="reactive_power", unit="var"
+        ),
         # Nota 6: valor absoluto; el signo lo da la reactiva
-        _extra("power_factor", _input(30040, DataType.S16, 0.001)),
-        _extra("power_reduction_ratio", _input(30041, scale=0.1), unit="%"),
+        _extra("power_factor", _input(30040, DataType.S16, 0.001), poll=PollTier.FAST),
+        _extra("power_reduction_ratio", _input(30041, scale=0.1), poll=PollTier.NORMAL, unit="%"),
         # Nota 7: motivo como valor crudo
-        _extra("power_reduction_reason", _input(30042), state_class=None),
-        _extra("critical_load_voltage", _input(30044), device_class="voltage", unit="V"),
-        _extra("critical_load_current", _input(30045, scale=0.01), device_class="current", unit="A"),
-        _extra("critical_load_frequency", _input(30046, scale=0.01), device_class="frequency", unit="Hz"),
-        _extra("critical_load_power", _input(30047, DataType.S16), device_class="power", unit="W"),
-        _extra("internal_meter_voltage", _input(30049), device_class="voltage", unit="V"),
-        _extra("internal_meter_current", _input(30050, scale=0.01), device_class="current", unit="A"),
-        _extra("internal_meter_frequency", _input(30051, scale=0.01), device_class="frequency", unit="Hz"),
-        _extra("internal_meter_power", _input(30052, DataType.S16), device_class="power", unit="W"),
-        _extra("dc_bus_voltage", _input(30055), device_class="voltage", unit="V"),
-        _extra("inverter_temperature", _input(30058, DataType.S16, 0.1), device_class="temperature", unit="°C"),
+        _extra("power_reduction_reason", _input(30042), poll=PollTier.NORMAL, state_class=None),
+        _extra(
+            "critical_load_voltage",
+            _input(30044),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="voltage",
+            unit="V",
+        ),
+        _extra(
+            "critical_load_current",
+            _input(30045, scale=0.01),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="current",
+            unit="A",
+        ),
+        _extra(
+            "critical_load_frequency",
+            _input(30046, scale=0.01),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="frequency",
+            unit="Hz",
+        ),
+        _extra(
+            "critical_load_power",
+            _input(30047, DataType.S16),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="power",
+            unit="W",
+        ),
+        _extra(
+            "internal_meter_voltage",
+            _input(30049),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="voltage",
+            unit="V",
+        ),
+        _extra(
+            "internal_meter_current",
+            _input(30050, scale=0.01),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="current",
+            unit="A",
+        ),
+        _extra(
+            "internal_meter_frequency",
+            _input(30051, scale=0.01),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="frequency",
+            unit="Hz",
+        ),
+        _extra(
+            "internal_meter_power",
+            _input(30052, DataType.S16),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="power",
+            unit="W",
+        ),
+        _extra("dc_bus_voltage", _input(30055), poll=PollTier.FAST, device_class="voltage", unit="V"),
+        _extra(
+            "inverter_temperature",
+            _input(30058, DataType.S16, 0.1),
+            poll=PollTier.NORMAL,
+            device_class="temperature",
+            unit="°C",
+        ),
         _extra("isolation_positive", _input(30060), unit="kΩ"),
         _extra("isolation_negative", _input(30061), unit="kΩ"),
-        _extra("external_pv_power", _input(30080), device_class="power", unit="W"),
-        _extra("ev_charger_power", _input(30081, DataType.S16), device_class="power", unit="W"),
+        _extra("external_pv_power", _input(30080), poll=PollTier.FAST, device_class="power", unit="W"),
+        _extra(
+            "ev_charger_power",
+            _input(30081, DataType.S16),
+            poll=PollTier.FAST,
+            enabled_default=True,
+            entity_category=None,
+            device_class="power",
+            unit="W",
+        ),
+        # Batería: bits de alarmas (30029) y de estados (30069), tier fast y activados (spec §5.3)
+        _bms_bit("bms_alarm_high_charge_current", 30029, 0, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_high_voltage", 30029, 1, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_low_voltage", 30029, 2, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_high_temperature", 30029, 3, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_low_temperature", 30029, 4, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_internal", 30029, 5, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_cell_imbalance", 30029, 6, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_high_discharge_current", 30029, 7, Role.BMS_ALARM),
+        _bms_bit("bms_alarm_system_error", 30029, 8, Role.BMS_ALARM),
+        _bms_bit("bms_stop_charge", 30069, 0, Role.BMS_FLAG),
+        _bms_bit("bms_stop_discharge", 30069, 1, Role.BMS_FLAG),
+        _bms_bit("bms_forced_charge", 30069, 2, Role.BMS_FLAG),
+        _bms_bit("bms_calibration", 30069, 3, Role.BMS_FLAG),
+        _bms_bit("bms_forced_charge_soc", 30069, 4, Role.BMS_FLAG),
     ),
     # el mapa no trae contadores: la integración integra la potencia (spec §4).
     # Signos supuestos (spec §3.5): grid_power > 0 importa de red; battery_power > 0 descarga
@@ -227,24 +385,35 @@ ONEPLAY_STORAGE = DeviceProfile(
             role=Role.ENERGY_SOLAR,
             sources=("pv1_power", "pv2_power"),
             sign=SignFilter.POSITIVE,
+            component=Component.PV,
         ),
         EnergySpec(
-            key="grid_import_energy", role=Role.ENERGY_GRID_IMPORT, sources=("grid_power",), sign=SignFilter.POSITIVE
+            key="grid_import_energy",
+            role=Role.ENERGY_GRID_IMPORT,
+            sources=("grid_power",),
+            sign=SignFilter.POSITIVE,
+            component=Component.GRID,
         ),
         EnergySpec(
-            key="grid_export_energy", role=Role.ENERGY_GRID_EXPORT, sources=("grid_power",), sign=SignFilter.NEGATIVE
+            key="grid_export_energy",
+            role=Role.ENERGY_GRID_EXPORT,
+            sources=("grid_power",),
+            sign=SignFilter.NEGATIVE,
+            component=Component.GRID,
         ),
         EnergySpec(
             key="battery_charge_energy",
             role=Role.ENERGY_BATTERY_CHARGE,
             sources=("battery_power",),
             sign=SignFilter.NEGATIVE,
+            component=Component.BATTERY,
         ),
         EnergySpec(
             key="battery_discharge_energy",
             role=Role.ENERGY_BATTERY_DISCHARGE,
             sources=("battery_power",),
             sign=SignFilter.POSITIVE,
+            component=Component.BATTERY,
         ),
     ),
     controls=(

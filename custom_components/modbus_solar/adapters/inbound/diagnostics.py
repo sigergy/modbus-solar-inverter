@@ -6,9 +6,10 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_HOST
 
+from ...const import CONF_SERIAL_NUMBER
 from .runtime import DeviceRuntime
 
-TO_REDACT = {CONF_HOST}
+TO_REDACT = {CONF_HOST, CONF_SERIAL_NUMBER}
 
 
 def device_diagnostics(runtime: DeviceRuntime, entry_data: Mapping[str, Any]) -> dict[str, Any]:
@@ -21,7 +22,7 @@ def device_diagnostics(runtime: DeviceRuntime, entry_data: Mapping[str, Any]) ->
         for tier, coordinator in runtime.coordinators.items()
     }
     entities: dict[str, Any] = {}
-    for spec in runtime.profile.entities:
+    for spec in runtime.selection.entities:
         # data guarda el último TierResult correcto, también tras un fallo
         result = runtime.coordinators[spec.poll].data
         raw = result.raw.get(spec.key) if result is not None else None

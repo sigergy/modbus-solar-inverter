@@ -51,7 +51,7 @@ class ModbusGateway:
                 raise DeviceProtocolError(f"expected {block.count} registers at {block.address}, got {len(values)}")
             for offset, value in enumerate(values):
                 words[(block.kind, block.address + offset)] = value
-        return {spec: tuple(words[(spec.kind, spec.address + i)] for i in range(spec.dtype.words)) for spec in specs}
+        return {spec: tuple(words[(spec.kind, spec.address + i)] for i in range(spec.words)) for spec in specs}
 
     async def write(self, spec: WriteSpec, value: float) -> None:
         words = encode(spec, value)

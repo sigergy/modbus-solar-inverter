@@ -27,13 +27,13 @@ Los parches apuntan a los nombres importados en la raíz: `custom_components.mod
 
 ## `FakeGateway`
 
-`tests/fakes.py:12-24`: `DeviceGateway` en memoria. Devuelve `words[address]` por cada `RegisterSpec` o lanza el `error` que se le pase. Guarda las llamadas en `calls`. `INGETEAM_WORDS` (`tests/fakes.py:9`) lleva los mismos valores que `ingeteam_unit`: `grid_connected`, 5000,0 Wh y 1234,5 W.
+`tests/fakes.py:12-33`: `DeviceGateway` en memoria. Devuelve `words[address]` por cada `RegisterSpec` o lanza el `error` que se le pase (con `fail_on`, solo si la lectura incluye esa dirección). Guarda las llamadas en `calls`. `INGETEAM_WORDS` (`tests/fakes.py:9`) lleva los mismos valores que `ingeteam_unit`: `grid_connected`, 5000,0 Wh y 1234,5 W.
 
 Se usa en `tests/unit/test_poller.py`, `tests/unit/test_probe.py` y `tests/ha/test_coordinator.py`. El resto de `tests/ha/` usa `ingeteam_unit` o `storage_unit` con el gateway real.
 
 ## `FakeWriter`
 
-`tests/fakes.py:27-37`: `DeviceWriter` en memoria. Anota cada `(spec, valor)` en `writes` o lanza el `error` que se le pase. Se usa en `tests/unit/test_control_usecases.py`.
+`tests/fakes.py:36-46`: `DeviceWriter` en memoria. Anota cada `(spec, valor)` en `writes` o lanza el `error` que se le pase. Se usa en `tests/unit/test_control_usecases.py`.
 
 Los tests de `tests/ha/test_control.py` no lo usan: ejercitan el `ModbusGateway` real contra `storage_unit` y recogen las escrituras con `on_write`, que el mock no guarda (fixture `writes`, `tests/ha/test_control.py:37-42`).
 

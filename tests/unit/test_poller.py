@@ -4,11 +4,13 @@ from dataclasses import replace
 
 import pytest
 
-from custom_components.modbus_solar.application.poller import TierResult, min_tier_interval, read_tier
+from custom_components.modbus_solar.application.poller import TierResult, min_tier_interval, read_tier, request_rate
+from custom_components.modbus_solar.const import DEFAULT_INTERVALS
 from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable
 from custom_components.modbus_solar.domain.types import PollTier
 from custom_components.modbus_solar.ports.device import DeviceGateway
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
 from tests.fakes import INGETEAM_WORDS, FakeGateway
 
 ALL_KEYS = {"inverter_state", "active_power", "total_energy"}
@@ -66,3 +68,21 @@ def test_min_tier_interval_for_ingeteam(tier: PollTier, expected: float) -> None
 def test_min_tier_interval_uses_profile_max_gap() -> None:
     # 0x101D y 0x1037 quedan a 25 registros: con max_gap=25 se leen en un bloque
     assert min_tier_interval(replace(ONEPLAY, max_gap=25), PollTier.FAST) == 1.0
+
+
+def defaults() -> dict[PollTier, int]:
+    return {tier: DEFAULT_INTERVALS[tier.value] for tier in PollTier}
+
+
+def test_request_rate_with_defaults_fits_one_per_second() -> None:
+    assert request_rate(ONEPLAY_STORAGE, defaults()) <= 1
+
+
+def test_request_rate_instant_one_second_exceeds_budget() -> None:
+    assert request_rate(ONEPLAY_STORAGE, defaults() | {PollTier.INSTANT: 1}) > 1
+
+
+def test_request_rate_ignores_tiers_without_entities() -> None:
+    # solo cuentan los tiers del mapa; un tier ausente no suma
+    expected = min_tier_interval(ONEPLAY_STORAGE, PollTier.SLOW) / 3600
+    assert request_rate(ONEPLAY_STORAGE, {PollTier.SLOW: 3600}) == pytest.approx(expected)

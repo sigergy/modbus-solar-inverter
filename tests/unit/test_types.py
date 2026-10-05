@@ -13,6 +13,7 @@ from custom_components.modbus_solar.domain.errors import (
 )
 from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
+    Component,
     DataType,
     Platform,
     PollTier,
@@ -23,7 +24,7 @@ from custom_components.modbus_solar.domain.types import (
 
 
 def test_data_type_words_and_sign() -> None:
-    assert [(t.value, t.words, t.signed) for t in DataType] == [
+    assert [(t.value, t.words, t.signed) for t in DataType if t is not DataType.ASCII] == [
         ("u16", 1, False),
         ("s16", 1, True),
         ("u32", 2, False),
@@ -33,10 +34,20 @@ def test_data_type_words_and_sign() -> None:
 
 def test_enum_values_are_stable() -> None:
     # se guardan en config entries y en diagnostics: cambiarlos rompe instalaciones
-    assert [t.value for t in PollTier] == ["fast", "normal", "slow"]
+    assert [t.value for t in PollTier] == ["instant", "fast", "normal", "slow"]
     assert [k.value for k in RegisterKind] == ["holding", "input"]
     assert [w.value for w in WordOrder] == ["big", "little"]
-    assert [p.value for p in Platform] == ["sensor"]
+    assert [p.value for p in Platform] == ["sensor", "binary_sensor"]
+    assert [c.value for c in Component] == [
+        "main",
+        "pv",
+        "battery",
+        "grid",
+        "internal_meter",
+        "critical_loads",
+        "load",
+        "ev_charger",
+    ]
     assert [r.value for r in Role] == [
         "inverter_state",
         "ac_power",
@@ -56,6 +67,8 @@ def test_enum_values_are_stable() -> None:
         "grid_power",
         "load_power",
         "diagnostic",
+        "bms_alarm",
+        "bms_flag",
         "energy_solar",
         "energy_grid_import",
         "energy_grid_export",
@@ -120,3 +133,10 @@ def test_domain_errors_are_independent(error: type[Exception]) -> None:
     others = DOMAIN_ERRORS - {error}
     assert issubclass(error, Exception)
     assert not any(issubclass(error, other) for other in others)
+
+
+def test_ascii_words_come_from_register_length() -> None:
+    with pytest.raises(ValueError):
+        _ = DataType.ASCII.words
+    assert RegisterSpec(address=0, dtype=DataType.ASCII, length=5).words == 5
+    assert RegisterSpec(address=0, dtype=DataType.U32).words == 2
