@@ -414,7 +414,7 @@ Total: 47, las de hoy. El cambio `reason-labels` suma 1 a `main` (30043, Nota 8)
 | | Principal (`main`) | Opcional |
 |---|---|---|
 | `identifiers` | `{(DOMAIN, entry_id)}`, como hoy | `{(DOMAIN, f"{entry_id}_{component}")}` |
-| Nombre | `translation_key` = `device_type` del perfil (`domain/profile.py:40`), por ejemplo `inverter` → «Inversor»; con Device ID, `inverter_numbered` → «Inversor 0» | `translation_key` = valor del componente; con Device ID, `<componente>_numbered` |
+| Nombre | `translation_key` = `device_type` del perfil (`domain/profile.py:40`), por ejemplo `inverter` → «Inversor», sin Device ID | `translation_key` = valor del componente, sin Device ID |
 | `translation_placeholders` | `{"device_id": "0"}` con Device ID; sin él, nada | igual |
 | `via_device` | — | `(DOMAIN, entry_id)` |
 | `manufacturer`, `model` | como hoy | como hoy |
@@ -423,8 +423,8 @@ Total: 47, las de hoy. El cambio `reason-labels` suma 1 a `main` (30043, Nota 8)
 - Nombres en `strings.json` → `device.<clave>.name`. es: Inversor, Campo solar, Batería, Red, Vatímetro interno,
   Cargas críticas, Consumo, Cargador VE. en: Inverter, Solar array, Battery, Grid, Internal meter, Critical loads,
   Load, EV charger (§5.1).
-- Cada clave tiene su par `<clave>_numbered` con el placeholder detrás: «Batería {device_id}» / «Battery
-  {device_id}». Las entries sin Device ID usan la clave sin placeholder (§5.6).
+- El nombre del dispositivo no lleva el Device ID: «Batería» / «Battery». El ID va solo en el `entity_id`
+  (§5.6).
 - El dispositivo principal deja de llamarse como la entry (`name=runtime.title`). El título de la entry agrupa
   los dispositivos en la página de la integración: hace de hub.
 - `manifest.json`: `integration_type` pasa de `device` a `hub`, porque una entry da varios dispositivos
@@ -523,8 +523,8 @@ Las filas 27 y 28 solo cambian en inglés: en español ya no repiten el disposit
 español: alinea el nombre con el inglés y lo separa de «Motivo de reducción de potencia». Las entidades FV
 (`pv1_*`, `pv2_*`) se quedan como están: «Tensión FV1» / «PV1 voltage». El resto de entidades no cambia.
 
-- En HA se ven con el dispositivo y su Device ID delante: «Batería 0 Estado de carga», «Red 0 Potencia». Sin
-  Device ID (entries anteriores a v2): «Batería Estado de carga».
+- En HA se ven con el dispositivo delante, sin Device ID: «Batería Estado de carga», «Red Potencia». El ID va
+  en el `entity_id`: `sensor.bateria_0_estado_de_carga`.
 - La tarjeta de dispositivo muestra solo el nombre de la entidad: salen varias filas «Potencia» si se mezclan
   dispositivos en una misma tarjeta.
 
@@ -544,7 +544,9 @@ español: alinea el nombre con el inglés y lo separa de «Motivo de reducción 
 
 ### 5.6 Device ID
 
-Distingue equipos del mismo tipo: dos inversores, cada uno con su batería, dan «Batería 0» y «Batería 1».
+Distingue equipos del mismo tipo en el `entity_id`: dos inversores, cada uno con su batería, dan
+`sensor.bateria_0_tension` y `sensor.bateria_1_tension`. El nombre del dispositivo no lo lleva: los dos se llaman
+«Batería». La entidad lo pone en `suggested_object_id` («0 Tensión»), y HA antepone el nombre del dispositivo.
 
 - Vale para cualquier marca y modelo. Es un dato de la entry: `entry.data["device_id"]`, entero ≥ 0.
 - Único entre las entries cuyo perfil tiene el mismo `device_type` (`domain/profile.py:40`). El perfil de cada
@@ -692,7 +694,7 @@ petición por segundo y la validación de presupuesto. La wiki del modelo lleva 
   `reconfigure_components`, `reconfigure_intervals`, `reconfigure_rename`. Errores nuevos: `invalid_serial_number`,
   `device_id_in_use`, `interval_budget_exceeded` (§5.8). Campo nuevo `device_id` en `name` y `reconfigure`. Sección
   nueva `instant` en `intervals` y `reconfigure_intervals`.
-- Secciones nuevas: `selector.component`, `device` (cada clave con su par `_numbered`), `entity.binary_sensor`.
+- Secciones nuevas: `selector.component`, `device` (un nombre por clave, sin `{device_id}`), `entity.binary_sensor`.
 - Se quitan «entry», «host» y «endpoint» de los textos visibles. «Reconfigurar equipo» pasa a «Cambiar la
   conexión». `already_configured`: «Este dispositivo ya está añadido.». `reconfigure_successful`: «Cambios
   guardados.»
@@ -713,7 +715,7 @@ petición por segundo y la validación de presupuesto. La wiki del modelo lleva 
 | `domain/validate.py` | Componentes, bits y solape por bit, `serial` |
 | `application/` | Selección de entidades por componentes; lectura opcional del número de serie y tier `instant` en la sonda (`probe.py`); validación de presupuesto (`poller.py`, §5.8) |
 | `profiles/ingeteam/oneplay_storage.py` | `component` por entidad, `components`, 14 bits del BMS; tier y activación de las extras (§5.7); red en `instant` (§5.8) |
-| `adapters/inbound/entities/base.py` | `DeviceInfo` por componente, `via_device`, `serial_number`; `translation_key` `_numbered` y `translation_placeholders` con Device ID |
+| `adapters/inbound/entities/base.py` | `DeviceInfo` por componente, `via_device`, `serial_number`; `suggested_object_id` con el Device ID delante del nombre de la entidad |
 | `adapters/inbound/entities/` | Plataforma `binary_sensor` |
 | `adapters/inbound/runtime.py`, `__init__.py` | Componentes elegidos, limpieza del registro, `PLATFORMS` |
 | `adapters/inbound/diagnostics.py` | Redacta `serial_number` |
@@ -730,7 +732,7 @@ petición por segundo y la validación de presupuesto. La wiki del modelo lleva 
 | Tests de dominio (`decode`, `validate`) y de sonda | Bits, componentes, texto ASCII, `serial` opcional, fallo de lectura de serie |
 | `docs/decisions/0005-poll-tiers.md`, `docs/features/device-setup.md`, wiki del modelo | `fast` 10 s por defecto (§5.7); red en `instant` (§5.8) |
 | `docs/decisions/0016-instant-tier.md` | ADR nuevo: tier `instant` y presupuesto de una petición por segundo (§5.8) |
-| `tests/unit/test_translations.py` | Etiqueta de modelo por perfil, nombre de cada componente y cada bit, par `_numbered` de cada dispositivo con `{device_id}`. El nombre de cada entidad se busca en la sección de su plataforma: hoy `:37` mira solo `entity.sensor` |
+| `tests/unit/test_translations.py` | Etiqueta de modelo por perfil, nombre de cada componente y cada bit, ningún nombre de dispositivo con `{device_id}`. El nombre de cada entidad se busca en la sección de su plataforma: hoy `:37` mira solo `entity.sensor` |
 
 ## 8. Datos y compatibilidad
 
@@ -769,7 +771,7 @@ petición por segundo y la validación de presupuesto. La wiki del modelo lleva 
 - Con los valores por defecto, el paso de intervalos del alta no da error en ningún perfil.
 - En el STORAGE, tensión, frecuencia y potencia de red se actualizan cada 5 s por defecto. Unos intervalos que,
   juntos, pidan más de una lectura por segundo dan `interval_budget_exceeded`.
-- Dos inversores del mismo modelo con Device ID 0 y 1 dan «Batería 0» y «Batería 1», y
+- Dos inversores del mismo modelo con Device ID 0 y 1 dan dos dispositivos «Batería», y
   `sensor.bateria_0_tension` y `sensor.bateria_1_tension`, sin `_2`. Un ID ocupado por otro equipo del mismo
   tipo no deja avanzar.
 - Cambiar el Device ID en reconfigure muestra cuántas entidades se renombran, se mantienen y chocan. Al
@@ -823,11 +825,11 @@ Se ejecutan en CI, como el resto.
 
 `tests/ha/`, dispositivos:
 
-- Con ID, el dispositivo se llama «Batería 0» y una entidad nueva recibe `sensor.bateria_0_tension`.
-- Sin ID, el dispositivo usa la clave sin placeholder: «Batería».
+- Con ID, el dispositivo se llama «Batería» y una entidad nueva recibe `sensor.bateria_0_tension`.
+- Sin ID, el dispositivo también se llama «Batería» y la entidad recibe `sensor.bateria_tension`.
 - Dos entries con ID 0 y 1 no generan ningún `_2`.
 
 `tests/unit/test_translations.py`:
 
-- Cada `device.<clave>` tiene su par `<clave>_numbered` con `{device_id}`, en `es` y `en`.
+- Ningún `device.<clave>` lleva `{device_id}`, en `es` y `en`.
 - Existen el error `device_id_in_use` y el paso `reconfigure_rename`.
