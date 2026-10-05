@@ -818,3 +818,24 @@ async def test_reconfigure_rename_counts_in_placeholders(hass: HomeAssistant, st
     assert placeholders["collision_count"] == "1"
     assert "`sensor.battery_0_voltage` → `sensor.battery_2_voltage`" in placeholders["examples"]
     assert "`sensor.battery_0_power`" in placeholders["collisions"]
+
+
+async def test_reconfigure_rename_from_entry_without_id(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    # entry anterior a v2: sin device_id; sus entidades llevan el nombre sin número (spec §4.5)
+    data = {**STORAGE_DATA, "components": ["battery"]}
+    entry = device_entry(data)
+    entry.add_to_hass(hass)
+    main = seed_entity(hass, entry, "ac_power", "inverter_power", component=None)
+    battery = seed_entity(hass, entry, "battery_voltage", "battery_voltage")
+    result = await to_rename(hass, entry)
+    assert result["description_placeholders"]["old_id"] == "-"
+    assert result["description_placeholders"]["renamed_count"] == "2"
+    result = await configure(hass, result, {})
+    assert result["reason"] == "reconfigure_successful"
+    registry = er.async_get(hass)
+    renamed_main = registry.async_get(main.id)
+    renamed_battery = registry.async_get(battery.id)
+    assert renamed_main is not None and renamed_battery is not None
+    assert renamed_main.entity_id == "sensor.inverter_2_power"
+    assert renamed_battery.entity_id == "sensor.battery_2_voltage"
+    assert entry.data["device_id"] == 2
