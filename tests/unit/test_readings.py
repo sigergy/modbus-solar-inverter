@@ -72,6 +72,6 @@ def test_undecoded_value_shows_dash() -> None:
 
 def test_missing_translation_falls_back_to_key() -> None:
     result = probed({"inverter_state": "grid_connected", "active_power": 5.0})
-    assert format_readings(ONEPLAY, select(ONEPLAY, []), result, {}, "es") == (
+    assert format_readings(ONEPLAY, select(ONEPLAY, []), result, {}, "en") == (
         "**inverter**\n- inverter_state: grid_connected\n- active_power: 5.0 W"
     )

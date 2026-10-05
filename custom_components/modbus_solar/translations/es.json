@@ -16,26 +16,49 @@
         }
       },
       "connection": {
-        "title": "Conectar con el equipo",
-        "description": "Escribe la dirección IP o el nombre de host del equipo. La conexión se prueba antes de seguir.",
+        "title": "Conexión con el dispositivo",
+        "description": "{brand} {model}. La conexión se prueba antes de seguir ({timeout} s como máximo).",
         "data": {
-          "host": "Host"
+          "host": "Dirección IP",
+          "profile": "Modelo"
+        },
+        "data_description": {
+          "host": "Está en el menú de comunicaciones del dispositivo o en la lista de dispositivos de tu router."
         },
         "sections": {
           "advanced": {
-            "name": "Avanzado",
+            "name": "Opciones avanzadas",
+            "description": "Cámbialos solo si los cambiaste en el dispositivo.",
             "data": {
               "port": "Puerto",
-              "unit_id": "ID de unidad"
+              "unit_id": "Unit ID"
             }
           }
         }
       },
-      "confirm": {
-        "title": "Equipo encontrado",
-        "description": "El equipo en {host} ha respondido:\n\n{readings}",
+      "components": {
+        "title": "¿Qué tiene tu instalación?",
+        "description": "{model}. {main} se añade siempre. Marca el resto de partes que tiene tu instalación: cada una sale en Home Assistant como un dispositivo propio. Se puede cambiar después en «Reconfigurar».",
+        "data": {
+          "components": "Componentes"
+        }
+      },
+      "readings": {
+        "title": "Dispositivo encontrado",
+        "description": "✓ Responde en {host}. Comprueba que estos valores cuadran con la pantalla del dispositivo:\n\n{readings}",
+        "menu_options": {
+          "name": "Valores correctos: continuar",
+          "model": "Cambiar el modelo",
+          "connection": "Cambiar la conexión"
+        }
+      },
+      "name": {
+        "title": "Nombre",
         "data": {
           "name": "Nombre"
+        },
+        "data_description": {
+          "name": "Así se llama el grupo de dispositivos en Home Assistant. Se puede cambiar después."
         }
       },
       "reconfigure": {
@@ -51,9 +74,9 @@
       }
     },
     "error": {
-      "cannot_connect": "El equipo no responde. Revisa host, puerto e ID de unidad, y que ningún otro cliente Modbus esté usando el equipo.",
-      "endpoint_in_use": "Este endpoint ya está en uso con otros parámetros de conexión.",
-      "invalid_response": "El equipo respondió con un valor inesperado. Revisa el modelo y el ID de unidad.",
+      "cannot_connect": "No responde en {host}:{port} tras {timeout} s. Comprueba la IP, activa Modbus TCP en el dispositivo y cierra otros clientes Modbus, como el EMS.",
+      "endpoint_in_use": "Otro dispositivo ya usa esta IP y este puerto con otra configuración.",
+      "invalid_response": "Respuesta inesperada de {host}:{port}. Puede que el modelo o el Unit ID no sean los correctos.",
       "interval_too_short": "Demasiado corto para este equipo: leer todos sus registros tarda más."
     },
     "abort": {
@@ -365,6 +388,17 @@
         "ingeteam_oneplay": "1Play TL M — inversor solo fotovoltaico, sin batería",
         "ingeteam_oneplay_storage": "STORAGE 1Play TL M — inversor híbrido, con batería",
         "mencke_tegtmeyer_si_rs485": "Si-RS485TC-…-MB — sensor de irradiancia"
+      }
+    },
+    "component": {
+      "options": {
+        "pv": "Campo solar — FV1, FV2 y FV externa",
+        "battery": "Batería — carga, salud, motivos de limitación y alarmas del BMS",
+        "grid": "Red (vatímetro externo) — tensión, frecuencia, potencia y energías de red",
+        "internal_meter": "Vatímetro interno",
+        "critical_loads": "Cargas críticas — salida de respaldo",
+        "load": "Consumo — consumo total de la casa",
+        "ev_charger": "Cargador VE"
       }
     }
   }

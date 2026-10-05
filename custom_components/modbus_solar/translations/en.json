@@ -17,13 +17,18 @@
       },
       "connection": {
         "title": "Connect to the device",
-        "description": "Enter the IP address or hostname of the device. The connection is tested before going on.",
+        "description": "{brand} {model}. The connection is tested before going on ({timeout} s at most).",
         "data": {
-          "host": "Host"
+          "host": "IP address",
+          "profile": "Model"
+        },
+        "data_description": {
+          "host": "It is in the communications menu of the device or in the device list of your router."
         },
         "sections": {
           "advanced": {
-            "name": "Advanced",
+            "name": "Advanced options",
+            "description": "Change them only if you changed them on the device.",
             "data": {
               "port": "Port",
               "unit_id": "Unit ID"
@@ -31,11 +36,29 @@
           }
         }
       },
-      "confirm": {
+      "components": {
+        "title": "What does your installation have?",
+        "description": "{model}. {main} is always added. Tick the other parts of your installation: each one shows up in Home Assistant as its own device. You can change this later in «Reconfigure».",
+        "data": {
+          "components": "Components"
+        }
+      },
+      "readings": {
         "title": "Device found",
-        "description": "The device at {host} answered:\n\n{readings}",
+        "description": "✓ Answers at {host}. Check that these values match the display of the device:\n\n{readings}",
+        "menu_options": {
+          "name": "Values are correct: continue",
+          "model": "Change the model",
+          "connection": "Change the connection"
+        }
+      },
+      "name": {
+        "title": "Name",
         "data": {
           "name": "Name"
+        },
+        "data_description": {
+          "name": "This is the name of the group of devices in Home Assistant. You can change it later."
         }
       },
       "reconfigure": {
@@ -51,9 +74,9 @@
       }
     },
     "error": {
-      "cannot_connect": "The device does not answer. Check host, port and unit ID, and that no other Modbus client is using the device.",
-      "endpoint_in_use": "This endpoint is already in use with different connection settings.",
-      "invalid_response": "The device answered with an unexpected value. Check the model and the unit ID.",
+      "cannot_connect": "No answer at {host}:{port} after {timeout} s. Check the IP, enable Modbus TCP on the device and close other Modbus clients, such as the EMS.",
+      "endpoint_in_use": "Another device already uses this IP and port with a different configuration.",
+      "invalid_response": "Unexpected answer from {host}:{port}. The model or the Unit ID may not be the right ones.",
       "interval_too_short": "Too short for this device: reading all its registers takes longer."
     },
     "abort": {
@@ -365,6 +388,17 @@
         "ingeteam_oneplay": "1Play TL M — PV inverter, no battery",
         "ingeteam_oneplay_storage": "STORAGE 1Play TL M — hybrid inverter with battery",
         "mencke_tegtmeyer_si_rs485": "Si-RS485TC-…-MB — irradiance sensor"
+      }
+    },
+    "component": {
+      "options": {
+        "pv": "Solar array — PV1, PV2 and external PV",
+        "battery": "Battery — charge, health, limit reasons and BMS alarms",
+        "grid": "Grid (external meter) — voltage, frequency, power and grid energies",
+        "internal_meter": "Internal meter",
+        "critical_loads": "Critical loads — backup output",
+        "load": "Load — total consumption of the house",
+        "ev_charger": "EV charger"
       }
     }
   }

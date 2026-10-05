@@ -19,10 +19,12 @@ from homeassistant.helpers.selector import (
 from homeassistant.helpers.translation import async_get_translations
 
 from ...application.catalog import Catalog
-from ...application.poller import TierResult, min_tier_interval
+from ...application.poller import min_tier_interval
 from ...application.probe import ProbeResult, probe_device
+from ...application.selection import Selection, select
 from ...const import (
     BRAND_TITLES,
+    CONF_COMPONENTS,
     CONF_INTERVALS,
     CONF_PROFILE,
     CONF_UNIT_ID,
@@ -31,7 +33,7 @@ from ...const import (
 )
 from ...domain.errors import DecodeError, DeviceProtocolError, DeviceUnavailable, EndpointInUse
 from ...domain.profile import DeviceProfile
-from ...domain.types import PollTier
+from ...domain.types import Component, Platform, PollTier
 from ...ports.device import DeviceGateway
 
 # (hass, host, port, unit_id, profile) -> contexto que entrega un gateway sobre una unit temporal
@@ -58,22 +60,46 @@ def profile_option(profile_id: str) -> str:
     return profile_id.replace(".", "_")
 
 
-def format_readings(profile: DeviceProfile, result: TierResult, translations: Mapping[str, str]) -> str:
-    """Lista markdown de las lecturas de la sonda, con nombres y estados traducidos."""
+def format_number(value: float, language: str) -> str:
+    """Separador de miles según el idioma: coma en inglés; punto de miles y coma decimal en español."""
+    text = f"{value:,}"
+    if language.split("-")[0].lower() == "es":
+        text = text.translate(str.maketrans(",.", ".,"))
+    return text
+
+
+def format_readings(
+    profile: DeviceProfile,
+    selection: Selection,
+    result: ProbeResult,
+    translations: Mapping[str, str],
+    language: str,
+) -> str:
+    """Lecturas de la sonda agrupadas por componente, con nombres y estados traducidos."""
     prefix = f"component.{DOMAIN}.entity.sensor"
-    lines: list[str] = []
-    for spec in profile.entities:
-        if spec.key not in result.values:
-            continue
-        value = result.values[spec.key]
-        if value is None:
-            text = "—"
-        elif spec.enum is not None:
-            text = translations.get(f"{prefix}.{spec.key}.state.{value}", str(value))
-        else:
-            text = f"{value} {spec.unit}" if spec.unit else str(value)
-        lines.append(f"- {translations.get(f'{prefix}.{spec.key}.name', spec.key)}: {text}")
-    return "\n".join(lines)
+    values = result.readings.values
+    groups: list[str] = []
+    # primero el principal; después los opcionales en el orden del perfil
+    for component in (Component.MAIN, *(c.component for c in profile.components)):
+        lines: list[str] = []
+        for spec in selection.entities:
+            # solo sensores: los bits del BMS no se cotejan con la pantalla
+            if spec.component is not component or spec.platform is not Platform.SENSOR or spec.key not in values:
+                continue
+            value = values[spec.key]
+            if value is None:
+                text = "—"
+            elif spec.enum is not None:
+                text = translations.get(f"{prefix}.{spec.key}.state.{value}", str(value))
+            else:
+                shown = format_number(value, language) if isinstance(value, int | float) else str(value)
+                text = f"{shown} {spec.unit}" if spec.unit else shown
+            lines.append(f"- {translations.get(f'{prefix}.{spec.key}.name', spec.key)}: {text}")
+        if lines:
+            device = profile.device_type if component is Component.MAIN else component.value
+            title = translations.get(f"component.{DOMAIN}.device.{device}.name", device)
+            groups.append("\n".join([f"**{title}**", *lines]))
+    return "\n\n".join(groups)
 
 
 class DeviceConfigFlow(ConfigFlow):
@@ -85,8 +111,10 @@ class DeviceConfigFlow(ConfigFlow):
 
     _brand: str
     _profile: DeviceProfile
-    _connection: dict[str, Any]
-    _readings: str
+    _connection: dict[str, Any] | None = None
+    _probe: ProbeResult | None = None
+    # None = aún sin elegir: el paso muestra los valores por defecto del perfil
+    _components: list[Component] | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -102,20 +130,53 @@ class DeviceConfigFlow(ConfigFlow):
             # la opción lleva el id sin puntos: se deshace buscando entre los perfiles de la marca
             self._profile = next(p for p in profiles if profile_option(p.id) == user_input[CONF_PROFILE])
             return await self.async_step_connection()
-        options = [SelectOptionDict(value=profile_option(p.id), label=profile_option(p.id)) for p in profiles]
-        selector = SelectSelector(
-            SelectSelectorConfig(options=options, mode=SelectSelectorMode.LIST, translation_key="profile")
-        )
+        # al volver aquí desde las lecturas se olvidan las lecturas y los componentes
+        self._probe = None
+        self._components = None
         return self.async_show_form(
             step_id="model",
-            data_schema=vol.Schema({vol.Required(CONF_PROFILE): selector}),
+            data_schema=vol.Schema({vol.Required(CONF_PROFILE): self._profile_selector()}),
             description_placeholders={"brand": BRAND_TITLES[self._brand]},
         )
 
+    def _profile_selector(self) -> SelectSelector:
+        options = [
+            SelectOptionDict(value=profile_option(p.id), label=profile_option(p.id))
+            for p in self.catalog.for_brand(self._brand)
+        ]
+        return SelectSelector(
+            SelectSelectorConfig(options=options, mode=SelectSelectorMode.LIST, translation_key="profile")
+        )
+
+    def _switch_profile(self, user_input: dict[str, Any]) -> dict[str, Any]:
+        """Aplica el modelo elegido tras un error. Los puertos del modelo nuevo solo si no se tocaron."""
+        option = user_input.get(CONF_PROFILE)
+        old = self._profile
+        profiles = self.catalog.for_brand(self._brand)
+        new = old if option is None else next(p for p in profiles if profile_option(p.id) == option)
+        if new is old:
+            return user_input
+        advanced = user_input[CONF_ADVANCED]
+        untouched = (advanced[CONF_PORT], advanced[CONF_UNIT_ID]) == (old.default_port, old.default_unit_id)
+        self._profile = new
+        # los componentes elegidos eran de otro modelo
+        self._components = None
+        if untouched:
+            return {**user_input, CONF_ADVANCED: {CONF_PORT: new.default_port, CONF_UNIT_ID: new.default_unit_id}}
+        return user_input
+
+    async def _translations(self) -> dict[str, str]:
+        """Nombres de entidad y de dispositivo en el idioma de HA."""
+        language = self.hass.config.language
+        entity = await async_get_translations(self.hass, language, "entity", {DOMAIN})
+        device = await async_get_translations(self.hass, language, "device", {DOMAIN})
+        return {**entity, **device}
+
     async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        profile = self._profile
         errors: dict[str, str] = {}
         if user_input is not None:
+            user_input = self._switch_profile(user_input)
+            profile = self._profile
             host = user_input[CONF_HOST]
             port = user_input[CONF_ADVANCED][CONF_PORT]
             unit_id = user_input[CONF_ADVANCED][CONF_UNIT_ID]
@@ -123,7 +184,7 @@ class DeviceConfigFlow(ConfigFlow):
             await self.async_set_unique_id(device_unique_id(host, port, unit_id))
             self._abort_if_unique_id_configured()
             try:
-                result = await self._probe(host, port, unit_id, profile)
+                result = await self._probe_endpoint(host, port, unit_id, profile)
             except EndpointInUse:
                 errors["base"] = "endpoint_in_use"
             except DeviceUnavailable, TimeoutError:
@@ -132,45 +193,107 @@ class DeviceConfigFlow(ConfigFlow):
                 errors["base"] = "invalid_response"
             else:
                 self._connection = {CONF_HOST: host, CONF_PORT: port, CONF_UNIT_ID: unit_id}
-                translations = await async_get_translations(self.hass, self.hass.config.language, "entity", {DOMAIN})
-                self._readings = format_readings(profile, result.readings, translations)
-                return await self.async_step_confirm()
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_HOST): str,
-                vol.Required(CONF_ADVANCED): section(
-                    vol.Schema(
-                        {
-                            vol.Required(CONF_PORT, default=profile.default_port): PORT,
-                            vol.Required(CONF_UNIT_ID, default=profile.default_unit_id): UNIT_ID,
-                        }
-                    ),
-                    {"collapsed": True},
-                ),
-            }
+                self._probe = result
+                if profile.components:
+                    return await self.async_step_components()
+                self._components = []
+                return await self.async_step_readings()
+        else:
+            # al volver desde las lecturas se olvidan estas y se conservan los componentes
+            self._probe = None
+        profile = self._profile
+        fields: dict[Any, Any] = {vol.Required(CONF_HOST): str}
+        if errors:
+            # HA no ofrece botones secundarios en un formulario: el modelo se corrige aquí
+            fields[vol.Required(CONF_PROFILE, default=profile_option(profile.id))] = self._profile_selector()
+        fields[vol.Required(CONF_ADVANCED)] = section(
+            vol.Schema(
+                {
+                    vol.Required(CONF_PORT, default=profile.default_port): PORT,
+                    vol.Required(CONF_UNIT_ID, default=profile.default_unit_id): UNIT_ID,
+                }
+            ),
+            {"collapsed": True},
         )
+        suggested = user_input
+        if suggested is None and self._connection is not None:
+            suggested = {
+                CONF_HOST: self._connection[CONF_HOST],
+                CONF_ADVANCED: {CONF_PORT: self._connection[CONF_PORT], CONF_UNIT_ID: self._connection[CONF_UNIT_ID]},
+            }
+        shown = suggested or {}
+        placeholders = {
+            "brand": BRAND_TITLES[self._brand],
+            "model": profile.models[0],
+            CONF_HOST: shown.get(CONF_HOST, ""),
+            CONF_PORT: str(shown.get(CONF_ADVANCED, {}).get(CONF_PORT, profile.default_port)),
+            "timeout": str(PROBE_TIMEOUT_S),
+        }
         return self.async_show_form(
             step_id="connection",
-            data_schema=self.add_suggested_values_to_schema(schema, user_input),
+            data_schema=self.add_suggested_values_to_schema(vol.Schema(fields), suggested),
             errors=errors,
+            description_placeholders=placeholders,
         )
 
-    async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_components(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         profile = self._profile
+        if user_input is not None:
+            chosen = set(user_input[CONF_COMPONENTS])
+            # en el orden del perfil
+            self._components = [c.component for c in profile.components if c.component.value in chosen]
+            return await self.async_step_readings()
+        if self._components is None:
+            default = [c.component.value for c in profile.components if c.default]
+        else:
+            default = [c.value for c in self._components]
+        options = [SelectOptionDict(value=c.component.value, label=c.component.value) for c in profile.components]
+        selector = SelectSelector(
+            SelectSelectorConfig(
+                options=options, multiple=True, mode=SelectSelectorMode.LIST, translation_key="component"
+            )
+        )
+        translations = await self._translations()
+        main = translations.get(f"component.{DOMAIN}.device.{profile.device_type}.name", profile.device_type)
+        return self.async_show_form(
+            step_id="components",
+            data_schema=vol.Schema({vol.Required(CONF_COMPONENTS, default=default): selector}),
+            description_placeholders={"model": profile.models[0], "main": main},
+        )
+
+    async def async_step_readings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        probe, connection = self._probe, self._connection
+        if probe is None or connection is None:
+            raise RuntimeError("readings step without a successful probe")
+        selection = select(self._profile, self._components or [])
+        readings = format_readings(
+            self._profile, selection, probe, await self._translations(), self.hass.config.language
+        )
+        return self.async_show_menu(
+            step_id="readings",
+            menu_options=["name", "model", "connection"],
+            description_placeholders={CONF_HOST: connection[CONF_HOST], "readings": readings},
+        )
+
+    async def async_step_name(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        profile = self._profile
+        connection = self._connection
+        if connection is None:
+            raise RuntimeError("name step without a connection")
         if user_input is not None:
             return self.async_create_entry(
                 title=user_input[CONF_NAME],
                 data={
-                    **self._connection,
+                    **connection,
                     CONF_PROFILE: profile.id,
+                    CONF_COMPONENTS: [c.value for c in self._components or []],
                     CONF_INTERVALS: dict(DEFAULT_INTERVALS),
                 },
             )
         default_name = f"{BRAND_TITLES[profile.brand]} {profile.models[0]}"
         return self.async_show_form(
-            step_id="confirm",
+            step_id="name",
             data_schema=vol.Schema({vol.Required(CONF_NAME, default=default_name): str}),
-            description_placeholders={CONF_HOST: self._connection[CONF_HOST], "readings": self._readings},
         )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -218,7 +341,7 @@ class DeviceConfigFlow(ConfigFlow):
             errors=errors,
         )
 
-    async def _probe(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> ProbeResult:
+    async def _probe_endpoint(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> ProbeResult:
         async with asyncio.timeout(PROBE_TIMEOUT_S):
             async with self.gateway_factory(self.hass, host, port, unit_id, profile) as gateway:
                 return await probe_device(gateway, profile)
