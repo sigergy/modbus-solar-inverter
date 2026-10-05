@@ -28,9 +28,11 @@ def no_setup() -> Generator[MagicMock]:
         yield mock
 
 
-async def start(hass: HomeAssistant, profile: str = "ingeteam.oneplay") -> dict[str, Any]:
+async def start(hass: HomeAssistant, profile: str = "ingeteam_oneplay") -> dict[str, Any]:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "user")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"brand": profile.split("_")[0]})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "model")
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"profile": profile})
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "connection")
     return result
@@ -41,25 +43,26 @@ async def connect(hass: HomeAssistant, connection: dict[str, Any] = CONNECTION) 
     return await hass.config_entries.flow.async_configure(result["flow_id"], connection)
 
 
-async def test_model_step_lists_every_profile(hass: HomeAssistant) -> None:
+async def test_brand_then_model(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    selector = result["data_schema"].schema["profile"]
+    assert result["step_id"] == "user"
+    selector = result["data_schema"].schema["brand"]
     assert selector.config["options"] == [
-        {"value": "ingeteam.oneplay", "label": "Ingeteam · 1Play TL M"},
-        {"value": "ingeteam.oneplay_storage", "label": "Ingeteam · STORAGE 1Play TL M"},
-        {
-            "value": "mencke_tegtmeyer.si_rs485",
-            "label": (
-                "Ingenieurbüro Mencke & Tegtmeyer · "
-                "Si-RS485TC-T-MB, Si-RS485TC-2T-MB, Si-RS485TC-2T-v-MB, Si-RS485TC-T-Tm-MB"
-            ),
-        },
+        {"value": "ingeteam", "label": "Ingeteam"},
+        {"value": "mencke_tegtmeyer", "label": "Ingenieurbüro Mencke & Tegtmeyer"},
     ]
     assert selector.config["mode"] == "list"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"brand": "ingeteam"})
+    assert result["step_id"] == "model"
+    selector = result["data_schema"].schema["profile"]
+    assert [o["value"] for o in selector.config["options"]] == ["ingeteam_oneplay", "ingeteam_oneplay_storage"]
+    assert selector.config["translation_key"] == "profile"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"profile": "ingeteam_oneplay_storage"})
+    assert result["step_id"] == "connection"
 
 
 async def test_connection_defaults_come_from_profile(hass: HomeAssistant) -> None:
-    result = await start(hass, "ingeteam.oneplay_storage")
+    result = await start(hass, "ingeteam_oneplay_storage")
     advanced = result["data_schema"].schema["advanced"]
     assert advanced.options == {"collapsed": True}
     assert {str(key): key.default() for key in advanced.schema.schema} == {"port": 502, "unit_id": 1}

@@ -1,12 +1,16 @@
 """Traducciones: en.json igual a strings.json; es.json con las mismas claves; nada sin traducir."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
+from custom_components.modbus_solar.adapters.inbound.flow import profile_option
 from custom_components.modbus_solar.domain.types import Component, PollTier
 from custom_components.modbus_solar.profiles import ALL_PROFILES
 
+# hassfest translation_key_validator
+TRANSLATION_KEY = re.compile(r"^(?!.+[_-]{2})(?![_-])[a-z0-9-_]+(?<![_-])$")
 ROOT = Path(__file__).parents[2] / "custom_components" / "modbus_solar"
 
 
@@ -133,3 +137,11 @@ def test_every_device_has_numbered_variant() -> None:
         for key in keys:
             assert devices[key]["name"], (name, key)
             assert "{device_id}" in devices[f"{key}_numbered"]["name"], (name, key)
+
+
+def test_every_profile_has_model_label() -> None:
+    for profile in ALL_PROFILES:
+        key = profile_option(profile.id)
+        assert TRANSLATION_KEY.match(key), key
+        assert key in load("strings.json")["selector"]["profile"]["options"], key
+        assert key in load("translations/es.json")["selector"]["profile"]["options"], key
