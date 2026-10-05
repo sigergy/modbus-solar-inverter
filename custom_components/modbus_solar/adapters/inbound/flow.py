@@ -44,12 +44,18 @@ UNIT_ID = vol.All(vol.Coerce(int), vol.Range(min=1, max=247))
 INTERVAL = vol.All(vol.Coerce(int), vol.Range(min=1))
 
 CONF_ADVANCED = "advanced"
+CONF_BRAND = "brand"
 # segundos máximos de la sonda: un equipo que no contesta no deja el formulario cargando
 PROBE_TIMEOUT_S = 20
 
 
 def device_unique_id(host: str, port: int, unit_id: int) -> str:
     return f"{host.lower()}:{port}:{unit_id}"
+
+
+def profile_option(profile_id: str) -> str:
+    """Clave y valor del selector de modelo: el id sin puntos, válido como translation_key."""
+    return profile_id.replace(".", "_")
 
 
 def format_readings(profile: DeviceProfile, result: TierResult, translations: Mapping[str, str]) -> str:
@@ -77,21 +83,34 @@ class DeviceConfigFlow(ConfigFlow):
     catalog: ClassVar[Catalog]
     gateway_factory: ClassVar[GatewayFactory]
 
+    _brand: str
     _profile: DeviceProfile
     _connection: dict[str, Any]
     _readings: str
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            self._profile = self.catalog.get(user_input[CONF_PROFILE])
-            return await self.async_step_connection()
-        options = [
-            SelectOptionDict(value=p.id, label=f"{BRAND_TITLES[p.brand]} · {', '.join(p.models)}")
-            for brand in self.catalog.brands()
-            for p in self.catalog.for_brand(brand)
-        ]
+            self._brand = user_input[CONF_BRAND]
+            return await self.async_step_model()
+        options = [SelectOptionDict(value=b, label=BRAND_TITLES[b]) for b in self.catalog.brands()]
         selector = SelectSelector(SelectSelectorConfig(options=options, mode=SelectSelectorMode.LIST))
-        return self.async_show_form(step_id="user", data_schema=vol.Schema({vol.Required(CONF_PROFILE): selector}))
+        return self.async_show_form(step_id="user", data_schema=vol.Schema({vol.Required(CONF_BRAND): selector}))
+
+    async def async_step_model(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        profiles = self.catalog.for_brand(self._brand)
+        if user_input is not None:
+            # la opción lleva el id sin puntos: se deshace buscando entre los perfiles de la marca
+            self._profile = next(p for p in profiles if profile_option(p.id) == user_input[CONF_PROFILE])
+            return await self.async_step_connection()
+        options = [SelectOptionDict(value=profile_option(p.id), label=profile_option(p.id)) for p in profiles]
+        selector = SelectSelector(
+            SelectSelectorConfig(options=options, mode=SelectSelectorMode.LIST, translation_key="profile")
+        )
+        return self.async_show_form(
+            step_id="model",
+            data_schema=vol.Schema({vol.Required(CONF_PROFILE): selector}),
+            description_placeholders={"brand": BRAND_TITLES[self._brand]},
+        )
 
     async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         profile = self._profile

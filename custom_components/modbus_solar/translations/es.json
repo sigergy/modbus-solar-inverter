@@ -2,8 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Elige el modelo",
-        "description": "Cada equipo es una entry independiente. Añade una entry por equipo.",
+        "title": "Elige la marca",
+        "description": "Marca del dispositivo que quieres añadir. Suele estar en la etiqueta o en el frontal.",
+        "data": {
+          "brand": "Marca"
+        }
+      },
+      "model": {
+        "title": "¿Qué modelo de {brand}?",
+        "description": "Busca el modelo en la etiqueta del dispositivo. Si tienes varios, añade uno y repite.",
         "data": {
           "profile": "Modelo"
         }
@@ -350,6 +357,15 @@
   "exceptions": {
     "write_failed": {
       "message": "No se pudo escribir en el inversor: {error}"
+    }
+  },
+  "selector": {
+    "profile": {
+      "options": {
+        "ingeteam_oneplay": "1Play TL M — inversor solo fotovoltaico, sin batería",
+        "ingeteam_oneplay_storage": "STORAGE 1Play TL M — inversor híbrido, con batería",
+        "mencke_tegtmeyer_si_rs485": "Si-RS485TC-…-MB — sensor de irradiancia"
+      }
     }
   }
 }

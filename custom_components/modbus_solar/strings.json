@@ -2,8 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "Choose the model",
-        "description": "Each device is a separate entry. Add one entry per device.",
+        "title": "Choose the brand",
+        "description": "Brand of the device you want to add. It is usually on the label or on the front.",
+        "data": {
+          "brand": "Brand"
+        }
+      },
+      "model": {
+        "title": "Which {brand} model?",
+        "description": "Look for the model on the device label. If you have several, add one and repeat.",
         "data": {
           "profile": "Model"
         }
@@ -350,6 +357,15 @@
   "exceptions": {
     "write_failed": {
       "message": "Could not write to the inverter: {error}"
+    }
+  },
+  "selector": {
+    "profile": {
+      "options": {
+        "ingeteam_oneplay": "1Play TL M — PV inverter, no battery",
+        "ingeteam_oneplay_storage": "STORAGE 1Play TL M — hybrid inverter with battery",
+        "mencke_tegtmeyer_si_rs485": "Si-RS485TC-…-MB — irradiance sensor"
+      }
     }
   }
 }
