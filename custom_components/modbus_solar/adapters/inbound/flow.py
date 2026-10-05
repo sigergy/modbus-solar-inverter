@@ -1,7 +1,7 @@
 """Config flow: una entry por inversor. Catálogo y gateway los inyecta config_flow.py."""
 
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from typing import Any, ClassVar
 
@@ -23,7 +23,7 @@ from homeassistant.helpers.selector import (
 from homeassistant.helpers.translation import async_get_translations
 
 from ...application.catalog import Catalog
-from ...application.poller import min_tier_interval
+from ...application.poller import min_tier_interval, request_rate
 from ...application.probe import ProbeResult, probe_device
 from ...application.selection import Selection, select
 from ...const import (
@@ -138,8 +138,97 @@ def format_readings(
     return "\n\n".join(groups)
 
 
+CONF_INTERVAL = "interval"
+# el equipo admite una petición por segundo (spec 5.8); margen para el redondeo de flotantes
+MAX_REQUEST_RATE = 1.0 + 1e-9
+
+
+def present_tiers(selection: Selection) -> list[PollTier]:
+    """Tiers con entidades de los componentes elegidos, en el orden de PollTier (spec 4.3)."""
+    return [tier for tier in PollTier if any(e.poll is tier for e in selection.entities)]
+
+
+def entity_list(profile: DeviceProfile, selection: Selection, tier: PollTier, translations: Mapping[str, str]) -> str:
+    """Entidades de un tier con su dispositivo: leídas, energías calculadas y controles (spec 4.4)."""
+    prefix = f"component.{DOMAIN}"
+    order = (Component.MAIN, *(c.component for c in profile.components))
+    poll_of = {e.key: e.poll for e in profile.entities}
+    disabled = translations.get(f"{prefix}.selector.entity_list.options.disabled", "disabled")
+    calculated = translations.get(f"{prefix}.selector.entity_list.options.calculated", "calculated")
+
+    def line(component: Component, platform: str, key: str, enabled: bool) -> str:
+        device = profile.device_type if component is Component.MAIN else component.value
+        device_name = translations.get(f"{prefix}.device.{device}.name", device)
+        name = translations.get(f"{prefix}.entity.{platform}.{key}.name", key)
+        return f"- {device_name} · {name}" + ("" if enabled else f" {disabled}")
+
+    # agrupadas por componente; dentro de cada uno, el orden del perfil
+    read = sorted((e for e in selection.entities if e.poll is tier), key=lambda e: order.index(e.component))
+    energies = sorted(
+        (e for e in selection.energies if poll_of[e.sources[0]] is tier), key=lambda e: order.index(e.component)
+    )
+    # los controles cuelgan del tier de la entidad de prueba
+    controls = sorted(
+        (c for c in selection.controls if poll_of[profile.probe_key] is tier), key=lambda c: order.index(c.component)
+    )
+    parts = ["\n".join(line(e.component, e.platform.value, e.key, e.enabled_default) for e in read)]
+    if energies:
+        lines = [line(e.component, "sensor", e.key, e.enabled_default) for e in energies]
+        parts.append("\n".join([calculated, *lines]))
+    if controls:
+        # cada control son dos entidades: el number y su switch
+        control_lines = [
+            text
+            for c in controls
+            for text in (
+                line(c.component, "number", c.key, c.enabled_default),
+                line(c.component, "switch", c.switch_key, c.enabled_default),
+            )
+        ]
+        parts.append("\n".join(control_lines))
+    return "\n\n".join(part for part in parts if part)
+
+
+def intervals_schema(tiers: Sequence[PollTier], defaults: Mapping[str, int]) -> vol.Schema:
+    """Una sección plegada por tier con su campo interval. La comparten el alta y reconfigure."""
+    return vol.Schema(
+        {
+            vol.Required(tier.value): section(
+                vol.Schema({vol.Required(CONF_INTERVAL, default=defaults[tier.value]): INTERVAL}),
+                {"collapsed": True},
+            )
+            for tier in tiers
+        }
+    )
+
+
+def intervals_placeholders(
+    profile: DeviceProfile, selection: Selection, tiers: Sequence[PollTier], translations: Mapping[str, str]
+) -> dict[str, str]:
+    """Mínimo y lista de entidades de cada tier para el data_description de su campo."""
+    placeholders = {"brand": BRAND_TITLES[profile.brand], "model": profile.models[0]}
+    for tier in tiers:
+        placeholders[f"{tier.value}_min"] = f"{min_tier_interval(profile, tier):g}"
+        placeholders[f"{tier.value}_entities"] = entity_list(profile, selection, tier, translations)
+    return placeholders
+
+
+def check_intervals(
+    profile: DeviceProfile, tiers: Sequence[PollTier], user_input: Mapping[str, Any]
+) -> tuple[dict[str, int], dict[str, str], float]:
+    """Intervalos escritos, errores y peticiones por segundo. Primero el mínimo; después el presupuesto."""
+    intervals = {tier.value: int(user_input[tier.value][CONF_INTERVAL]) for tier in tiers}
+    errors = {
+        tier.value: "interval_too_short" for tier in tiers if intervals[tier.value] < min_tier_interval(profile, tier)
+    }
+    rate = request_rate(profile, {tier: intervals[tier.value] for tier in tiers})
+    if not errors and rate > MAX_REQUEST_RATE:
+        errors["base"] = "interval_budget_exceeded"
+    return intervals, errors, rate
+
+
 class DeviceConfigFlow(ConfigFlow):
-    """Alta de un inversor: modelo, conexión validada con una lectura real y nombre."""
+    """Alta de un inversor: modelo, conexión validada con una lectura real, nombre e intervalos."""
 
     VERSION = 2
     catalog: ClassVar[Catalog]
@@ -151,6 +240,10 @@ class DeviceConfigFlow(ConfigFlow):
     _probe: ProbeResult | None = None
     # None = aún sin elegir: el paso muestra los valores por defecto del perfil
     _components: list[Component] | None = None
+    # nombre, Device ID y número de serie ya resueltos; los usa el último paso
+    _title: str = ""
+    _device_id: int | None = None
+    _serial: str | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -202,11 +295,25 @@ class DeviceConfigFlow(ConfigFlow):
         return user_input
 
     async def _translations(self) -> dict[str, str]:
-        """Nombres de entidad y de dispositivo en el idioma de HA."""
+        """Nombres de entidad y de dispositivo y textos de selector en el idioma de HA."""
         language = self.hass.config.language
         entity = await async_get_translations(self.hass, language, "entity", {DOMAIN})
         device = await async_get_translations(self.hass, language, "device", {DOMAIN})
-        return {**entity, **device}
+        selector = await async_get_translations(self.hass, language, "selector", {DOMAIN})
+        return {**entity, **device, **selector}
+
+    async def _try_probe(
+        self, host: str, port: int, unit_id: int, profile: DeviceProfile
+    ) -> tuple[ProbeResult | None, str | None]:
+        """Sonda con el error del formulario si falla. La comparten el alta y reconfigure."""
+        try:
+            return await self._probe_endpoint(host, port, unit_id, profile), None
+        except EndpointInUse:
+            return None, "endpoint_in_use"
+        except DeviceUnavailable, TimeoutError:
+            return None, "cannot_connect"
+        except DeviceProtocolError, DecodeError:
+            return None, "invalid_response"
 
     async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -219,14 +326,9 @@ class DeviceConfigFlow(ConfigFlow):
             # el duplicado se detecta antes de abrir conexión
             await self.async_set_unique_id(device_unique_id(host, port, unit_id))
             self._abort_if_unique_id_configured()
-            try:
-                result = await self._probe_endpoint(host, port, unit_id, profile)
-            except EndpointInUse:
-                errors["base"] = "endpoint_in_use"
-            except DeviceUnavailable, TimeoutError:
-                errors["base"] = "cannot_connect"
-            except DeviceProtocolError, DecodeError:
-                errors["base"] = "invalid_response"
+            result, error = await self._try_probe(host, port, unit_id, profile)
+            if result is None:
+                errors["base"] = error or "invalid_response"
             else:
                 self._connection = {CONF_HOST: host, CONF_PORT: port, CONF_UNIT_ID: unit_id}
                 self._probe = result
@@ -283,6 +385,9 @@ class DeviceConfigFlow(ConfigFlow):
             default = [c.component.value for c in profile.components if c.default]
         else:
             default = [c.value for c in self._components]
+        return await self._show_components("components", profile, default)
+
+    async def _show_components(self, step_id: str, profile: DeviceProfile, default: list[str]) -> ConfigFlowResult:
         options = [SelectOptionDict(value=c.component.value, label=c.component.value) for c in profile.components]
         selector = SelectSelector(
             SelectSelectorConfig(
@@ -292,7 +397,7 @@ class DeviceConfigFlow(ConfigFlow):
         translations = await self._translations()
         main = translations.get(f"component.{DOMAIN}.device.{profile.device_type}.name", profile.device_type)
         return self.async_show_form(
-            step_id="components",
+            step_id=step_id,
             data_schema=vol.Schema({vol.Required(CONF_COMPONENTS, default=default): selector}),
             description_placeholders={"model": profile.models[0], "main": main},
         )
@@ -328,19 +433,11 @@ class DeviceConfigFlow(ConfigFlow):
                 errors[CONF_SERIAL_NUMBER] = "invalid_serial_number"
             if not errors:
                 # el escrito manda; si está vacío, el leído; si no hay ninguno, no se guarda
-                serial = serial or probe.serial or ""
-                data: dict[str, Any] = {
-                    **connection,
-                    CONF_PROFILE: profile.id,
-                    CONF_COMPONENTS: [c.value for c in self._components or []],
-                    CONF_INTERVALS: dict(DEFAULT_INTERVALS),
-                    CONF_DEVICE_ID: device_id,
-                }
-                if serial:
-                    data[CONF_SERIAL_NUMBER] = serial
-                return self.async_create_entry(title=user_input[CONF_NAME], data=data)
+                self._title = user_input[CONF_NAME]
+                self._device_id = device_id
+                self._serial = serial or probe.serial or None
+                return await self.async_step_intervals()
         translations = await self._translations()
-        selectors = await async_get_translations(self.hass, self.hass.config.language, "selector", {DOMAIN})
         device_name = translations.get(f"component.{DOMAIN}.device.{profile.device_type}.name", profile.device_type)
         if errors:
             placeholders = {"device_type": device_name.lower(), CONF_DEVICE_ID: str(device_id)}
@@ -351,7 +448,7 @@ class DeviceConfigFlow(ConfigFlow):
             help_key = "read"
         else:
             help_key = "unreadable"
-        placeholders["serial_help"] = selectors.get(
+        placeholders["serial_help"] = translations.get(
             f"component.{DOMAIN}.selector.serial_help.options.{help_key}", help_key
         ).replace("{serial}", probe.serial or "")
         schema = vol.Schema(
@@ -374,49 +471,186 @@ class DeviceConfigFlow(ConfigFlow):
             description_placeholders=placeholders,
         )
 
+    async def _show_intervals(
+        self,
+        step_id: str,
+        profile: DeviceProfile,
+        components: list[Component],
+        defaults: Mapping[str, int],
+        errors: dict[str, str],
+        rate: float | None,
+        suggested: Mapping[str, Any] | None,
+    ) -> ConfigFlowResult:
+        """Formulario de intervalos: un campo por tier con entidades. Lo comparten el alta y reconfigure."""
+        selection = select(profile, components)
+        tiers = present_tiers(selection)
+        translations = await self._translations()
+        placeholders = intervals_placeholders(profile, selection, tiers, translations)
+        if rate is not None:
+            placeholders["rate"] = format_number(round(rate, 2), self.hass.config.language)
+        schema = intervals_schema(tiers, defaults)
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=self.add_suggested_values_to_schema(schema, suggested) if suggested else schema,
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def async_step_intervals(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        profile, connection = self._profile, self._connection
+        if connection is None:
+            raise RuntimeError("intervals step without a connection")
+        components = self._components or []
+        errors: dict[str, str] = {}
+        rate: float | None = None
+        if user_input is not None:
+            tiers = present_tiers(select(profile, components))
+            shown, errors, rate = check_intervals(profile, tiers, user_input)
+            if not errors:
+                data: dict[str, Any] = {
+                    **connection,
+                    CONF_PROFILE: profile.id,
+                    CONF_COMPONENTS: [c.value for c in components],
+                    # los tiers sin entidades no se muestran y conservan el valor por defecto
+                    CONF_INTERVALS: {**DEFAULT_INTERVALS, **shown},
+                }
+                if self._device_id is not None:
+                    data[CONF_DEVICE_ID] = self._device_id
+                if self._serial:
+                    data[CONF_SERIAL_NUMBER] = self._serial
+                return self.async_create_entry(title=self._title, data=data)
+        return await self._show_intervals(
+            "intervals", profile, components, DEFAULT_INTERVALS, errors, rate if "base" in errors else None, user_input
+        )
+
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         profile = self.catalog.get(entry.data[CONF_PROFILE])
+        self._profile = profile
+        stored_id = entry.data.get(CONF_DEVICE_ID)
         errors: dict[str, str] = {}
         if user_input is not None:
-            # cada tier tiene que caber en su intervalo con el espaciado entre peticiones
-            for tier in PollTier:
-                if user_input[tier.value] < min_tier_interval(profile, tier):
-                    errors[tier.value] = "interval_too_short"
+            host = user_input[CONF_HOST]
+            port = user_input[CONF_ADVANCED][CONF_PORT]
+            unit_id = user_input[CONF_ADVANCED][CONF_UNIT_ID]
+            unique_id = device_unique_id(host, port, unit_id)
+            if any(e.unique_id == unique_id and e.entry_id != entry.entry_id for e in self._async_current_entries()):
+                return self.async_abort(reason="already_configured")
+            raw_id = user_input.get(CONF_DEVICE_ID)
+            device_id = None if raw_id in (None, "") else int(raw_id)
+            serial = str(user_input.get(CONF_SERIAL_NUMBER) or "").strip()
+            if device_id is not None and device_id in used_device_ids(
+                self.hass, self.catalog, profile.device_type, entry.entry_id
+            ):
+                errors[CONF_DEVICE_ID] = "device_id_in_use"
+            if serial and not valid_serial(serial):
+                errors[CONF_SERIAL_NUMBER] = "invalid_serial_number"
             if not errors:
-                host, port = user_input[CONF_HOST], user_input[CONF_PORT]
-                unique_id = device_unique_id(host, port, entry.data[CONF_UNIT_ID])
-                if any(
-                    e.unique_id == unique_id and e.entry_id != entry.entry_id for e in self._async_current_entries()
-                ):
-                    return self.async_abort(reason="already_configured")
+                result, error = await self._try_probe(host, port, unit_id, profile)
+                if result is None:
+                    errors["base"] = error or "invalid_response"
+                else:
+                    self._connection = {CONF_HOST: host, CONF_PORT: port, CONF_UNIT_ID: unit_id}
+                    self._probe = result
+                    self._device_id = device_id
+                    # el escrito manda; si está vacío, el leído; si no hay ninguno, la clave desaparece
+                    self._serial = serial or result.serial or None
+                    if profile.components:
+                        return await self.async_step_reconfigure_components()
+                    self._components = []
+                    return await self.async_step_reconfigure_intervals()
+        fields: dict[Any, Any] = {
+            vol.Required(CONF_HOST): str,
+            vol.Optional(CONF_SERIAL_NUMBER): TextSelector(),
+            (vol.Required if stored_id is not None else vol.Optional)(CONF_DEVICE_ID): NumberSelector(
+                NumberSelectorConfig(min=0, step=1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(CONF_ADVANCED): section(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_PORT, default=entry.data[CONF_PORT]): PORT,
+                        vol.Required(CONF_UNIT_ID, default=entry.data[CONF_UNIT_ID]): UNIT_ID,
+                    }
+                ),
+                {"collapsed": True},
+            ),
+        }
+        suggested = user_input or {
+            CONF_HOST: entry.data[CONF_HOST],
+            CONF_SERIAL_NUMBER: entry.data.get(CONF_SERIAL_NUMBER),
+            CONF_DEVICE_ID: stored_id,
+        }
+        shown = user_input or {CONF_ADVANCED: {CONF_PORT: entry.data[CONF_PORT]}, **suggested}
+        translations = await self._translations()
+        selectors_key = "none" if profile.serial is None else "reconfigure"
+        serial_help = translations.get(
+            f"component.{DOMAIN}.selector.serial_help.options.{selectors_key}", selectors_key
+        )
+        placeholders = {
+            "brand": BRAND_TITLES[profile.brand],
+            "model": profile.models[0],
+            CONF_HOST: str(shown.get(CONF_HOST, "")),
+            CONF_PORT: str(shown.get(CONF_ADVANCED, {}).get(CONF_PORT, entry.data[CONF_PORT])),
+            "timeout": str(PROBE_TIMEOUT_S),
+            "serial_help": serial_help,
+        }
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(vol.Schema(fields), suggested),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def async_step_reconfigure_components(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        profile = self._profile
+        if user_input is not None:
+            chosen = set(user_input[CONF_COMPONENTS])
+            self._components = [c.component for c in profile.components if c.component.value in chosen]
+            return await self.async_step_reconfigure_intervals()
+        stored = entry.data.get(CONF_COMPONENTS)
+        # sin la clave (entry antigua) se ofrecen todos los componentes opcionales
+        default = [c.component.value for c in profile.components] if stored is None else list(stored)
+        return await self._show_components("reconfigure_components", profile, default)
+
+    async def async_step_reconfigure_intervals(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        profile, connection = self._profile, self._connection
+        if connection is None:
+            raise RuntimeError("reconfigure_intervals step without a connection")
+        components = self._components or []
+        errors: dict[str, str] = {}
+        rate: float | None = None
+        if user_input is not None:
+            tiers = present_tiers(select(profile, components))
+            shown, errors, rate = check_intervals(profile, tiers, user_input)
+            if not errors:
+                data: dict[str, Any] = {
+                    **entry.data,
+                    **connection,
+                    CONF_COMPONENTS: [c.value for c in components],
+                    CONF_INTERVALS: {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {}), **shown},
+                }
+                for key, value in ((CONF_DEVICE_ID, self._device_id), (CONF_SERIAL_NUMBER, self._serial)):
+                    if value is None:
+                        data.pop(key, None)
+                    else:
+                        data[key] = value
                 # actualiza la entry y la recarga: abre la conexión con el endpoint nuevo
                 return self.async_update_reload_and_abort(
                     entry,
-                    unique_id=unique_id,
-                    data_updates={
-                        CONF_HOST: host,
-                        CONF_PORT: port,
-                        CONF_INTERVALS: {tier.value: user_input[tier.value] for tier in PollTier},
-                    },
+                    unique_id=device_unique_id(connection[CONF_HOST], connection[CONF_PORT], connection[CONF_UNIT_ID]),
+                    data=data,
                 )
-        current = {
-            CONF_HOST: entry.data[CONF_HOST],
-            CONF_PORT: entry.data[CONF_PORT],
-            **DEFAULT_INTERVALS,
-            **entry.data.get(CONF_INTERVALS, {}),
-        }
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_HOST): str,
-                vol.Required(CONF_PORT): PORT,
-                **{vol.Required(tier.value): INTERVAL for tier in PollTier},
-            }
-        )
-        return self.async_show_form(
-            step_id="reconfigure",
-            data_schema=self.add_suggested_values_to_schema(schema, user_input or current),
-            errors=errors,
+        defaults = {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {})}
+        return await self._show_intervals(
+            "reconfigure_intervals",
+            profile,
+            components,
+            defaults,
+            errors,
+            rate if "base" in errors else None,
+            user_input,
         )
 
     async def _probe_endpoint(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> ProbeResult:

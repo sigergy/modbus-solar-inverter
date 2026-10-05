@@ -66,14 +66,121 @@
         }
       },
       "reconfigure": {
-        "title": "Reconfigurar equipo",
+        "title": "Cambiar la conexión",
+        "description": "{brand} {model}. La conexión se prueba antes de seguir ({timeout} s como máximo).",
         "data": {
-          "host": "Host",
-          "port": "Puerto",
-          "instant": "Intervalo de sondeo instantáneo (s)",
-          "fast": "Intervalo de sondeo rápido (s)",
-          "normal": "Intervalo de sondeo normal (s)",
-          "slow": "Intervalo de sondeo lento (s)"
+          "host": "Dirección IP",
+          "device_id": "Device ID",
+          "serial_number": "Número de serie (opcional)"
+        },
+        "data_description": {
+          "device_id": "Identificador interno de la integración. Distingue equipos del mismo tipo. No tiene nada que ver con el Unit ID de Modbus.",
+          "serial_number": "{serial_help}"
+        },
+        "sections": {
+          "advanced": {
+            "name": "Opciones avanzadas",
+            "description": "Cámbialas solo si las cambiaste en el dispositivo.",
+            "data": {
+              "port": "Puerto",
+              "unit_id": "Unit ID"
+            }
+          }
+        },
+        "submit": "Probar y seguir"
+      },
+      "intervals": {
+        "title": "Frecuencia de lectura",
+        "description": "{brand} · {model}",
+        "submit": "Terminar",
+        "sections": {
+          "instant": {
+            "name": "Instantánea",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Potencia, tensión y frecuencia de red. Mínimo: {instant_min} s.\n\nEntidades de esta lectura:\n{instant_entities}"
+            }
+          },
+          "fast": {
+            "name": "Rápida",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Estado, potencias, carga de la batería y alarmas del BMS. Mínimo para este modelo: {fast_min} s.\n\nEntidades de esta lectura:\n{fast_entities}"
+            }
+          },
+          "normal": {
+            "name": "Normal",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Tensiones, corrientes y motivos de limitación. Mínimo: {normal_min} s.\n\nEntidades de esta lectura:\n{normal_entities}"
+            }
+          },
+          "slow": {
+            "name": "Lenta",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Datos que cambian poco, como la salud de la batería. Mínimo: {slow_min} s.\n\nEntidades de esta lectura:\n{slow_entities}"
+            }
+          }
+        }
+      },
+      "reconfigure_components": {
+        "title": "¿Qué tiene tu instalación?",
+        "description": "{model}. {main} se añade siempre. Lo que desmarques se quita de Home Assistant con su historial.",
+        "data": {
+          "components": "Componentes"
+        },
+        "submit": "Siguiente"
+      },
+      "reconfigure_intervals": {
+        "title": "Frecuencia de lectura",
+        "description": "{brand} · {model}",
+        "submit": "Guardar",
+        "sections": {
+          "instant": {
+            "name": "Instantánea",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Potencia, tensión y frecuencia de red. Mínimo: {instant_min} s.\n\nEntidades de esta lectura:\n{instant_entities}"
+            }
+          },
+          "fast": {
+            "name": "Rápida",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Estado, potencias, carga de la batería y alarmas del BMS. Mínimo para este modelo: {fast_min} s.\n\nEntidades de esta lectura:\n{fast_entities}"
+            }
+          },
+          "normal": {
+            "name": "Normal",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Tensiones, corrientes y motivos de limitación. Mínimo: {normal_min} s.\n\nEntidades de esta lectura:\n{normal_entities}"
+            }
+          },
+          "slow": {
+            "name": "Lenta",
+            "data": {
+              "interval": "Intervalo (s)"
+            },
+            "data_description": {
+              "interval": "Datos que cambian poco, como la salud de la batería. Mínimo: {slow_min} s.\n\nEntidades de esta lectura:\n{slow_entities}"
+            }
+          }
         }
       }
     },
@@ -83,11 +190,12 @@
       "invalid_response": "Respuesta inesperada de {host}:{port}. Puede que el modelo o el Unit ID no sean los correctos.",
       "interval_too_short": "Demasiado corto para este equipo: leer todos sus registros tarda más.",
       "device_id_in_use": "Ya hay un {device_type} con el ID {device_id}.",
-      "invalid_serial_number": "Usa solo letras y números, sin espacios."
+      "invalid_serial_number": "Usa solo letras y números, sin espacios.",
+      "interval_budget_exceeded": "Estos intervalos piden {rate} lecturas por segundo y el dispositivo admite 1. Sube alguno."
     },
     "abort": {
-      "already_configured": "Este equipo ya está configurado.",
-      "reconfigure_successful": "El equipo se ha reconfigurado."
+      "already_configured": "Este dispositivo ya está añadido.",
+      "reconfigure_successful": "Cambios guardados."
     }
   },
   "device": {
@@ -411,7 +519,14 @@
       "options": {
         "read": "Déjalo vacío: este modelo lo envía por Modbus. Leído: {serial}.",
         "unreadable": "Este modelo lo envía por Modbus, pero no se ha podido leer. Cópialo de la etiqueta.",
-        "none": "Este modelo no lo envía por Modbus. Cópialo de la etiqueta del dispositivo."
+        "none": "Este modelo no lo envía por Modbus. Cópialo de la etiqueta del dispositivo.",
+        "reconfigure": "Déjalo vacío para leerlo por Modbus."
+      }
+    },
+    "entity_list": {
+      "options": {
+        "disabled": "(desactivada)",
+        "calculated": "Calculadas a partir de estas potencias"
       }
     }
   }

@@ -66,14 +66,121 @@
         }
       },
       "reconfigure": {
-        "title": "Reconfigure device",
+        "title": "Change the connection",
+        "description": "{brand} {model}. The connection is tested before going on ({timeout} s at most).",
         "data": {
-          "host": "Host",
-          "port": "Port",
-          "instant": "Instant poll interval (s)",
-          "fast": "Fast poll interval (s)",
-          "normal": "Normal poll interval (s)",
-          "slow": "Slow poll interval (s)"
+          "host": "IP address",
+          "device_id": "Device ID",
+          "serial_number": "Serial number (optional)"
+        },
+        "data_description": {
+          "device_id": "Internal ID of the integration. It tells apart devices of the same type. It has nothing to do with the Modbus Unit ID.",
+          "serial_number": "{serial_help}"
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced options",
+            "description": "Change them only if you changed them on the device.",
+            "data": {
+              "port": "Port",
+              "unit_id": "Unit ID"
+            }
+          }
+        },
+        "submit": "Test and continue"
+      },
+      "intervals": {
+        "title": "Reading frequency",
+        "description": "{brand} · {model}",
+        "submit": "Finish",
+        "sections": {
+          "instant": {
+            "name": "Instant",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Grid power, voltage and frequency. Minimum: {instant_min} s.\n\nEntities of this reading:\n{instant_entities}"
+            }
+          },
+          "fast": {
+            "name": "Fast",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Status, power, battery charge and BMS alarms. Minimum for this model: {fast_min} s.\n\nEntities of this reading:\n{fast_entities}"
+            }
+          },
+          "normal": {
+            "name": "Normal",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Voltages, currents and limit reasons. Minimum: {normal_min} s.\n\nEntities of this reading:\n{normal_entities}"
+            }
+          },
+          "slow": {
+            "name": "Slow",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Data that rarely changes, such as battery health. Minimum: {slow_min} s.\n\nEntities of this reading:\n{slow_entities}"
+            }
+          }
+        }
+      },
+      "reconfigure_components": {
+        "title": "What does your installation have?",
+        "description": "{model}. {main} is always added. What you untick is removed from Home Assistant with its history.",
+        "data": {
+          "components": "Components"
+        },
+        "submit": "Next"
+      },
+      "reconfigure_intervals": {
+        "title": "Reading frequency",
+        "description": "{brand} · {model}",
+        "submit": "Save",
+        "sections": {
+          "instant": {
+            "name": "Instant",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Grid power, voltage and frequency. Minimum: {instant_min} s.\n\nEntities of this reading:\n{instant_entities}"
+            }
+          },
+          "fast": {
+            "name": "Fast",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Status, power, battery charge and BMS alarms. Minimum for this model: {fast_min} s.\n\nEntities of this reading:\n{fast_entities}"
+            }
+          },
+          "normal": {
+            "name": "Normal",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Voltages, currents and limit reasons. Minimum: {normal_min} s.\n\nEntities of this reading:\n{normal_entities}"
+            }
+          },
+          "slow": {
+            "name": "Slow",
+            "data": {
+              "interval": "Interval (s)"
+            },
+            "data_description": {
+              "interval": "Data that rarely changes, such as battery health. Minimum: {slow_min} s.\n\nEntities of this reading:\n{slow_entities}"
+            }
+          }
         }
       }
     },
@@ -83,11 +190,12 @@
       "invalid_response": "Unexpected answer from {host}:{port}. The model or the Unit ID may not be the right ones.",
       "interval_too_short": "Too short for this device: reading all its registers takes longer.",
       "device_id_in_use": "There is already a {device_type} with ID {device_id}.",
-      "invalid_serial_number": "Use only letters and numbers, with no spaces."
+      "invalid_serial_number": "Use only letters and numbers, with no spaces.",
+      "interval_budget_exceeded": "These intervals ask for {rate} reads per second and the device allows 1. Raise one of them."
     },
     "abort": {
-      "already_configured": "This device is already configured.",
-      "reconfigure_successful": "The device was reconfigured."
+      "already_configured": "This device is already added.",
+      "reconfigure_successful": "Changes saved."
     }
   },
   "device": {
@@ -411,7 +519,14 @@
       "options": {
         "read": "Leave it empty: this model sends it over Modbus. Read: {serial}.",
         "unreadable": "This model sends it over Modbus, but it could not be read. Copy it from the label.",
-        "none": "This model does not send it over Modbus. Copy it from the label of the device."
+        "none": "This model does not send it over Modbus. Copy it from the label of the device.",
+        "reconfigure": "Leave it empty to read it over Modbus."
+      }
+    },
+    "entity_list": {
+      "options": {
+        "disabled": "(disabled)",
+        "calculated": "Calculated from these powers"
       }
     }
   }
