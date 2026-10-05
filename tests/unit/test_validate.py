@@ -4,8 +4,9 @@ from dataclasses import replace
 
 from custom_components.modbus_solar.domain.control import GatedLimitSpec, WriteSpec
 from custom_components.modbus_solar.domain.energy import EnergySpec, SignFilter
-from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
+from custom_components.modbus_solar.domain.profile import ComponentSpec, DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
+    Component,
     DataType,
     Platform,
     PollTier,
@@ -234,3 +235,35 @@ def test_bit_rules() -> None:
     assert validate_profile(profile(ent("a", 0), no_bit)) == ["b: binary_sensor requires bit"]
     sensor_bit = replace(ent("b", 5), bit=0)
     assert validate_profile(profile(ent("a", 0), sensor_bit)) == ["b: bit requires binary_sensor"]
+
+
+def with_components(*entities: EntitySpec, components: tuple[ComponentSpec, ...]) -> DeviceProfile:
+    return replace(profile(*entities), components=components)
+
+
+def test_components_valid() -> None:
+    entities = (ent("a", 0), replace(ent("b", 1), component=Component.BATTERY))
+    assert validate_profile(with_components(*entities, components=(ComponentSpec(Component.BATTERY),))) == []
+
+
+def test_component_not_declared() -> None:
+    entities = (ent("a", 0), replace(ent("b", 1), component=Component.BATTERY))
+    assert validate_profile(with_components(*entities, components=())) == ["b: component battery not declared"]
+
+
+def test_components_no_main_no_repeats_no_empty() -> None:
+    battery = ComponentSpec(Component.BATTERY)
+    entities = (ent("a", 0), replace(ent("b", 1), component=Component.BATTERY))
+    assert validate_profile(with_components(*entities, components=(battery, battery))) == [
+        "components: battery repeated"
+    ]
+    assert validate_profile(with_components(*entities, components=(ComponentSpec(Component.MAIN), battery))) == [
+        "components: main is implicit"
+    ]
+    assert validate_profile(with_components(ent("a", 0), components=(battery,))) == ["components: battery is empty"]
+
+
+def test_energy_in_component_of_its_sources() -> None:
+    entities = (power("a", 0), replace(power("b", 1), component=Component.PV))
+    bad = replace(with_energies(energy("e", "b"), entities=entities), components=(ComponentSpec(Component.PV),))
+    assert validate_profile(bad) == ["e: component differs from sources"]
