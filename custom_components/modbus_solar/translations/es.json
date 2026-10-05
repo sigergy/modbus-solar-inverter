@@ -182,6 +182,11 @@
             }
           }
         }
+      },
+      "reconfigure_rename": {
+        "title": "Renombrar entidades",
+        "description": "El ID pasa de {old_id} a {new_id}. Los dispositivos se llamarán con el ID nuevo.\n\nSe renombran: {renamed_count}\n{examples}\n\nSe mantienen: {kept_count} (tienen un entity_id personalizado).\n\nNo se renombran: {collision_count} (el entity_id nuevo ya existe).\n{collisions}\n\nRevisa las automatizaciones y tarjetas que usen los nombres viejos.",
+        "submit": "Confirmar"
       }
     },
     "error": {

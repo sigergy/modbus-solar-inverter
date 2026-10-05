@@ -182,6 +182,11 @@
             }
           }
         }
+      },
+      "reconfigure_rename": {
+        "title": "Rename entities",
+        "description": "The ID changes from {old_id} to {new_id}. Devices will be named with the new ID.\n\nRenamed: {renamed_count}\n{examples}\n\nKept: {kept_count} (custom entity ID).\n\nNot renamed: {collision_count} (the new entity ID already exists).\n{collisions}\n\nReview the automations and cards that use the old names.",
+        "submit": "Confirm"
       }
     },
     "error": {

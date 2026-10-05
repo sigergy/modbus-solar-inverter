@@ -3,13 +3,16 @@
 import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import section
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -21,6 +24,7 @@ from homeassistant.helpers.selector import (
     TextSelector,
 )
 from homeassistant.helpers.translation import async_get_translations
+from homeassistant.util import slugify
 
 from ...application.catalog import Catalog
 from ...application.poller import min_tier_interval, request_rate
@@ -227,6 +231,62 @@ def check_intervals(
     return intervals, errors, rate
 
 
+@dataclass
+class RenamePlan:
+    """Qué hace el renombrado de entity_id al cambiar el Device ID (spec §4.5)."""
+
+    renamed: list[tuple[str, str]] = field(default_factory=list)
+    kept: list[str] = field(default_factory=list)
+    collisions: list[str] = field(default_factory=list)
+
+
+def device_label(translations: Mapping[str, str], key: str, device_id: int | None) -> str:
+    """Nombre del dispositivo traducido, con el ID si lo hay."""
+    if device_id is None:
+        return translations.get(f"component.{DOMAIN}.device.{key}.name", key)
+    text = translations.get(f"component.{DOMAIN}.device.{key}_numbered.name", key)
+    return text.replace("{device_id}", str(device_id))
+
+
+def plan_rename(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    profile: DeviceProfile,
+    old_id: int | None,
+    new_id: int,
+    translations: Mapping[str, str],
+) -> RenamePlan:
+    """Entidades de la entry cuyo entity_id lleva el prefijo generado con el ID viejo (spec §4.5)."""
+    registry = er.async_get(hass)
+    devices = dr.async_get(hass)
+    plan = RenamePlan()
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        device = None if entity.device_id is None else devices.async_get(entity.device_id)
+        key = None
+        if device is not None:
+            for domain, identifier in device.identifiers:
+                if domain != DOMAIN:
+                    continue
+                if identifier == entry.entry_id:
+                    key = profile.device_type
+                elif identifier.startswith(f"{entry.entry_id}_"):
+                    key = identifier[len(entry.entry_id) + 1 :]
+        if key is None:
+            plan.kept.append(entity.entity_id)
+            continue
+        old_prefix = f"{entity.domain}.{slugify(device_label(translations, key, old_id))}_"
+        if not entity.entity_id.startswith(old_prefix):
+            plan.kept.append(entity.entity_id)
+            continue
+        new_prefix = f"{entity.domain}.{slugify(device_label(translations, key, new_id))}_"
+        target = new_prefix + entity.entity_id[len(old_prefix) :]
+        if registry.async_is_registered(target):
+            plan.collisions.append(entity.entity_id)
+        else:
+            plan.renamed.append((entity.entity_id, target))
+    return plan
+
+
 class DeviceConfigFlow(ConfigFlow):
     """Alta de un inversor: modelo, conexión validada con una lectura real, nombre e intervalos."""
 
@@ -244,6 +304,8 @@ class DeviceConfigFlow(ConfigFlow):
     _title: str = ""
     _device_id: int | None = None
     _serial: str | None = None
+    # unique_id y data de reconfigure a la espera de confirmar el renombrado
+    _pending: tuple[str, dict[str, Any]] | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -645,12 +707,13 @@ class DeviceConfigFlow(ConfigFlow):
                         data.pop(key, None)
                     else:
                         data[key] = value
+                unique_id = device_unique_id(connection[CONF_HOST], connection[CONF_PORT], connection[CONF_UNIT_ID])
+                if self._device_id is not None and self._device_id != entry.data.get(CONF_DEVICE_ID):
+                    # el ID cambia: antes de guardar se pregunta por el renombrado de entidades
+                    self._pending = (unique_id, data)
+                    return await self.async_step_reconfigure_rename()
                 # actualiza la entry y la recarga: abre la conexión con el endpoint nuevo
-                return self.async_update_reload_and_abort(
-                    entry,
-                    unique_id=device_unique_id(connection[CONF_HOST], connection[CONF_PORT], connection[CONF_UNIT_ID]),
-                    data=data,
-                )
+                return self.async_update_reload_and_abort(entry, unique_id=unique_id, data=data)
         defaults = {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {})}
         return await self._show_intervals(
             "reconfigure_intervals",
@@ -661,6 +724,33 @@ class DeviceConfigFlow(ConfigFlow):
             rate if "base" in errors else None,
             user_input,
         )
+
+    async def async_step_reconfigure_rename(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        if self._pending is None or self._device_id is None:
+            raise RuntimeError("reconfigure_rename step without pending changes")
+        unique_id, data = self._pending
+        old_id = entry.data.get(CONF_DEVICE_ID)
+        plan = plan_rename(self.hass, entry, self._profile, old_id, self._device_id, await self._translations())
+        if user_input is not None:
+            registry = er.async_get(self.hass)
+            for old, new in plan.renamed:
+                registry.async_update_entity(old, new_entity_id=new)
+            return self.async_update_reload_and_abort(entry, unique_id=unique_id, data=data)
+
+        def lines(items: Sequence[str]) -> str:
+            return "\n".join(f"- {item}" for item in items)
+
+        placeholders = {
+            "old_id": "-" if old_id is None else str(old_id),
+            "new_id": str(self._device_id),
+            "renamed_count": str(len(plan.renamed)),
+            "examples": lines([f"`{old}` → `{new}`" for old, new in plan.renamed[:3]]),
+            "kept_count": str(len(plan.kept)),
+            "collision_count": str(len(plan.collisions)),
+            "collisions": lines([f"`{entity_id}`" for entity_id in plan.collisions]),
+        }
+        return self.async_show_form(step_id="reconfigure_rename", description_placeholders=placeholders)
 
     async def _probe_endpoint(self, host: str, port: int, unit_id: int, profile: DeviceProfile) -> ProbeResult:
         async with asyncio.timeout(PROBE_TIMEOUT_S):
