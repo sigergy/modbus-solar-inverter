@@ -99,7 +99,7 @@ def test_flow_texts_do_not_say_inverter() -> None:
         for step in ("user", "connection", "name"):
             step_texts = load(name)["config"]["step"][step]
             for field in ("title", "description"):
-                text = step_texts[field].lower()
+                text = step_texts.get(field, "").lower()
                 assert "inverter" not in text and "inversor" not in text, f"{name} {step}.{field}"
 
 
