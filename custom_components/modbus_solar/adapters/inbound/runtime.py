@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from ...application.selection import Selection, select
-from ...const import CONF_INTERVALS, DEFAULT_INTERVALS, DOMAIN
+from ...const import CONF_DEVICE_ID, CONF_INTERVALS, CONF_SERIAL_NUMBER, DEFAULT_INTERVALS, DOMAIN
 from ...domain.control import GatedState
 from ...domain.profile import DeviceProfile
 from ...domain.types import Platform, PollTier
@@ -27,6 +27,8 @@ class DeviceRuntime:
     writer: DeviceWriter
     coordinators: dict[PollTier, TierCoordinator]
     control_states: dict[str, GatedState]
+    device_id: int | None = None  # Device ID del alta; None si el equipo no lo usa
+    serial_number: str | None = None
 
 
 type ModbusSolarConfigEntry = ConfigEntry[DeviceRuntime]
@@ -101,4 +103,6 @@ def build_runtime(
         coordinators=coordinators,
         # un estado por control, compartido por su number y su switch; sin valor restaurado manda el default
         control_states={control.key: GatedState(limit=control.default) for control in selection.controls},
+        device_id=entry.data.get(CONF_DEVICE_ID),
+        serial_number=entry.data.get(CONF_SERIAL_NUMBER),
     )

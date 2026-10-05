@@ -6,9 +6,10 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_HOST
 
+from ...const import CONF_SERIAL_NUMBER
 from .runtime import DeviceRuntime
 
-TO_REDACT = {CONF_HOST}
+TO_REDACT = {CONF_HOST, CONF_SERIAL_NUMBER}
 
 
 def device_diagnostics(runtime: DeviceRuntime, entry_data: Mapping[str, Any]) -> dict[str, Any]:

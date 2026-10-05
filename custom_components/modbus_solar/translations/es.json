@@ -54,6 +54,62 @@
       "reconfigure_successful": "El equipo se ha reconfigurado."
     }
   },
+  "device": {
+    "inverter": {
+      "name": "Inversor"
+    },
+    "inverter_numbered": {
+      "name": "Inversor {device_id}"
+    },
+    "irradiance_sensor": {
+      "name": "Sensor de irradiancia"
+    },
+    "irradiance_sensor_numbered": {
+      "name": "Sensor de irradiancia {device_id}"
+    },
+    "pv": {
+      "name": "Campo solar"
+    },
+    "pv_numbered": {
+      "name": "Campo solar {device_id}"
+    },
+    "battery": {
+      "name": "Batería"
+    },
+    "battery_numbered": {
+      "name": "Batería {device_id}"
+    },
+    "grid": {
+      "name": "Red"
+    },
+    "grid_numbered": {
+      "name": "Red {device_id}"
+    },
+    "internal_meter": {
+      "name": "Vatímetro interno"
+    },
+    "internal_meter_numbered": {
+      "name": "Vatímetro interno {device_id}"
+    },
+    "critical_loads": {
+      "name": "Cargas críticas"
+    },
+    "critical_loads_numbered": {
+      "name": "Cargas críticas {device_id}"
+    },
+    "load": {
+      "name": "Consumo"
+    },
+    "load_numbered": {
+      "name": "Consumo {device_id}"
+    },
+    "ev_charger": {
+      "name": "Cargador VE"
+    },
+    "ev_charger_numbered": {
+      "name": "Cargador VE {device_id}"
+    }
+  },
   "entity": {
     "sensor": {
       "inverter_state": {

@@ -54,6 +54,62 @@
       "reconfigure_successful": "The device was reconfigured."
     }
   },
+  "device": {
+    "inverter": {
+      "name": "Inverter"
+    },
+    "inverter_numbered": {
+      "name": "Inverter {device_id}"
+    },
+    "irradiance_sensor": {
+      "name": "Irradiance sensor"
+    },
+    "irradiance_sensor_numbered": {
+      "name": "Irradiance sensor {device_id}"
+    },
+    "pv": {
+      "name": "Solar array"
+    },
+    "pv_numbered": {
+      "name": "Solar array {device_id}"
+    },
+    "battery": {
+      "name": "Battery"
+    },
+    "battery_numbered": {
+      "name": "Battery {device_id}"
+    },
+    "grid": {
+      "name": "Grid"
+    },
+    "grid_numbered": {
+      "name": "Grid {device_id}"
+    },
+    "internal_meter": {
+      "name": "Internal meter"
+    },
+    "internal_meter_numbered": {
+      "name": "Internal meter {device_id}"
+    },
+    "critical_loads": {
+      "name": "Critical loads"
+    },
+    "critical_loads_numbered": {
+      "name": "Critical loads {device_id}"
+    },
+    "load": {
+      "name": "Load"
+    },
+    "load_numbered": {
+      "name": "Load {device_id}"
+    },
+    "ev_charger": {
+      "name": "EV charger"
+    },
+    "ev_charger_numbered": {
+      "name": "EV charger {device_id}"
+    }
+  },
   "entity": {
     "sensor": {
       "inverter_state": {
