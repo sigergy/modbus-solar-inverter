@@ -36,11 +36,11 @@ class ModbusSolarSensor(ModbusSolarEntity, SensorEntity):
 def build_sensors(runtime: DeviceRuntime) -> list[SensorEntity]:
     sensors: list[SensorEntity] = [
         ModbusSolarSensor(runtime.coordinators[spec.poll], runtime, spec)
-        for spec in runtime.profile.entities
+        for spec in runtime.selection.entities
         if spec.platform is Platform.SENSOR
     ]
-    by_key = {spec.key: spec for spec in runtime.profile.entities}
-    for energy in runtime.profile.energies:
+    by_key = {spec.key: spec for spec in runtime.selection.entities}
+    for energy in runtime.selection.energies:
         # validate_profile garantiza que todas las fuentes van en el mismo tier
         coordinator = runtime.coordinators[by_key[energy.sources[0]].poll]
         sensors.append(ModbusSolarEnergySensor(coordinator, runtime, energy))
@@ -55,9 +55,9 @@ def _control_coordinator(runtime: DeviceRuntime) -> TierCoordinator:
 
 def build_numbers(runtime: DeviceRuntime) -> list[NumberEntity]:
     coordinator = _control_coordinator(runtime)
-    return [ModbusSolarNumber(coordinator, runtime, spec) for spec in runtime.profile.controls]
+    return [ModbusSolarNumber(coordinator, runtime, spec) for spec in runtime.selection.controls]
 
 
 def build_switches(runtime: DeviceRuntime) -> list[SwitchEntity]:
     coordinator = _control_coordinator(runtime)
-    return [ModbusSolarSwitch(coordinator, runtime, spec) for spec in runtime.profile.controls]
+    return [ModbusSolarSwitch(coordinator, runtime, spec) for spec in runtime.selection.controls]

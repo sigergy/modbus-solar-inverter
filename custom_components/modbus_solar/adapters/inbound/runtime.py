@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
+from ...application.selection import Selection, select
 from ...const import CONF_INTERVALS, DEFAULT_INTERVALS, DOMAIN
 from ...domain.control import GatedState
 from ...domain.profile import DeviceProfile
@@ -20,6 +21,7 @@ class DeviceRuntime:
     entry_id: str
     title: str
     profile: DeviceProfile
+    selection: Selection  # lo elegido en el alta; manda sobre profile.entities
     intervals: dict[str, int]
     gateway: DeviceGateway
     writer: DeviceWriter
@@ -44,13 +46,14 @@ def _is_enabled(registry: er.EntityRegistry, platform: str, entry_id: str, key: 
     return entity is not None and entity.disabled_by is None
 
 
-def enabled_keys(registry: er.EntityRegistry, entry_id: str, profile: DeviceProfile) -> frozenset[str]:
+def enabled_keys(registry: er.EntityRegistry, entry_id: str, selection: Selection | DeviceProfile) -> frozenset[str]:
+    # Selection y DeviceProfile exponen entities y energies
     keys = {
         spec.key
-        for spec in profile.entities
+        for spec in selection.entities
         if _is_enabled(registry, spec.platform, entry_id, spec.key, spec.enabled_default)
     }
-    for energy in profile.energies:
+    for energy in selection.energies:
         # una energía activa necesita leer sus fuentes aunque su sensor de potencia esté deshabilitado
         if _is_enabled(registry, Platform.SENSOR, entry_id, energy.key, energy.enabled_default):
             keys.update(energy.sources)
@@ -64,10 +67,14 @@ def build_runtime(
     gateway: DeviceGateway,
     writer: DeviceWriter,
     keys: Collection[str],
+    selection: Selection | None = None,
 ) -> DeviceRuntime:
-    intervals = {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {})}
-    poll_of = {e.key: e.poll for e in profile.entities}
-    energy_tiers = {poll_of[source] for energy in profile.energies for source in energy.sources}
+    # sin selección: todos los componentes opcionales
+    selection = select(profile, None) if selection is None else selection
+    # DEFAULT_INTERVALS completa tiers ausentes en entries anteriores (instant)
+    intervals = DEFAULT_INTERVALS | entry.data.get(CONF_INTERVALS, {})
+    poll_of = {e.key: e.poll for e in selection.entities}
+    energy_tiers = {poll_of[source] for energy in selection.energies for source in energy.sources}
     coordinators = {
         tier: TierCoordinator(
             hass,
@@ -81,16 +88,17 @@ def build_runtime(
             always_update=tier in energy_tiers,
         )
         for tier in PollTier
-        if any(e.poll is tier for e in profile.entities)
+        if any(e.poll is tier for e in selection.entities)
     }
     return DeviceRuntime(
         entry_id=entry.entry_id,
         title=entry.title,
         profile=profile,
+        selection=selection,
         intervals=intervals,
         gateway=gateway,
         writer=writer,
         coordinators=coordinators,
         # un estado por control, compartido por su number y su switch; sin valor restaurado manda el default
-        control_states={control.key: GatedState(limit=control.default) for control in profile.controls},
+        control_states={control.key: GatedState(limit=control.default) for control in selection.controls},
     )

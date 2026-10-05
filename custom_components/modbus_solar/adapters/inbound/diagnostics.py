@@ -21,7 +21,7 @@ def device_diagnostics(runtime: DeviceRuntime, entry_data: Mapping[str, Any]) ->
         for tier, coordinator in runtime.coordinators.items()
     }
     entities: dict[str, Any] = {}
-    for spec in runtime.profile.entities:
+    for spec in runtime.selection.entities:
         # data guarda el último TierResult correcto, también tras un fallo
         result = runtime.coordinators[spec.poll].data
         raw = result.raw.get(spec.key) if result is not None else None

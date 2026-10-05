@@ -5,6 +5,9 @@ DOMAIN = "modbus_solar"
 CONF_PROFILE = "profile"
 CONF_UNIT_ID = "unit_id"
 CONF_INTERVALS = "intervals"
+CONF_COMPONENTS = "components"
+CONF_DEVICE_ID = "device_id"
+CONF_SERIAL_NUMBER = "serial_number"
 
 # segundos por tier; editables en el reconfigure de cada equipo
 DEFAULT_INTERVALS = {"instant": 5, "fast": 10, "normal": 60, "slow": 3600}
