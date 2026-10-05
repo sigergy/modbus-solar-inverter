@@ -1,4 +1,4 @@
-"""Config flow: alta de un dispositivo (marca, modelo, conexión, componentes, lecturas, nombre) y reconfigure."""
+"""Config flow: alta (marca, modelo, conexión, componentes, lecturas, nombre, intervalos) y reconfigure."""
 
 import asyncio
 from collections.abc import AsyncIterator, Generator
@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import voluptuous as vol
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -20,7 +21,7 @@ from custom_components.modbus_solar import CATALOG
 from custom_components.modbus_solar.application.catalog import Catalog
 from custom_components.modbus_solar.config_flow import ModbusSolarConfigFlow
 from custom_components.modbus_solar.const import DOMAIN
-from tests.ha.common import DEVICE_DATA, device_entry
+from tests.ha.common import DEVICE_DATA, STORAGE_DATA, device_entry
 
 CONNECTION = {"host": "192.168.1.50", "advanced": {"port": 502, "unit_id": 1}}
 
@@ -79,6 +80,43 @@ async def to_components(hass: HomeAssistant) -> dict[str, Any]:
     return result
 
 
+ONEPLAY_INTERVALS = {"fast": {"interval": 10}, "normal": {"interval": 60}}
+STORAGE_INTERVALS = {
+    "instant": {"interval": 5},
+    "fast": {"interval": 10},
+    "normal": {"interval": 60},
+    "slow": {"interval": 3600},
+}
+
+
+async def configure(hass: HomeAssistant, result: dict[str, Any], user_input: dict[str, Any]) -> dict[str, Any]:
+    return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
+
+
+async def create(
+    hass: HomeAssistant, result: dict[str, Any], intervals: dict[str, Any] = ONEPLAY_INTERVALS
+) -> dict[str, Any]:
+    """Del paso de nombre al final del alta: envía los intervalos."""
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "intervals")
+    return await configure(hass, result, intervals)
+
+
+async def to_storage_intervals(hass: HomeAssistant) -> dict[str, Any]:
+    """Alta del STORAGE con los componentes por defecto hasta el paso de intervalos."""
+    result = await to_components(hass)
+    result = await configure(hass, result, {"components": ["pv", "battery", "grid", "critical_loads", "load"]})
+    result = await choose(hass, result, "name")
+    result = await configure(hass, result, {"name": "House", "device_id": 0})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "intervals")
+    return result
+
+
+def interval_defaults(result: dict[str, Any]) -> dict[str, int]:
+    """Valor por defecto del campo interval de cada sección del formulario, en el orden del formulario."""
+    sections = result["data_schema"].schema
+    return {str(tier): next(iter(sections[tier].schema.schema)).default() for tier in sections}
+
+
 def field(result: dict[str, Any], name: str) -> Any:
     """Clave del esquema por nombre, con su default y su valor sugerido."""
     return next(k for k in result["data_schema"].schema if str(k) == name)
@@ -119,6 +157,8 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await choose(hass, result, "name")
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "name")
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Roof", "device_id": 0})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "intervals")
+    result = await create(hass, result)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     entry = result["result"]
     assert (entry.title, entry.unique_id, entry.version) == ("Roof", "inverter.lan:502:1", 2)
@@ -181,7 +221,7 @@ async def test_device_id_free_across_device_types(hass: HomeAssistant, temp_unit
     add_entry(hass, device_id=0, profile="mencke_tegtmeyer.si_rs485")
     result = await to_name(hass)
     assert suggested(result, "device_id") == 0
-    result = await submit_name(hass, result, device_id=0)
+    result = await create(hass, await submit_name(hass, result, device_id=0))
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
@@ -189,7 +229,7 @@ async def test_entries_without_device_id_do_not_block(hass: HomeAssistant, temp_
     add_entry(hass)
     result = await to_name(hass)
     assert suggested(result, "device_id") == 0
-    result = await submit_name(hass, result, device_id=0)
+    result = await create(hass, await submit_name(hass, result, device_id=0))
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
@@ -202,7 +242,7 @@ async def test_invalid_serial_number(hass: HomeAssistant, temp_unit: MagicMock) 
 
 async def test_serial_number_is_stripped_and_saved(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await to_name(hass)
-    result = await submit_name(hass, result, device_id=3, serial_number=" AB123 ")
+    result = await create(hass, await submit_name(hass, result, device_id=3, serial_number=" AB123 "))
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["device_id"] == 3
     assert result["data"]["serial_number"] == "AB123"
@@ -210,7 +250,7 @@ async def test_serial_number_is_stripped_and_saved(hass: HomeAssistant, temp_uni
 
 async def test_empty_serial_number_is_not_saved(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await to_name(hass)
-    result = await submit_name(hass, result, device_id=0, serial_number="  ")
+    result = await create(hass, await submit_name(hass, result, device_id=0, serial_number="  "))
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert "serial_number" not in result["data"]
 
@@ -357,6 +397,7 @@ async def test_storage_entry_saves_components_in_profile_order(
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery", "pv"]})
     result = await choose(hass, result, "name")
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "House", "device_id": 0})
+    result = await create(hass, result, STORAGE_INTERVALS)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["components"] == ["pv", "battery"]
 
@@ -395,52 +436,277 @@ async def test_model_change_after_error_keeps_touched_advanced(
     assert got == (1600, 1)
 
 
-RECONFIGURE_INPUT = {"host": "192.168.1.60", "port": 1502, "instant": 5, "fast": 10, "normal": 120, "slow": 3600}
+async def to_intervals(hass: HomeAssistant, temp_unit: MagicMock) -> dict[str, Any]:
+    """Alta del 1Play hasta el paso de intervalos."""
+    result = await to_name(hass)
+    result = await configure(hass, result, {"name": "Roof", "device_id": 0})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "intervals")
+    return result
 
 
-async def reconfigure(hass: HomeAssistant, entry: MockConfigEntry, user_input: dict[str, Any]) -> dict[str, Any]:
+async def test_intervals_step_shows_only_tiers_with_entities(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    result = await to_intervals(hass, temp_unit)
+    # el 1Play no tiene red ni datos lentos: sin sección instant ni slow
+    assert [str(k) for k in result["data_schema"].schema] == ["fast", "normal"]
+    assert interval_defaults(result) == {"fast": 10, "normal": 60}
+    assert result["data_schema"].schema["fast"].options == {"collapsed": True}
+    placeholders = result["description_placeholders"]
+    assert placeholders.items() >= {"brand": "Ingeteam", "model": "1Play TL M", "fast_min": "2"}.items()
+    assert "- Inverter · State" in placeholders["fast_entities"]
+    assert "- Inverter · Active power" in placeholders["fast_entities"]
+
+
+async def test_intervals_step_storage_lists_entities_by_tier(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_storage_intervals(hass)
+    assert [str(k) for k in result["data_schema"].schema] == ["instant", "fast", "normal", "slow"]
+    assert interval_defaults(result) == {"instant": 5, "fast": 10, "normal": 60, "slow": 3600}
+    placeholders = result["description_placeholders"]
+    assert placeholders["instant_min"] == "1"
+    # spec 4.4: 3 leídas y 2 energías calculadas; sin controles en este tier
+    instant = placeholders["instant_entities"]
+    lines = [line for line in instant.splitlines() if line.startswith("- ")]
+    assert lines[:3] == ["- Grid · Voltage", "- Grid · Frequency", "- Grid · Power"]
+    assert len(lines) == 5
+    assert "Grid · Import energy" in instant
+    # las entidades desactivadas por defecto llevan la marca
+    assert "(disabled)" in placeholders["fast_entities"]
+
+
+async def test_interval_too_short(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_storage_intervals(hass)
+    # instant 1 s cabe; fast 5 s no: el mínimo manda y el presupuesto no se mira
+    result = await create(hass, result, {**STORAGE_INTERVALS, "instant": {"interval": 1}, "fast": {"interval": 5}})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "intervals")
+    assert result["errors"] == {"fast": "interval_too_short"}
+    # el formulario conserva lo escrito
+    assert interval_defaults(result)["fast"] == 5
+
+
+async def test_interval_budget_exceeded(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_storage_intervals(hass)
+    result = await create(hass, result, {**STORAGE_INTERVALS, "instant": {"interval": 1}})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "intervals")
+    assert result["errors"] == {"base": "interval_budget_exceeded"}
+    assert float(result["description_placeholders"]["rate"]) > 1
+    assert hass.config_entries.async_entries(DOMAIN) == []
+    # corregido, se crea la entry
+    result = await create(hass, result, STORAGE_INTERVALS)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_unused_tier_interval_is_saved_anyway(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    result = await to_intervals(hass, temp_unit)
+    result = await create(hass, result, {"fast": {"interval": 20}, "normal": {"interval": 120}})
+    assert result["data"]["intervals"] == {"instant": 5, "fast": 20, "normal": 120, "slow": 3600}
+
+
+CONNECTION_2 = {"host": "192.168.1.60", "advanced": {"port": 1502, "unit_id": 2}}
+
+
+async def start_reconfigure(hass: HomeAssistant, entry: MockConfigEntry) -> dict[str, Any]:
+    entry.add_to_hass(hass)
     result = await entry.start_reconfigure_flow(hass)
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure")
-    return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
+    return result
 
 
-async def test_reconfigure_updates_host_port_and_intervals(hass: HomeAssistant) -> None:
-    entry = device_entry()
-    entry.add_to_hass(hass)
-    result = await reconfigure(hass, entry, RECONFIGURE_INPUT)
+async def reconfigure(
+    hass: HomeAssistant, entry: MockConfigEntry, connection: dict[str, Any] = CONNECTION_2
+) -> dict[str, Any]:
+    result = await start_reconfigure(hass, entry)
+    return await configure(hass, result, connection)
+
+
+def storage_entry(**extra: Any) -> MockConfigEntry:
+    return device_entry({**STORAGE_DATA, "components": ["battery"], "device_id": 0, **extra})
+
+
+async def test_reconfigure_three_steps(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry()
+    result = await reconfigure(hass, entry)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_components")
+    assert field(result, "components").default() == ["battery"]
+    result = await configure(hass, result, {"components": ["grid", "battery"]})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_intervals")
+    # lo guardado, completado con los valores por defecto
+    assert interval_defaults(result) == {"instant": 5, "fast": 5, "normal": 60, "slow": 3600}
+    # nada se guarda hasta el último paso
+    assert entry.data["unit_id"] == 1
+    result = await configure(hass, result, {**STORAGE_INTERVALS, "normal": {"interval": 120}})
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
-    assert (entry.title, entry.unique_id) == ("Inverter", "192.168.1.60:1502:1")
+    assert entry.unique_id == "192.168.1.60:1502:2"
+    assert dict(entry.data) == {
+        **STORAGE_DATA,
+        "host": "192.168.1.60",
+        "port": 1502,
+        "unit_id": 2,
+        "components": ["battery", "grid"],
+        "device_id": 0,
+        "intervals": {"instant": 5, "fast": 10, "normal": 120, "slow": 3600},
+    }
+    assert entry.title == "Inverter"
+    # la sonda usó el endpoint nuevo
+    _, params, unit_id = storage_temp_unit.call_args.args
+    assert (params, unit_id) == (ModbusTcpParams(host="192.168.1.60", port=1502), 2)
+
+
+async def test_reconfigure_profile_without_components_skips_step(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    entry = device_entry()
+    result = await reconfigure(hass, entry)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_intervals")
+    assert [str(k) for k in result["data_schema"].schema] == ["fast", "normal"]
+    result = await configure(hass, result, {"fast": {"interval": 10}, "normal": {"interval": 120}})
+    assert result["reason"] == "reconfigure_successful"
     assert dict(entry.data) == {
         **DEVICE_DATA,
         "host": "192.168.1.60",
         "port": 1502,
+        "unit_id": 2,
+        "components": [],
         "intervals": {"instant": 5, "fast": 10, "normal": 120, "slow": 3600},
     }
 
 
-async def test_reconfigure_rejects_interval_shorter_than_blocks(hass: HomeAssistant) -> None:
+async def test_reconfigure_probe_failure_stays(
+    hass: HomeAssistant, temp_unit: MagicMock, ingeteam_unit: MockModbusUnit
+) -> None:
+    ingeteam_unit.fail_requests(ModbusConnectionError("refused"))
     entry = device_entry()
-    entry.add_to_hass(hass)
-    # fast necesita 2 bloques x 1 s; normal 1 bloque x 1 s; slow no tiene entidades
-    result = await reconfigure(hass, entry, {**RECONFIGURE_INPUT, "instant": 1, "fast": 1, "normal": 1, "slow": 1})
-    assert result["type"] is FlowResultType.FORM
+    result = await reconfigure(hass, entry)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure")
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert result["description_placeholders"].items() >= {"host": "192.168.1.60", "port": "1502"}.items()
+    # el formulario conserva lo escrito
+    assert field(result, "host").description == {"suggested_value": "192.168.1.60"}
+    assert dict(entry.data) == DEVICE_DATA
+
+
+async def test_reconfigure_rejects_interval_shorter_than_blocks(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    entry = device_entry()
+    result = await reconfigure(hass, entry)
+    # fast necesita 2 bloques x 1 s; normal 1 bloque x 1 s
+    result = await configure(hass, result, {"fast": {"interval": 1}, "normal": {"interval": 1}})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_intervals")
     assert result["errors"] == {"fast": "interval_too_short"}
     assert dict(entry.data) == DEVICE_DATA
 
 
-async def test_reconfigure_aborts_if_endpoint_belongs_to_other_device(hass: HomeAssistant) -> None:
+async def test_reconfigure_interval_budget_exceeded(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await reconfigure(hass, storage_entry())
+    result = await configure(hass, result, {"components": ["battery"]})
+    result = await configure(hass, result, {**STORAGE_INTERVALS, "instant": {"interval": 1}})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_intervals")
+    assert result["errors"] == {"base": "interval_budget_exceeded"}
+    assert float(result["description_placeholders"]["rate"]) > 1
+
+
+async def test_reconfigure_entry_without_components_defaults_to_all_optional(
+    hass: HomeAssistant, storage_temp_unit: MagicMock
+) -> None:
+    result = await reconfigure(hass, device_entry(STORAGE_DATA))
+    assert result["step_id"] == "reconfigure_components"
+    assert field(result, "components").default() == [
+        "pv",
+        "battery",
+        "grid",
+        "internal_meter",
+        "critical_loads",
+        "load",
+        "ev_charger",
+    ]
+
+
+async def test_reconfigure_aborts_if_endpoint_belongs_to_other_device(
+    hass: HomeAssistant, temp_unit: MagicMock
+) -> None:
     device_entry().add_to_hass(hass)
     other = device_entry({**DEVICE_DATA, "host": "192.168.1.51"}, entry_id="dev2", title="Inverter 2")
-    other.add_to_hass(hass)
-    result = await reconfigure(hass, other, {**RECONFIGURE_INPUT, "host": "192.168.1.50", "port": 502})
+    result = await reconfigure(hass, other, {"host": "192.168.1.50", "advanced": {"port": 502, "unit_id": 1}})
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+    temp_unit.assert_not_called()
 
 
-async def test_reconfigure_keeps_own_endpoint(hass: HomeAssistant) -> None:
+async def test_reconfigure_keeps_own_endpoint(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     entry = device_entry()
-    entry.add_to_hass(hass)
-    result = await reconfigure(hass, entry, {**RECONFIGURE_INPUT, "host": "192.168.1.50", "port": 502})
+    result = await reconfigure(hass, entry, CONNECTION)
+    result = await configure(hass, result, ONEPLAY_INTERVALS)
     assert result["reason"] == "reconfigure_successful"
     assert entry.unique_id == "192.168.1.50:502:1"
+
+
+async def test_reconfigure_prefills_device_id(hass: HomeAssistant) -> None:
+    result = await start_reconfigure(hass, device_entry({**DEVICE_DATA, "device_id": 3, "serial_number": "AB1"}))
+    key = field(result, "device_id")
+    assert isinstance(key, vol.Required)
+    assert key.description == {"suggested_value": 3}
+    assert field(result, "serial_number").description == {"suggested_value": "AB1"}
+    assert field(result, "host").description == {"suggested_value": "192.168.1.50"}
+    advanced = result["data_schema"].schema["advanced"]
+    assert {str(k): k.default() for k in advanced.schema.schema} == {"port": 502, "unit_id": 1}
+
+
+async def test_reconfigure_device_id_is_optional_without_stored_id(hass: HomeAssistant) -> None:
+    result = await start_reconfigure(hass, device_entry())
+    key = field(result, "device_id")
+    assert isinstance(key, vol.Optional)
+    assert (key.description or {}).get("suggested_value") is None
+
+
+async def test_reconfigure_device_id_excludes_own_entry(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    add_entry(hass, device_id=1, host="10.0.0.2")
+    entry = device_entry({**DEVICE_DATA, "device_id": 0})
+    result = await reconfigure(hass, entry, {**CONNECTION, "device_id": 0})
+    assert result["step_id"] == "reconfigure_intervals"
+
+
+async def test_reconfigure_device_id_in_use_does_not_probe(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    add_entry(hass, device_id=1, host="10.0.0.2")
+    entry = device_entry({**DEVICE_DATA, "device_id": 0})
+    result = await reconfigure(hass, entry, {**CONNECTION, "device_id": 1})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure")
+    assert result["errors"] == {"device_id": "device_id_in_use"}
+    temp_unit.assert_not_called()
+
+
+async def test_reconfigure_same_id_skips_rename(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    entry = device_entry({**DEVICE_DATA, "device_id": 0})
+    result = await reconfigure(hass, entry, {**CONNECTION, "device_id": 0})
+    result = await configure(hass, result, ONEPLAY_INTERVALS)
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+
+async def test_reconfigure_entry_without_id_can_get_one(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    entry = device_entry()
+    result = await reconfigure(hass, entry, {**CONNECTION, "device_id": 4})
+    result = await configure(hass, result, ONEPLAY_INTERVALS)
+    assert entry.data["device_id"] == 4
+
+
+async def test_reconfigure_entry_without_id_stays_without(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    entry = device_entry()
+    result = await reconfigure(hass, entry, CONNECTION)
+    await configure(hass, result, ONEPLAY_INTERVALS)
+    assert "device_id" not in entry.data
+
+
+async def test_reconfigure_invalid_serial_number(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    result = await reconfigure(hass, device_entry(), {**CONNECTION, "serial_number": "AB 1"})
+    assert result["errors"] == {"serial_number": "invalid_serial_number"}
+    temp_unit.assert_not_called()
+
+
+async def test_reconfigure_typed_serial_wins_and_empty_serial_is_removed(
+    hass: HomeAssistant, temp_unit: MagicMock
+) -> None:
+    entry = device_entry({**DEVICE_DATA, "serial_number": "OLD1"})
+    result = await reconfigure(hass, entry, {**CONNECTION, "serial_number": " NEW2 "})
+    await configure(hass, result, ONEPLAY_INTERVALS)
+    assert entry.data["serial_number"] == "NEW2"
+    # vaciado y sin lectura por Modbus: la clave desaparece de la entry
+    result = await entry.start_reconfigure_flow(hass)
+    result = await configure(hass, result, CONNECTION)
+    await configure(hass, result, ONEPLAY_INTERVALS)
+    assert "serial_number" not in entry.data

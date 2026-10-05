@@ -77,13 +77,25 @@ def test_entity_short_names() -> None:
 def test_flow_steps_errors_and_aborts_are_translated() -> None:
     strings = load("strings.json")
     config = strings["config"]
-    assert set(config["step"]) == {"user", "model", "connection", "components", "readings", "name", "reconfigure"}
+    assert set(config["step"]) == {
+        "user",
+        "model",
+        "connection",
+        "components",
+        "readings",
+        "name",
+        "intervals",
+        "reconfigure",
+        "reconfigure_components",
+        "reconfigure_intervals",
+    }
     assert set(config["step"]["connection"]["sections"]) == {"advanced"}
     assert set(config["error"]) == {
         "cannot_connect",
         "endpoint_in_use",
         "invalid_response",
         "interval_too_short",
+        "interval_budget_exceeded",
         "device_id_in_use",
         "invalid_serial_number",
     }
@@ -130,11 +142,37 @@ def test_irradiance_sensor_entities_are_named() -> None:
         assert {key: sensors[key]["name"] for key in names} == names, name
 
 
-def test_interval_fields_cover_every_tier() -> None:
-    for name in ("strings.json", "translations/es.json"):
-        data = load(name)["config"]["step"]["reconfigure"]["data"]
-        for tier in PollTier:
-            assert tier.value in data, (name, tier)
+def test_interval_sections_cover_every_tier() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        steps = load(name)["config"]["step"]
+        for step in ("intervals", "reconfigure_intervals"):
+            sections = steps[step]["sections"]
+            assert set(sections) == {tier.value for tier in PollTier}, (name, step)
+            for tier in PollTier:
+                section = sections[tier.value]
+                assert section["name"], (name, step, tier)
+                assert section["data"]["interval"], (name, step, tier)
+                # los placeholders de cada tier los rellena el flujo (spec 4.3)
+                text = section["data_description"]["interval"]
+                assert f"{{{tier.value}_min}}" in text and f"{{{tier.value}_entities}}" in text, (name, step, tier)
+
+
+def test_reconfigure_connection_step_texts() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        step = load(name)["config"]["step"]["reconfigure"]
+        assert set(step["data"]) == {"host", "device_id", "serial_number"}, name
+        assert set(step["sections"]) == {"advanced"}, name
+        assert step["submit"], name
+        assert "{brand}" in step["description"] and "{model}" in step["description"], name
+        assert "{serial_help}" in step["data_description"]["serial_number"], name
+
+
+def test_entity_list_markers_and_budget_error_are_translated() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        data = load(name)
+        assert set(data["selector"]["entity_list"]["options"]) == {"disabled", "calculated"}, name
+        assert "reconfigure" in data["selector"]["serial_help"]["options"], name
+        assert "{rate}" in data["config"]["error"]["interval_budget_exceeded"], name
 
 
 def test_every_device_has_numbered_variant() -> None:
