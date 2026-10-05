@@ -1,4 +1,4 @@
-"""Config flow: alta de un inversor en tres pasos (modelo, conexión, confirmación) y reconfigure."""
+"""Config flow: alta de un dispositivo (marca, modelo, conexión, componentes, lecturas, nombre) y reconfigure."""
 
 import asyncio
 from collections.abc import AsyncIterator, Generator
@@ -43,6 +43,43 @@ async def connect(hass: HomeAssistant, connection: dict[str, Any] = CONNECTION) 
     return await hass.config_entries.flow.async_configure(result["flow_id"], connection)
 
 
+async def choose(hass: HomeAssistant, result: dict[str, Any], next_step: str) -> dict[str, Any]:
+    """Elige una opción de un menú."""
+    return await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": next_step})
+
+
+async def to_name(hass: HomeAssistant, connection: dict[str, Any] = CONNECTION) -> dict[str, Any]:
+    """Alta del 1Play, sin componentes opcionales, hasta el paso de nombre."""
+    result = await connect(hass, connection)
+    assert (result["type"], result["step_id"]) == (FlowResultType.MENU, "readings")
+    return await choose(hass, result, "name")
+
+
+@pytest.fixture
+def storage_temp_unit(storage_unit: MockModbusUnit) -> Generator[MagicMock]:
+    """Sustituye la unit temporal del config flow por storage_unit."""
+
+    @asynccontextmanager
+    async def fake(hass: Any, params: Any, unit_id: int) -> AsyncIterator[MockModbusUnit]:
+        yield storage_unit
+
+    with patch("custom_components.modbus_solar.config_flow.async_get_temporary_unit", side_effect=fake) as mock:
+        yield mock
+
+
+async def to_components(hass: HomeAssistant) -> dict[str, Any]:
+    """Alta del STORAGE hasta el paso de componentes."""
+    result = await start(hass, "ingeteam_oneplay_storage")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "components")
+    return result
+
+
+def field(result: dict[str, Any], name: str) -> Any:
+    """Clave del esquema por nombre, con su default y su valor sugerido."""
+    return next(k for k in result["data_schema"].schema if str(k) == name)
+
+
 async def test_brand_then_model(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["step_id"] == "user"
@@ -70,11 +107,13 @@ async def test_connection_defaults_come_from_profile(hass: HomeAssistant) -> Non
 
 async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await connect(hass, {"host": "Inverter.LAN", "advanced": {"port": 502, "unit_id": 1}})
-    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "confirm")
+    assert (result["type"], result["step_id"]) == (FlowResultType.MENU, "readings")
     assert result["description_placeholders"] == {
         "host": "Inverter.LAN",
-        "readings": "- State: Connected to grid\n- Active power: 1234.5 W",
+        "readings": "**Inverter**\n- State: Connected to grid\n- Active power: 1,234.5 W",
     }
+    result = await choose(hass, result, "name")
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "name")
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Roof"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     entry = result["result"]
@@ -84,6 +123,7 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
         "port": 502,
         "unit_id": 1,
         "profile": "ingeteam.oneplay",
+        "components": [],
         "intervals": {"instant": 5, "fast": 10, "normal": 60, "slow": 3600},
     }
     _, params, unit_id = temp_unit.call_args.args
@@ -91,7 +131,7 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
 
 
 async def test_name_defaults_to_brand_and_model(hass: HomeAssistant, temp_unit: MagicMock) -> None:
-    result = await connect(hass)
+    result = await to_name(hass)
     name = next(iter(result["data_schema"].schema))
     assert (str(name), name.default()) == ("name", "Ingeteam 1Play TL M")
 
@@ -148,7 +188,98 @@ async def test_form_recovers_after_error(
     assert result["errors"] == {"base": "cannot_connect"}
     ingeteam_unit.fail_requests(None)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION)
-    assert result["step_id"] == "confirm"
+    assert result["step_id"] == "readings"
+
+
+async def test_cannot_connect_shows_endpoint(
+    hass: HomeAssistant, temp_unit: MagicMock, ingeteam_unit: MockModbusUnit
+) -> None:
+    ingeteam_unit.fail_requests(ModbusConnectionError("refused"))
+    result = await connect(hass, {"host": "10.0.0.9", "advanced": {"port": 502, "unit_id": 1}})
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert result["description_placeholders"].items() >= {"host": "10.0.0.9", "port": "502", "timeout": "20"}.items()
+    # tras el error aparece el campo «Modelo», con el modelo actual
+    assert field(result, "profile").default() == "ingeteam_oneplay"
+    options = result["data_schema"].schema["profile"].config["options"]
+    assert [o["value"] for o in options] == ["ingeteam_oneplay", "ingeteam_oneplay_storage"]
+
+
+async def test_model_field_is_not_shown_before_an_error(hass: HomeAssistant) -> None:
+    result = await start(hass)
+    assert "profile" not in result["data_schema"].schema
+    assert result["description_placeholders"].items() >= {"brand": "Ingeteam", "timeout": "20"}.items()
+
+
+async def test_components_step_then_readings_menu(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_components(hass)
+    selector = result["data_schema"].schema["components"]
+    assert [o["value"] for o in selector.config["options"]] == [
+        "pv",
+        "battery",
+        "grid",
+        "internal_meter",
+        "critical_loads",
+        "load",
+        "ev_charger",
+    ]
+    assert (selector.config["multiple"], selector.config["mode"]) == (True, "list")
+    assert selector.config["translation_key"] == "component"
+    assert field(result, "components").default() == ["pv", "battery", "grid", "critical_loads", "load"]
+    assert result["description_placeholders"] == {"model": "STORAGE 1Play TL M", "main": "Inverter"}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery"]})
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["name", "model", "connection"]
+    readings = result["description_placeholders"]["readings"]
+    assert "**Inverter**" in readings and "**Battery**" in readings
+    assert "Solar array" not in readings and "**Grid**" not in readings
+
+
+async def test_profile_without_components_skips_step(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    result = await connect(hass)
+    assert (result["type"], result["step_id"]) == (FlowResultType.MENU, "readings")
+    assert result["menu_options"] == ["name", "model", "connection"]
+
+
+async def test_components_can_be_empty(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_components(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": []})
+    assert result["type"] is FlowResultType.MENU
+    assert "**Battery**" not in result["description_placeholders"]["readings"]
+
+
+async def test_back_to_model_forgets_components(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_components(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery"]})
+    result = await choose(hass, result, "model")
+    assert result["step_id"] == "model"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"profile": "ingeteam_oneplay_storage"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION)
+    assert result["step_id"] == "components"
+    assert field(result, "components").default() == ["pv", "battery", "grid", "critical_loads", "load"]
+
+
+async def test_back_to_connection_keeps_values_and_components(
+    hass: HomeAssistant, storage_temp_unit: MagicMock
+) -> None:
+    result = await to_components(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery"]})
+    result = await choose(hass, result, "connection")
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "connection")
+    assert field(result, "host").description == {"suggested_value": "192.168.1.50"}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION)
+    assert result["step_id"] == "components"
+    assert field(result, "components").default() == ["battery"]
+
+
+async def test_storage_entry_saves_components_in_profile_order(
+    hass: HomeAssistant, storage_temp_unit: MagicMock
+) -> None:
+    result = await to_components(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery", "pv"]})
+    result = await choose(hass, result, "name")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "House"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["components"] == ["pv", "battery"]
 
 
 RECONFIGURE_INPUT = {"host": "192.168.1.60", "port": 1502, "instant": 5, "fast": 10, "normal": 120, "slow": 3600}

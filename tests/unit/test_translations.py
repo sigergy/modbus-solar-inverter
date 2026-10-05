@@ -77,7 +77,7 @@ def test_entity_short_names() -> None:
 def test_flow_steps_errors_and_aborts_are_translated() -> None:
     strings = load("strings.json")
     config = strings["config"]
-    assert set(config["step"]) == {"user", "model", "connection", "confirm", "reconfigure"}
+    assert set(config["step"]) == {"user", "model", "connection", "components", "readings", "name", "reconfigure"}
     assert set(config["step"]["connection"]["sections"]) == {"advanced"}
     assert set(config["error"]) == {"cannot_connect", "endpoint_in_use", "invalid_response", "interval_too_short"}
     assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
@@ -96,7 +96,7 @@ def test_controls_and_write_error_are_translated() -> None:
 def test_flow_texts_do_not_say_inverter() -> None:
     # el alta sirve a cualquier equipo (inversor, sensor…): sin «inverter» ni «inversor»
     for name in ("strings.json", "translations/en.json", "translations/es.json"):
-        for step in ("user", "connection", "confirm"):
+        for step in ("user", "connection", "name"):
             step_texts = load(name)["config"]["step"][step]
             for field in ("title", "description"):
                 text = step_texts[field].lower()
@@ -145,3 +145,20 @@ def test_every_profile_has_model_label() -> None:
         assert TRANSLATION_KEY.match(key), key
         assert key in load("strings.json")["selector"]["profile"]["options"], key
         assert key in load("translations/es.json")["selector"]["profile"]["options"], key
+
+
+def test_every_optional_component_has_label() -> None:
+    components = {c.component.value for p in ALL_PROFILES for c in p.components}
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        assert components <= set(load(name)["selector"]["component"]["options"]), name
+
+
+def test_readings_menu_and_connection_errors_have_placeholders() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        config = load(name)["config"]
+        assert set(config["step"]["readings"]["menu_options"]) == {"name", "model", "connection"}, name
+        assert "{host}" in config["step"]["readings"]["description"], name
+        assert "{readings}" in config["step"]["readings"]["description"], name
+        for error in ("cannot_connect", "invalid_response"):
+            assert "{host}:{port}" in config["error"][error], (name, error)
+        assert "{timeout}" in config["error"]["cannot_connect"], name
