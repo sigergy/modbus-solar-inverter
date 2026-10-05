@@ -8,10 +8,13 @@ class DataType(StrEnum):
     S16 = "s16"
     U32 = "u32"
     S32 = "s32"
+    ASCII = "ascii"  # texto de N registros; N en RegisterSpec.length
 
     @property
     def words(self) -> int:
-        """Número de registros de 16 bits que ocupa."""
+        """Número de registros de 16 bits que ocupa. ASCII depende del registro: usar RegisterSpec.words."""
+        if self is DataType.ASCII:
+            raise ValueError("ascii length is per register")
         return 1 if self in (DataType.U16, DataType.S16) else 2
 
     @property

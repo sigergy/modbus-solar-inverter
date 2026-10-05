@@ -23,7 +23,7 @@ from custom_components.modbus_solar.domain.types import (
 
 
 def test_data_type_words_and_sign() -> None:
-    assert [(t.value, t.words, t.signed) for t in DataType] == [
+    assert [(t.value, t.words, t.signed) for t in DataType if t is not DataType.ASCII] == [
         ("u16", 1, False),
         ("s16", 1, True),
         ("u32", 2, False),

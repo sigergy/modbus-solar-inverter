@@ -6,12 +6,12 @@ from .control import GatedLimitSpec
 from .encode import encode
 from .errors import EncodeError
 from .profile import DeviceProfile, RegisterSpec
-from .types import WordOrder
+from .types import DataType, WordOrder
 
 
 def _overlaps(a: RegisterSpec, b: RegisterSpec) -> bool:
     # rangos [address, address + words) del mismo tipo de registro
-    return a.kind is b.kind and a.address < b.address + b.dtype.words and b.address < a.address + a.dtype.words
+    return a.kind is b.kind and a.address < b.address + b.words and b.address < a.address + a.words
 
 
 def _control_problems(control: GatedLimitSpec, max_block_registers: int) -> list[str]:
@@ -89,8 +89,16 @@ def validate_profile(profile: DeviceProfile) -> list[str]:
             problems.append(f"{spec.key}: enum requires device_class enum")
         if spec.device_class == "enum" and spec.enum is None:
             problems.append(f"{spec.key}: device_class enum requires enum")
+        if reg.dtype is DataType.ASCII:
+            problems.append(f"{spec.key}: ascii only for serial")
+            continue
         if reg.scale == 0:
             problems.append(f"{spec.key}: scale 0")
-        if reg.dtype.words == 1 and reg.word_order is not WordOrder.BIG:
+        if reg.dtype is not DataType.ASCII and reg.words == 1 and reg.word_order is not WordOrder.BIG:
             problems.append(f"{spec.key}: word_order {reg.word_order} on 16-bit type")
+    if profile.serial is not None:
+        if profile.serial.dtype is not DataType.ASCII:
+            problems.append("serial: dtype must be ascii")
+        elif profile.serial.length < 1:
+            problems.append("serial: length must be >= 1")
     return problems

@@ -16,6 +16,11 @@ class RegisterSpec:
     scale: float = 1.0
     offset: float = 0.0
     word_order: WordOrder = WordOrder.BIG
+    length: int = 0  # registros del texto; solo para DataType.ASCII
+
+    @property
+    def words(self) -> int:
+        return self.length if self.dtype is DataType.ASCII else self.dtype.words
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -48,3 +53,4 @@ class DeviceProfile:
     entities: tuple[EntitySpec, ...]
     energies: tuple[EnergySpec, ...] = ()  # contadores calculados por la integración
     controls: tuple[GatedLimitSpec, ...] = ()  # parámetros escribibles del equipo
+    serial: RegisterSpec | None = None  # número de serie por Modbus, opcional
