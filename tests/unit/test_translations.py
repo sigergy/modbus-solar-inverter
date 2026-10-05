@@ -88,6 +88,7 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "reconfigure",
         "reconfigure_components",
         "reconfigure_intervals",
+        "reconfigure_rename",
     }
     assert set(config["step"]["connection"]["sections"]) == {"advanced"}
     assert set(config["error"]) == {
@@ -207,3 +208,19 @@ def test_readings_menu_and_connection_errors_have_placeholders() -> None:
         for error in ("cannot_connect", "invalid_response"):
             assert "{host}:{port}" in config["error"][error], (name, error)
         assert "{timeout}" in config["error"]["cannot_connect"], name
+
+
+def test_reconfigure_rename_step_texts() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        step = load(name)["config"]["step"]["reconfigure_rename"]
+        assert step["title"] and step["submit"], name
+        for placeholder in (
+            "old_id",
+            "new_id",
+            "renamed_count",
+            "examples",
+            "kept_count",
+            "collision_count",
+            "collisions",
+        ):
+            assert f"{{{placeholder}}}" in step["description"], (name, placeholder)

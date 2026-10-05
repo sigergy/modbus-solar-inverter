@@ -13,6 +13,8 @@ from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from modbus_connection import ModbusConnectionError, ModbusExceptionError, ModbusTcpParams
 from modbus_connection.mock import MockModbusUnit
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -675,15 +677,33 @@ async def test_reconfigure_device_id_in_use_does_not_probe(hass: HomeAssistant, 
 async def test_reconfigure_same_id_skips_rename(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     entry = device_entry({**DEVICE_DATA, "device_id": 0})
     result = await reconfigure(hass, entry, {**CONNECTION, "device_id": 0})
+    assert result["step_id"] == "reconfigure_intervals"
     result = await configure(hass, result, ONEPLAY_INTERVALS)
+    # sin cambio de ID no hay formulario de renombrado: el flujo guarda y termina
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
+    assert "step_id" not in result
+
+
+async def test_reconfigure_changed_id_goes_through_rename(hass: HomeAssistant, temp_unit: MagicMock) -> None:
+    entry = device_entry({**DEVICE_DATA, "device_id": 0})
+    result = await reconfigure(hass, entry, {**CONNECTION, "device_id": 2})
+    result = await configure(hass, result, ONEPLAY_INTERVALS)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_rename")
+    # nada se guarda hasta confirmar
+    assert entry.data["device_id"] == 0
+    result = await configure(hass, result, {})
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["device_id"] == 2
 
 
 async def test_reconfigure_entry_without_id_can_get_one(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     entry = device_entry()
     result = await reconfigure(hass, entry, {**CONNECTION, "device_id": 4})
     result = await configure(hass, result, ONEPLAY_INTERVALS)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_rename")
+    await configure(hass, result, {})
     assert entry.data["device_id"] == 4
 
 
@@ -712,3 +732,89 @@ async def test_reconfigure_typed_serial_wins_and_empty_serial_is_removed(
     result = await configure(hass, result, CONNECTION)
     await configure(hass, result, ONEPLAY_INTERVALS)
     assert "serial_number" not in entry.data
+
+
+def seed_entity(
+    hass: HomeAssistant, entry: MockConfigEntry, key: str, object_id: str, component: str | None = "battery"
+) -> er.RegistryEntry:
+    """Entidad sensor de la entry en el registro, colgada del dispositivo del componente (o del principal)."""
+    identifier = entry.entry_id if component is None else f"{entry.entry_id}_{component}"
+    device = dr.async_get(hass).async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, identifier)})
+    return er.async_get(hass).async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_{key}",
+        config_entry=entry,
+        device_id=device.id,
+        suggested_object_id=object_id,
+    )
+
+
+async def to_rename(hass: HomeAssistant, entry: MockConfigEntry, new_id: int = 2) -> dict[str, Any]:
+    """Reconfigure de la entry (ya añadida) hasta el paso de renombrado, cambiando el Device ID a new_id."""
+    result = await entry.start_reconfigure_flow(hass)
+    result = await configure(hass, result, {**CONNECTION, "device_id": new_id})
+    result = await configure(hass, result, {"components": ["grid", "battery"]})
+    result = await configure(hass, result, STORAGE_INTERVALS)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_rename")
+    return result
+
+
+async def test_reconfigure_rename_renames_generated_ids(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry()
+    entry.add_to_hass(hass)
+    seeded = seed_entity(hass, entry, "battery_voltage", "battery_0_voltage")
+    result = await to_rename(hass, entry)
+    result = await configure(hass, result, {})
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    registry = er.async_get(hass)
+    renamed = registry.async_get(seeded.id)
+    assert renamed is not None
+    assert renamed.entity_id == "sensor.battery_2_voltage"
+    assert renamed.unique_id == seeded.unique_id
+    assert entry.data["device_id"] == 2
+
+
+async def test_reconfigure_rename_keeps_custom_ids(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry()
+    entry.add_to_hass(hass)
+    custom = seed_entity(hass, entry, "battery_current", "my_battery_current")
+    result = await to_rename(hass, entry)
+    result = await configure(hass, result, {})
+    assert result["type"] is FlowResultType.ABORT
+    kept = er.async_get(hass).async_get(custom.id)
+    assert kept is not None
+    assert kept.entity_id == "sensor.my_battery_current"
+
+
+async def test_reconfigure_rename_skips_collisions(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry()
+    entry.add_to_hass(hass)
+    clash = seed_entity(hass, entry, "battery_power", "battery_0_power")
+    er.async_get(hass).async_get_or_create("sensor", "other", "x1", suggested_object_id="battery_2_power")
+    result = await to_rename(hass, entry)
+    assert "sensor.battery_0_power" in result["description_placeholders"]["collisions"]
+    result = await configure(hass, result, {})
+    assert result["type"] is FlowResultType.ABORT
+    left = er.async_get(hass).async_get(clash.id)
+    assert left is not None
+    assert left.entity_id == "sensor.battery_0_power"
+
+
+async def test_reconfigure_rename_counts_in_placeholders(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry()
+    entry.add_to_hass(hass)
+    seed_entity(hass, entry, "battery_voltage", "battery_0_voltage")
+    seed_entity(hass, entry, "battery_soc", "battery_0_soc")
+    seed_entity(hass, entry, "battery_current", "my_battery_current")
+    seed_entity(hass, entry, "battery_power", "battery_0_power")
+    er.async_get(hass).async_get_or_create("sensor", "other", "x1", suggested_object_id="battery_2_power")
+    result = await to_rename(hass, entry)
+    placeholders = result["description_placeholders"]
+    assert (placeholders["old_id"], placeholders["new_id"]) == ("0", "2")
+    assert placeholders["renamed_count"] == "2"
+    assert placeholders["kept_count"] == "1"
+    assert placeholders["collision_count"] == "1"
+    assert "`sensor.battery_0_voltage` → `sensor.battery_2_voltage`" in placeholders["examples"]
+    assert "`sensor.battery_0_power`" in placeholders["collisions"]
