@@ -225,5 +225,9 @@ def test_reconfigure_rename_step_texts() -> None:
         ):
             assert f"{{{placeholder}}}" in step["description"], (name, placeholder)
     # texto de «old_id» cuando la entry no tiene ID
-    for name, text in (("strings.json", "no ID"), ("translations/en.json", "no ID"), ("translations/es.json", "sin ID")):
+    for name, text in (
+        ("strings.json", "no ID"),
+        ("translations/en.json", "no ID"),
+        ("translations/es.json", "sin ID"),
+    ):
         assert load(name)["selector"]["rename_old_id"]["options"]["none"] == text, name
