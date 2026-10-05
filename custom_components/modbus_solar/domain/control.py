@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from .types import DataType, Role
+from .types import Component, DataType, Role
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -28,6 +28,7 @@ class GatedLimitSpec:
     off_value: float = 0.0  # lo que se escribe al apagar el switch
     device_class: str | None = None  # cadena: domain no importa HA
     enabled_default: bool = True
+    component: Component = Component.MAIN
 
 
 @dataclass

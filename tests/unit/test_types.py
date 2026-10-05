@@ -13,6 +13,7 @@ from custom_components.modbus_solar.domain.errors import (
 )
 from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
+    Component,
     DataType,
     Platform,
     PollTier,
@@ -37,6 +38,16 @@ def test_enum_values_are_stable() -> None:
     assert [k.value for k in RegisterKind] == ["holding", "input"]
     assert [w.value for w in WordOrder] == ["big", "little"]
     assert [p.value for p in Platform] == ["sensor", "binary_sensor"]
+    assert [c.value for c in Component] == [
+        "main",
+        "pv",
+        "battery",
+        "grid",
+        "internal_meter",
+        "critical_loads",
+        "load",
+        "ev_charger",
+    ]
     assert [r.value for r in Role] == [
         "inverter_state",
         "ac_power",

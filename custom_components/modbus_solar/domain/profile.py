@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from .control import GatedLimitSpec
 from .energy import EnergySpec
-from .types import DataType, Platform, PollTier, RegisterKind, Role, WordOrder
+from .types import Component, DataType, Platform, PollTier, RegisterKind, Role, WordOrder
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -23,6 +23,12 @@ class RegisterSpec:
         return self.length if self.dtype is DataType.ASCII else self.dtype.words
 
 
+@dataclass(frozen=True)
+class ComponentSpec:
+    component: Component
+    default: bool = True  # componente activo por defecto en el alta
+
+
 @dataclass(frozen=True, kw_only=True)
 class EntitySpec:
     key: str  # también translation_key y sufijo del unique_id
@@ -37,6 +43,7 @@ class EntitySpec:
     entity_category: str | None = None
     enabled_default: bool = True
     bit: int | None = None  # bit de un U16; exige platform binary_sensor
+    component: Component = Component.MAIN
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -55,3 +62,4 @@ class DeviceProfile:
     energies: tuple[EnergySpec, ...] = ()  # contadores calculados por la integración
     controls: tuple[GatedLimitSpec, ...] = ()  # parámetros escribibles del equipo
     serial: RegisterSpec | None = None  # número de serie por Modbus, opcional
+    components: tuple[ComponentSpec, ...] = ()  # componentes opcionales; main es implícito

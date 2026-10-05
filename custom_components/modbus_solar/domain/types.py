@@ -70,6 +70,19 @@ class Role(StrEnum):
     EXTERNAL_TEMPERATURE = "external_temperature"  # ambiente o módulo, según el modelo
 
 
+class Component(StrEnum):
+    """Parte física del equipo a la que pertenece una entidad."""
+
+    MAIN = "main"
+    PV = "pv"
+    BATTERY = "battery"
+    GRID = "grid"
+    INTERNAL_METER = "internal_meter"
+    CRITICAL_LOADS = "critical_loads"
+    LOAD = "load"
+    EV_CHARGER = "ev_charger"
+
+
 class Platform(StrEnum):
     SENSOR = "sensor"
     BINARY_SENSOR = "binary_sensor"
