@@ -12,8 +12,8 @@ from modbus_connection import ModbusTcpParams
 from modbus_connection.mock import MockModbusUnit
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.modbus_solar.const import DOMAIN
 from custom_components.modbus_solar.application.selection import select
+from custom_components.modbus_solar.const import DOMAIN
 from custom_components.modbus_solar.domain.types import Platform
 from custom_components.modbus_solar.profiles import ALL_PROFILES
 from tests.ha.common import DEVICE_ID, device_entry, setup_entry, setup_storage_entry
@@ -76,9 +76,11 @@ async def test_reconfigure_reloads_with_new_endpoint(hass: HomeAssistant, patch_
 
 
 async def test_unselected_component_has_no_entities(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
-    await setup_storage_entry(hass, components=["pv", "grid"])
-    states = hass.states.async_entity_ids("sensor")
-    assert not any("battery" in s for s in states)
+    entry = await setup_storage_entry(hass, components=["pv", "grid"])
+    entries = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+    # los entity_id usan nombre traducido: la clave va en el unique_id
+    assert entries
+    assert not any("_battery_" in e.unique_id for e in entries)
 
 
 async def test_entry_without_components_loads_all_optional(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
