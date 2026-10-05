@@ -118,7 +118,7 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     }
     result = await choose(hass, result, "name")
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "name")
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Roof"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Roof", "device_id": 0})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     entry = result["result"]
     assert (entry.title, entry.unique_id, entry.version) == ("Roof", "inverter.lan:502:1", 2)
@@ -128,6 +128,7 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
         "unit_id": 1,
         "profile": "ingeteam.oneplay",
         "components": [],
+        "device_id": 0,
         "intervals": {"instant": 5, "fast": 10, "normal": 60, "slow": 3600},
     }
     _, params, unit_id = temp_unit.call_args.args
@@ -136,8 +137,7 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
 
 async def test_name_defaults_to_brand_and_model(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     result = await to_name(hass)
-    name = next(iter(result["data_schema"].schema))
-    assert (str(name), name.default()) == ("name", "Ingeteam 1Play TL M")
+    assert suggested(result, "name") == "Ingeteam 1Play TL M"
 
 
 def add_entry(
@@ -356,7 +356,7 @@ async def test_storage_entry_saves_components_in_profile_order(
     result = await to_components(hass)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery", "pv"]})
     result = await choose(hass, result, "name")
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "House"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "House", "device_id": 0})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["components"] == ["pv", "battery"]
 

@@ -55,10 +55,14 @@
       "name": {
         "title": "Name",
         "data": {
-          "name": "Name"
+          "name": "Name",
+          "device_id": "Device ID",
+          "serial_number": "Serial number"
         },
         "data_description": {
-          "name": "This is the name of the group of devices in Home Assistant. You can change it later."
+          "name": "This is the name of the group of devices in Home Assistant. You can change it later.",
+          "device_id": "Internal ID of the integration. It tells apart devices of the same type. It has nothing to do with the Modbus Unit ID.",
+          "serial_number": "{serial_help}"
         }
       },
       "reconfigure": {
@@ -77,7 +81,9 @@
       "cannot_connect": "No answer at {host}:{port} after {timeout} s. Check the IP, enable Modbus TCP on the device and close other Modbus clients, such as the EMS.",
       "endpoint_in_use": "Another device already uses this IP and port with a different configuration.",
       "invalid_response": "Unexpected answer from {host}:{port}. The model or the Unit ID may not be the right ones.",
-      "interval_too_short": "Too short for this device: reading all its registers takes longer."
+      "interval_too_short": "Too short for this device: reading all its registers takes longer.",
+      "device_id_in_use": "There is already a {device_type} with ID {device_id}.",
+      "invalid_serial_number": "Use only letters and numbers, with no spaces."
     },
     "abort": {
       "already_configured": "This device is already configured.",
@@ -399,6 +405,13 @@
         "critical_loads": "Critical loads — backup output",
         "load": "Load — total consumption of the house",
         "ev_charger": "EV charger"
+      }
+    },
+    "serial_help": {
+      "options": {
+        "read": "Leave it empty: this model sends it over Modbus. Read: {serial}.",
+        "unreadable": "This model sends it over Modbus, but it could not be read. Copy it from the label.",
+        "none": "This model does not send it over Modbus. Copy it from the label of the device."
       }
     }
   }

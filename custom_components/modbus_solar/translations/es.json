@@ -55,10 +55,14 @@
       "name": {
         "title": "Nombre",
         "data": {
-          "name": "Nombre"
+          "name": "Nombre",
+          "device_id": "Device ID",
+          "serial_number": "Número de serie"
         },
         "data_description": {
-          "name": "Así se llama el grupo de dispositivos en Home Assistant. Se puede cambiar después."
+          "name": "Así se llama el grupo de dispositivos en Home Assistant. Se puede cambiar después.",
+          "device_id": "Identificador interno de la integración. Distingue equipos del mismo tipo. No tiene nada que ver con el Unit ID de Modbus.",
+          "serial_number": "{serial_help}"
         }
       },
       "reconfigure": {
@@ -77,7 +81,9 @@
       "cannot_connect": "No responde en {host}:{port} tras {timeout} s. Comprueba la IP, activa Modbus TCP en el dispositivo y cierra otros clientes Modbus, como el EMS.",
       "endpoint_in_use": "Otro dispositivo ya usa esta IP y este puerto con otra configuración.",
       "invalid_response": "Respuesta inesperada de {host}:{port}. Puede que el modelo o el Unit ID no sean los correctos.",
-      "interval_too_short": "Demasiado corto para este equipo: leer todos sus registros tarda más."
+      "interval_too_short": "Demasiado corto para este equipo: leer todos sus registros tarda más.",
+      "device_id_in_use": "Ya hay un {device_type} con el ID {device_id}.",
+      "invalid_serial_number": "Usa solo letras y números, sin espacios."
     },
     "abort": {
       "already_configured": "Este equipo ya está configurado.",
@@ -399,6 +405,13 @@
         "critical_loads": "Cargas críticas — salida de respaldo",
         "load": "Consumo — consumo total de la casa",
         "ev_charger": "Cargador VE"
+      }
+    },
+    "serial_help": {
+      "options": {
+        "read": "Déjalo vacío: este modelo lo envía por Modbus. Leído: {serial}.",
+        "unreadable": "Este modelo lo envía por Modbus, pero no se ha podido leer. Cópialo de la etiqueta.",
+        "none": "Este modelo no lo envía por Modbus. Cópialo de la etiqueta del dispositivo."
       }
     }
   }

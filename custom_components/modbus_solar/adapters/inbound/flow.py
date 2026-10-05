@@ -11,10 +11,14 @@ from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
 )
 from homeassistant.helpers.translation import async_get_translations
 
@@ -25,8 +29,10 @@ from ...application.selection import Selection, select
 from ...const import (
     BRAND_TITLES,
     CONF_COMPONENTS,
+    CONF_DEVICE_ID,
     CONF_INTERVALS,
     CONF_PROFILE,
+    CONF_SERIAL_NUMBER,
     CONF_UNIT_ID,
     DEFAULT_INTERVALS,
     DOMAIN,
@@ -53,6 +59,32 @@ PROBE_TIMEOUT_S = 20
 
 def device_unique_id(host: str, port: int, unit_id: int) -> str:
     return f"{host.lower()}:{port}:{unit_id}"
+
+
+def valid_serial(value: str) -> bool:
+    """Número de serie escrito: solo letras y números ASCII, sin espacios."""
+    return value.isascii() and value.isalnum()
+
+
+def used_device_ids(hass: HomeAssistant, catalog: Catalog, device_type: str, exclude: str | None = None) -> set[int]:
+    """Device ID de las entries del mismo device_type. Sin ID o con perfil desconocido no cuentan."""
+    used: set[int] = set()
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.entry_id == exclude or CONF_DEVICE_ID not in entry.data:
+            continue
+        try:
+            profile = catalog.get(entry.data[CONF_PROFILE])
+        except KeyError:
+            continue
+        if profile.device_type == device_type:
+            used.add(int(entry.data[CONF_DEVICE_ID]))
+    return used
+
+
+def free_device_id(hass: HomeAssistant, catalog: Catalog, device_type: str, exclude: str | None = None) -> int:
+    """Menor entero >= 0 que no usa otra entry del mismo device_type."""
+    used = used_device_ids(hass, catalog, device_type, exclude)
+    return next(n for n in range(len(used) + 1) if n not in used)
 
 
 def profile_option(profile_id: str) -> str:
@@ -281,23 +313,65 @@ class DeviceConfigFlow(ConfigFlow):
 
     async def async_step_name(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         profile = self._profile
-        connection = self._connection
-        if connection is None:
+        connection, probe = self._connection, self._probe
+        if connection is None or probe is None:
             raise RuntimeError("name step without a connection")
+        errors: dict[str, str] = {}
+        device_id = free_device_id(self.hass, self.catalog, profile.device_type)
+        placeholders: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(
-                title=user_input[CONF_NAME],
-                data={
+            device_id = int(user_input[CONF_DEVICE_ID])
+            serial = str(user_input.get(CONF_SERIAL_NUMBER) or "").strip()
+            if device_id in used_device_ids(self.hass, self.catalog, profile.device_type):
+                errors[CONF_DEVICE_ID] = "device_id_in_use"
+            if serial and not valid_serial(serial):
+                errors[CONF_SERIAL_NUMBER] = "invalid_serial_number"
+            if not errors:
+                # el escrito manda; si está vacío, el leído; si no hay ninguno, no se guarda
+                serial = serial or probe.serial or ""
+                data: dict[str, Any] = {
                     **connection,
                     CONF_PROFILE: profile.id,
                     CONF_COMPONENTS: [c.value for c in self._components or []],
                     CONF_INTERVALS: dict(DEFAULT_INTERVALS),
-                },
-            )
-        default_name = f"{BRAND_TITLES[profile.brand]} {profile.models[0]}"
+                    CONF_DEVICE_ID: device_id,
+                }
+                if serial:
+                    data[CONF_SERIAL_NUMBER] = serial
+                return self.async_create_entry(title=user_input[CONF_NAME], data=data)
+        translations = await self._translations()
+        selectors = await async_get_translations(self.hass, self.hass.config.language, "selector", {DOMAIN})
+        device_name = translations.get(f"component.{DOMAIN}.device.{profile.device_type}.name", profile.device_type)
+        if errors:
+            placeholders = {"device_type": device_name.lower(), CONF_DEVICE_ID: str(device_id)}
+        # ayuda del número de serie según el perfil y la lectura de la sonda
+        if profile.serial is None:
+            help_key = "none"
+        elif probe.serial:
+            help_key = "read"
+        else:
+            help_key = "unreadable"
+        placeholders["serial_help"] = selectors.get(
+            f"component.{DOMAIN}.selector.serial_help.options.{help_key}", help_key
+        ).replace("{serial}", probe.serial or "")
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_NAME): str,
+                vol.Required(CONF_DEVICE_ID): NumberSelector(
+                    NumberSelectorConfig(min=0, step=1, mode=NumberSelectorMode.BOX)
+                ),
+                vol.Optional(CONF_SERIAL_NUMBER): TextSelector(),
+            }
+        )
+        suggested = user_input or {
+            CONF_NAME: f"{BRAND_TITLES[profile.brand]} {profile.models[0]}",
+            CONF_DEVICE_ID: device_id,
+        }
         return self.async_show_form(
             step_id="name",
-            data_schema=vol.Schema({vol.Required(CONF_NAME, default=default_name): str}),
+            data_schema=self.add_suggested_values_to_schema(schema, suggested),
+            errors=errors,
+            description_placeholders=placeholders,
         )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
