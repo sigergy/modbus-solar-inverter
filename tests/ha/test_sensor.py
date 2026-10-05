@@ -10,7 +10,15 @@ from modbus_connection import ModbusConnectionError
 from modbus_connection.mock import MockModbusUnit
 
 from custom_components.modbus_solar.const import DOMAIN
-from tests.ha.common import DEVICE_ID, device_entry, setup_entry, setup_storage_entry, state_of, tick
+from tests.ha.common import (
+    DEVICE_ID,
+    device_entry,
+    entity_id_of,
+    setup_entry,
+    setup_storage_entry,
+    state_of,
+    tick,
+)
 
 
 async def test_values_from_device(hass: HomeAssistant, patch_unit: MagicMock) -> None:
@@ -97,16 +105,23 @@ async def test_component_device_with_device_id(hass: HomeAssistant, patch_storag
     device = device_of(hass, entry.entry_id, "_battery")
     main = device_of(hass, entry.entry_id)
     assert device is not None and main is not None
-    assert device.name == "Battery 0"
+    # el nombre del dispositivo no lleva el ID; el entity_id sí
+    assert device.name == "Battery"
+    assert main.name == "Inverter"
     assert device.via_device_id == main.id
     assert hass.states.get("sensor.battery_0_voltage") is not None
+    assert entity_id_of(hass, "active_power") == "sensor.inverter_0_active_power"
 
 
 async def test_device_without_device_id(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
     entry = await setup_storage_entry(hass, components=["battery"], device_id=None)
     device = device_of(hass, entry.entry_id, "_battery")
-    assert device is not None
+    main = device_of(hass, entry.entry_id)
+    assert device is not None and main is not None
     assert device.name == "Battery"
+    assert main.name == "Inverter"
+    assert entity_id_of(hass, "battery_voltage") == "sensor.battery_voltage"
+    assert entity_id_of(hass, "active_power") == "sensor.inverter_active_power"
 
 
 async def test_two_entries_no_suffix(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:

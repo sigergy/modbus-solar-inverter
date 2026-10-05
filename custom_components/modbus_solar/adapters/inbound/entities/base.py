@@ -13,17 +13,17 @@ from ..coordinator import TierCoordinator
 from ..runtime import DeviceRuntime, entity_unique_id
 
 
-def device_info(
-    entry_id: str, profile: DeviceProfile, component: Component, device_id: int | None, serial: str | None
-) -> DeviceInfo:
-    """Dispositivo de un componente: el principal lleva el número de serie; el resto cuelga de él."""
+def device_info(entry_id: str, profile: DeviceProfile, component: Component, serial: str | None) -> DeviceInfo:
+    """Dispositivo de un componente: el principal lleva el número de serie; el resto cuelga de él.
+
+    El nombre no lleva el Device ID: el ID va solo en el entity_id (ver suggested_object_id).
+    """
     main = component is Component.MAIN
     key = profile.device_type if main else component.value
     # mismo identificador que borra _remove_unselected al deseleccionar el componente
     info = DeviceInfo(
         identifiers={(DOMAIN, entry_id if main else f"{entry_id}_{component.value}")},
-        translation_key=key if device_id is None else f"{key}_numbered",
-        translation_placeholders=None if device_id is None else {"device_id": str(device_id)},
+        translation_key=key,
         manufacturer=BRAND_TITLES[profile.brand],
         model=profile.models[0],
     )
@@ -55,9 +55,21 @@ class ModbusSolarEntity(CoordinatorEntity[TierCoordinator]):
         # las energías calculadas no tienen categoría: son de primer nivel
         if isinstance(spec, EntitySpec) and spec.entity_category is not None:
             self._attr_entity_category = EntityCategory(spec.entity_category)
-        self._attr_device_info = device_info(
-            runtime.entry_id, runtime.profile, spec.component, runtime.device_id, runtime.serial_number
-        )
+        self._device_id = runtime.device_id
+        self._attr_device_info = device_info(runtime.entry_id, runtime.profile, spec.component, runtime.serial_number)
+
+    @property
+    def suggested_object_id(self) -> str | None:
+        """Base del entity_id con el Device ID delante del nombre de la entidad.
+
+        HA antepone el nombre del dispositivo a esta base (has_entity_name), así que el
+        entity_id queda «<dispositivo> <ID> <entidad>», como el prefijo de device_label
+        que usa el renombrado de reconfigure. Solo cuenta en el alta en el registro.
+        """
+        name = super().suggested_object_id
+        if self._device_id is None:
+            return name
+        return f"{self._device_id} {name}" if name else str(self._device_id)
 
     @property
     def available(self) -> bool:

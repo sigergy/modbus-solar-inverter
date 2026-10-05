@@ -176,13 +176,15 @@ def test_entity_list_markers_and_budget_error_are_translated() -> None:
         assert "{rate}" in data["config"]["error"]["interval_budget_exceeded"], name
 
 
-def test_every_device_has_numbered_variant() -> None:
+def test_device_names_have_no_device_id() -> None:
+    # el ID va en el entity_id, no en el nombre del dispositivo
     keys = {p.device_type for p in ALL_PROFILES} | {c.value for c in Component if c is not Component.MAIN}
     for name in ("strings.json", "translations/en.json", "translations/es.json"):
         devices = load(name)["device"]
+        assert set(devices) == keys, name
         for key in keys:
             assert devices[key]["name"], (name, key)
-            assert "{device_id}" in devices[f"{key}_numbered"]["name"], (name, key)
+            assert "{device_id}" not in devices[key]["name"], (name, key)
 
 
 def test_every_profile_has_model_label() -> None:

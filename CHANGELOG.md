@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-05
+
+Primera versión estable.
+
+### Cambiado
+
+- El nombre de los dispositivos ya no lleva el Device ID: «Red», «Inversor». El `entity_id` de las entidades nuevas
+  sí lo lleva, como antes (`sensor.red_0_potencia`). Los `entity_id` ya creados no cambian.
+
 ## [0.1.0b6] - 2026-10-05
 
 ### Añadido
