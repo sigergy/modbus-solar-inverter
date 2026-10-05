@@ -185,7 +185,7 @@
       },
       "reconfigure_rename": {
         "title": "Renombrar entidades",
-        "description": "El ID pasa de {old_id} a {new_id}. Los dispositivos se llamarán con el ID nuevo.\n\nSe renombran: {renamed_count}\n{examples}\n\nSe mantienen: {kept_count} (no siguen el patrón generado).\n\nNo se renombran: {collision_count} (el entity_id nuevo ya existe).\n{collisions}\n\nRevisa las automatizaciones y tarjetas que usen los nombres viejos.",
+        "description": "El ID pasa de {old_id} a {new_id}. Los entity_id que siguen el patrón generado toman el ID nuevo.\n\nSe renombran: {renamed_count}\n{examples}\n\nSe mantienen: {kept_count} (no siguen el patrón generado).\n\nNo se renombran: {collision_count} (el entity_id nuevo ya existe).\n{collisions}\n\nRevisa las automatizaciones y tarjetas que usen los nombres viejos.",
         "submit": "Confirmar"
       }
     },
@@ -207,56 +207,29 @@
     "inverter": {
       "name": "Inversor"
     },
-    "inverter_numbered": {
-      "name": "Inversor {device_id}"
-    },
     "irradiance_sensor": {
       "name": "Sensor de irradiancia"
-    },
-    "irradiance_sensor_numbered": {
-      "name": "Sensor de irradiancia {device_id}"
     },
     "pv": {
       "name": "Campo solar"
     },
-    "pv_numbered": {
-      "name": "Campo solar {device_id}"
-    },
     "battery": {
       "name": "Batería"
-    },
-    "battery_numbered": {
-      "name": "Batería {device_id}"
     },
     "grid": {
       "name": "Red"
     },
-    "grid_numbered": {
-      "name": "Red {device_id}"
-    },
     "internal_meter": {
       "name": "Vatímetro interno"
-    },
-    "internal_meter_numbered": {
-      "name": "Vatímetro interno {device_id}"
     },
     "critical_loads": {
       "name": "Cargas críticas"
     },
-    "critical_loads_numbered": {
-      "name": "Cargas críticas {device_id}"
-    },
     "load": {
       "name": "Consumo"
     },
-    "load_numbered": {
-      "name": "Consumo {device_id}"
-    },
     "ev_charger": {
       "name": "Cargador VE"
-    },
-    "ev_charger_numbered": {
-      "name": "Cargador VE {device_id}"
     }
   },
   "entity": {

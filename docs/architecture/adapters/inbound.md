@@ -6,49 +6,49 @@ Documento vivo. Todo lo que habla con Home Assistant. Rutas bajo `custom_compone
 
 La raíz inyecta `catalog` y `gateway_factory` (`custom_components/modbus_solar/config_flow.py:36-38`).
 
-### `DeviceConfigFlow` (`flow.py:290-758`)
+### `DeviceConfigFlow` (`flow.py:291-759`)
 
-Una config entry por equipo (ADR [0010](../../decisions/0010-entry-per-device.md)). `VERSION = 2` (`flow.py:293`). Detalle de pantallas y textos en [features/device-setup](../../features/device-setup.md).
+Una config entry por equipo (ADR [0010](../../decisions/0010-entry-per-device.md)). `VERSION = 2` (`flow.py:294`). Detalle de pantallas y textos en [features/device-setup](../../features/device-setup.md).
 
 Alta, en este orden:
 
-- Paso `user`: `SelectSelector` en modo lista con una opción por marca (`flow.py:310-316`).
-- Paso `model`: un perfil por opción; la opción es el id sin puntos, válido como `translation_key` (`flow.py:94-96`, `:318-340`). Al entrar olvida la sonda y los componentes (`flow.py:324-326`).
-- Paso `connection`: `host` y una sección plegada `advanced` con `port` y `unit_id`, por defecto `profile.default_port` y `profile.default_unit_id` (`flow.py:380-437`).
-  - El duplicado se detecta antes de abrir conexión y aborta con `already_configured` (`flow.py:389-390`).
-  - Valida con `_try_probe` (`flow.py:367-378`, `:391`): abre `gateway_factory` y llama a `probe_device`, todo dentro de `asyncio.timeout(PROBE_TIMEOUT_S)`, 20 s (`flow.py:61`, `:755-758`).
-  - Con error, vuelve el formulario con lo escrito y un selector de modelo para corregirlo; los puertos del modelo nuevo solo se aplican si no se tocaron (`flow.py:342-357`, `:406-408`).
-  - Con componentes opcionales sigue a `components`; sin ellos, a `readings` (`flow.py:397-400`).
-- Paso `components`: selector múltiple con los componentes opcionales del perfil; por defecto, los marcados `default`, o lo ya elegido al volver atrás (`flow.py:439-465`).
-- Paso `readings`: menú con las lecturas de la sonda de los componentes elegidos y tres salidas, `name`, `model` y `connection` (`flow.py:467-479`).
-- Paso `name`: nombre, Device ID y número de serie (`flow.py:481-534`).
-  - El Device ID propuesto es el menor entero libre entre las entries del mismo `device_type` (`flow.py:73-91`, `:487`). Uno repetido da `device_id_in_use` (`flow.py:492-493`).
-  - Un número de serie escrito solo admite letras y números ASCII; si no, `invalid_serial_number` (`flow.py:68-70`, `:494-495`).
-  - Manda el serie escrito; si está vacío, el leído por la sonda; si no hay ninguno, no se guarda (`flow.py:497-500`).
-- Paso `intervals`: un campo por tier con entidades (`flow.py:563-588`). Crea la entry con `title = name` y `data = {host, port, unit_id, profile, components, intervals, device_id, serial_number}`; `device_id` y `serial_number` solo si existen (`flow.py:574-585`). Los tiers sin entidades conservan `DEFAULT_INTERVALS` (`flow.py:578-579`).
+- Paso `user`: `SelectSelector` en modo lista con una opción por marca (`flow.py:311-317`).
+- Paso `model`: un perfil por opción; la opción es el id sin puntos, válido como `translation_key` (`flow.py:94-96`, `:319-341`). Al entrar olvida la sonda y los componentes (`flow.py:325-327`).
+- Paso `connection`: `host` y una sección plegada `advanced` con `port` y `unit_id`, por defecto `profile.default_port` y `profile.default_unit_id` (`flow.py:381-438`).
+  - El duplicado se detecta antes de abrir conexión y aborta con `already_configured` (`flow.py:390-391`).
+  - Valida con `_try_probe` (`flow.py:368-379`, `:392`): abre `gateway_factory` y llama a `probe_device`, todo dentro de `asyncio.timeout(PROBE_TIMEOUT_S)`, 20 s (`flow.py:61`, `:756-759`).
+  - Con error, vuelve el formulario con lo escrito y un selector de modelo para corregirlo; los puertos del modelo nuevo solo se aplican si no se tocaron (`flow.py:343-358`, `:407-409`).
+  - Con componentes opcionales sigue a `components`; sin ellos, a `readings` (`flow.py:398-401`).
+- Paso `components`: selector múltiple con los componentes opcionales del perfil; por defecto, los marcados `default`, o lo ya elegido al volver atrás (`flow.py:440-466`).
+- Paso `readings`: menú con las lecturas de la sonda de los componentes elegidos y tres salidas, `name`, `model` y `connection` (`flow.py:468-480`).
+- Paso `name`: nombre, Device ID y número de serie (`flow.py:482-535`).
+  - El Device ID propuesto es el menor entero libre entre las entries del mismo `device_type` (`flow.py:73-91`, `:488`). Uno repetido da `device_id_in_use` (`flow.py:493-494`).
+  - Un número de serie escrito solo admite letras y números ASCII; si no, `invalid_serial_number` (`flow.py:68-70`, `:495-496`).
+  - Manda el serie escrito; si está vacío, el leído por la sonda; si no hay ninguno, no se guarda (`flow.py:498-501`).
+- Paso `intervals`: un campo por tier con entidades (`flow.py:564-589`). Crea la entry con `title = name` y `data = {host, port, unit_id, profile, components, intervals, device_id, serial_number}`; `device_id` y `serial_number` solo si existen (`flow.py:575-586`). Los tiers sin entidades conservan `DEFAULT_INTERVALS` (`flow.py:579-580`).
 
-Errores del formulario de conexión (`flow.py:367-378`):
+Errores del formulario de conexión (`flow.py:368-379`):
 
 | Error de dominio | Clave del formulario | Cita |
 |---|---|---|
-| `EndpointInUse` | `endpoint_in_use` | `flow.py:373-374` |
-| `DeviceUnavailable`, `TimeoutError` | `cannot_connect` | `flow.py:375-376` |
-| `DeviceProtocolError`, `DecodeError` | `invalid_response` | `flow.py:377-378` |
+| `EndpointInUse` | `endpoint_in_use` | `flow.py:374-375` |
+| `DeviceUnavailable`, `TimeoutError` | `cannot_connect` | `flow.py:376-377` |
+| `DeviceProtocolError`, `DecodeError` | `invalid_response` | `flow.py:378-379` |
 
 Funciones auxiliares:
 
 - `format_readings(profile, selection, result, translations, language)` (`flow.py:107-142`) escribe las lecturas de la sonda agrupadas por componente: un título por dispositivo y una línea `- {nombre}: {valor} {unidad}` por sensor de la selección que la sonda leyó. Los `binary_sensor` no salen (`flow.py:122-123`). Nombre y estado del enum salen de `component.modbus_solar.entity.sensor.<key>`; sin traducción, la clave. `None` se muestra como `—`. Los números llevan separador de miles según el idioma (`format_number`, `flow.py:99-104`).
 - `present_tiers(selection)` da los tiers con entidades de los componentes elegidos, en el orden de `PollTier` (`flow.py:150-152`).
 - `entity_list(profile, selection, tier, translations)` lista las entidades de un tier con su dispositivo: leídas, energías calculadas y controles; las desactivadas por defecto llevan una marca (`flow.py:155-193`).
-- `intervals_schema` y `intervals_placeholders` construyen el formulario de intervalos: una sección plegada por tier, con el mínimo y la lista de entidades en la descripción (`flow.py:196-217`). Los comparten el alta y reconfigure por `_show_intervals` (`flow.py:536-561`).
+- `intervals_schema` y `intervals_placeholders` construyen el formulario de intervalos: una sección plegada por tier, con el mínimo y la lista de entidades en la descripción (`flow.py:196-217`). Los comparten el alta y reconfigure por `_show_intervals` (`flow.py:537-562`).
 - `check_intervals(profile, tiers, user_input)` valida primero cada intervalo contra `min_tier_interval(profile, tier)` (`interval_too_short` en el campo del tier) y, solo sin errores, el presupuesto: si `request_rate` supera 1 petición por segundo, `interval_budget_exceeded` en `base` (`flow.py:220-231`, `:147`). ADR [0016](../../decisions/0016-instant-tier.md).
 
-Reconfigure, cuatro pasos (`flow.py:590-753`):
+Reconfigure, cuatro pasos (`flow.py:591-754`):
 
-- `reconfigure`: `host`, número de serie, Device ID y la sección `advanced` con `port` y `unit_id`. Recalcula el `unique_id`; si choca con otra entry, aborta con `already_configured` (`flow.py:596-602`). Valida Device ID y serie como el alta, con el propio Device ID excluido (`flow.py:603-611`), y abre la sonda (`flow.py:613`). Una entry sin Device ID lo deja opcional (`flow.py:668-673`). El serie escrito manda; si está vacío, el leído; si no hay ninguno, la clave desaparece (`flow.py:620-621`).
-- `reconfigure_components`: solo con componentes opcionales; parte de los guardados, o de todos si la entry no tiene la clave (`flow.py:675-685`).
-- `reconfigure_intervals`: mismos campos y comprobaciones que el alta, con los intervalos guardados por defecto (`flow.py:687-726`). Guarda `components`, `intervals`, `device_id` y `serial_number` y recarga con `async_update_reload_and_abort` (`flow.py:699-716`). No hay update listener.
-- `reconfigure_rename`: solo si el Device ID cambia (`flow.py:711-714`). `plan_rename` calcula qué `entity_id` llevan el prefijo generado con el ID viejo; renombra los que no chocan con otra entidad y deja los demás (`flow.py:251-287`, `:728-753`).
+- `reconfigure`: `host`, número de serie, Device ID y la sección `advanced` con `port` y `unit_id`. Recalcula el `unique_id`; si choca con otra entry, aborta con `already_configured` (`flow.py:597-603`). Valida Device ID y serie como el alta, con el propio Device ID excluido (`flow.py:604-612`), y abre la sonda (`flow.py:614`). Una entry sin Device ID lo deja opcional (`flow.py:669-674`). El serie escrito manda; si está vacío, el leído; si no hay ninguno, la clave desaparece (`flow.py:621-622`).
+- `reconfigure_components`: solo con componentes opcionales; parte de los guardados, o de todos si la entry no tiene la clave (`flow.py:676-686`).
+- `reconfigure_intervals`: mismos campos y comprobaciones que el alta, con los intervalos guardados por defecto (`flow.py:688-727`). Guarda `components`, `intervals`, `device_id` y `serial_number` y recarga con `async_update_reload_and_abort` (`flow.py:700-717`). No hay update listener.
+- `reconfigure_rename`: solo si el Device ID cambia (`flow.py:712-715`). `plan_rename` calcula qué `entity_id` llevan el prefijo generado con el ID viejo; renombra los que no chocan con otra entidad y deja los demás (`flow.py:252-288`, `:729-754`).
 
 `device_unique_id(host, port, unit_id)` devuelve `f"{host.lower()}:{port}:{unit_id}"` (`flow.py:64-65`).
 
@@ -79,8 +79,8 @@ La raíz, antes de crear el runtime, borra del registro las entidades y los disp
 
 ## Entidades (`entities/`)
 
-- `device_info(entry_id, profile, component, device_id, serial)` (`entities/base.py:16-35`) da el dispositivo de un componente. El principal usa el identificador `(DOMAIN, entry_id)` y lleva el número de serie; el resto usa `(DOMAIN, f"{entry_id}_{componente}")` y cuelga del principal con `via_device` (`entities/base.py:24`, `:30-34`). El nombre sale de `translation_key`: `{clave}` sin Device ID y `{clave}_numbered` con él, con `device_id` como placeholder (`entities/base.py:25-26`).
-- `ModbusSolarEntity(CoordinatorEntity[TierCoordinator])` (`entities/base.py:38-65`): acepta `EntitySpec | EnergySpec | GatedLimitSpec` y una `key` opcional (`entities/base.py:41-51`): un control da dos entidades, number y switch, y la clave la elige quien construye. `has_entity_name`, `translation_key = key`, `unique_id`, habilitada por defecto según el perfil y el `DeviceInfo` del componente de la entidad (`entities/base.py:52-60`). `entity_category` solo se aplica a un `EntitySpec`: las energías calculadas son de primer nivel (`entities/base.py:55-57`). Nace `unavailable` hasta la primera lectura correcta (`entities/base.py:62-65`).
+- `device_info(entry_id, profile, component, serial)` (`entities/base.py:16-35`) da el dispositivo de un componente. El principal usa el identificador `(DOMAIN, entry_id)` y lleva el número de serie; el resto usa `(DOMAIN, f"{entry_id}_{componente}")` y cuelga del principal con `via_device` (`entities/base.py:25`, `:30-34`). El nombre sale de `translation_key` = `{clave}` y no lleva el Device ID (`entities/base.py:26`).
+- `ModbusSolarEntity(CoordinatorEntity[TierCoordinator])` (`entities/base.py:38-77`): acepta `EntitySpec | EnergySpec | GatedLimitSpec` y una `key` opcional (`entities/base.py:41-51`): un control da dos entidades, number y switch, y la clave la elige quien construye. `has_entity_name`, `translation_key = key`, `unique_id`, habilitada por defecto según el perfil y el `DeviceInfo` del componente de la entidad (`entities/base.py:52-59`). `entity_category` solo se aplica a un `EntitySpec`: las energías calculadas son de primer nivel (`entities/base.py:55-57`). `suggested_object_id` pone el Device ID delante del nombre de la entidad; HA antepone el nombre del dispositivo y el `entity_id` queda `sensor.bateria_0_tension`. Solo cuenta en el alta en el registro, y casa con el prefijo de `device_label` del renombrado (`entities/base.py:61-72`, `flow.py:243-249`). Nace `unavailable` hasta la primera lectura correcta (`entities/base.py:74-77`).
 - `ModbusSolarSensor` convierte las cadenas de `EntitySpec` a los enums de HA (`entities/factory.py:19-29`). `native_value` sale de `coordinator.data.values` (`entities/factory.py:31-35`).
 - `ModbusSolarBinarySensor` (`entities/binary_sensor.py:11-23`): `is_on` es el `bool` ya decodificado del bit; `None` sin datos o sin valor (`entities/binary_sensor.py:18-23`). Los 14 bits del STORAGE son diagnóstico y vienen habilitados.
 - `ModbusSolarEnergySensor(ModbusSolarEntity, RestoreSensor)` (`entities/energy.py:14`): kWh, `device_class` `energy`, `state_class` `total_increasing`, precisión 3 (`entities/energy.py:15-18`).
@@ -106,11 +106,11 @@ La raíz, antes de crear el runtime, borra del registro las entidades y los disp
 | Qué | Formato | Cita |
 |---|---|---|
 | `unique_id` de la entry | `host.lower():puerto:unidad` | `flow.py:64-65` |
-| Dispositivo principal | `(DOMAIN, entry_id)` | `entities/base.py:24` |
-| Dispositivo de un componente | `(DOMAIN, f"{entry_id}_{componente}")`, con `via_device` al principal | `entities/base.py:24`, `:34` |
+| Dispositivo principal | `(DOMAIN, entry_id)` | `entities/base.py:25` |
+| Dispositivo de un componente | `(DOMAIN, f"{entry_id}_{componente}")`, con `via_device` al principal | `entities/base.py:25`, `:34` |
 | `unique_id` de entidad | `f"{entry_id}_{key}"` | `runtime.py:37-39` |
 
-Un dispositivo por componente elegido (ADR [0015](../../decisions/0015-device-per-component.md)). El `entry_id` es un ULID: cambiar el host en reconfigure no duplica entidades ni dispositivos (`runtime.py:38`). El Device ID va en el nombre del dispositivo y, por eso, en el `entity_id`; no entra en ningún identificador.
+Un dispositivo por componente elegido (ADR [0015](../../decisions/0015-device-per-component.md)). El `entry_id` es un ULID: cambiar el host en reconfigure no duplica entidades ni dispositivos (`runtime.py:38`). El Device ID va en el `entity_id` de las entidades nuevas, no en el nombre del dispositivo; no entra en ningún identificador.
 
 ## Diagnostics (`diagnostics.py`, `custom_components/modbus_solar/diagnostics.py`)
 

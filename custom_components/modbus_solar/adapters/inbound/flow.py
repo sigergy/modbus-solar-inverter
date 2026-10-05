@@ -241,11 +241,12 @@ class RenamePlan:
 
 
 def device_label(translations: Mapping[str, str], key: str, device_id: int | None) -> str:
-    """Nombre del dispositivo traducido, con el ID si lo hay."""
-    if device_id is None:
-        return translations.get(f"component.{DOMAIN}.device.{key}.name", key)
-    text = translations.get(f"component.{DOMAIN}.device.{key}_numbered.name", key)
-    return text.replace("{device_id}", str(device_id))
+    """Prefijo del entity_id: nombre traducido del dispositivo y, detrás, el ID si lo hay.
+
+    Casa con ModbusSolarEntity.suggested_object_id, que pone el ID delante del nombre de la entidad.
+    """
+    name = translations.get(f"component.{DOMAIN}.device.{key}.name", key)
+    return name if device_id is None else f"{name} {device_id}"
 
 
 def plan_rename(

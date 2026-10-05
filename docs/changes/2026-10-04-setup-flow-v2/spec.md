@@ -81,7 +81,7 @@ Problemas que resuelve, con la referencia al código actual:
 | Intervalo rápido por defecto | 10 s en todos los perfiles. Con §5.7 la rápida del STORAGE pide 6 bloques: 6 s de mínimo, por encima de los 5 s de hoy |
 | Tier instantáneo | Tier nuevo `instant` («Instantánea»), 5 s por defecto. Solo la red: tensión, frecuencia y potencia (30070-30072), más las energías de red. Los intervalos, juntos, no pasan de una petición por segundo (§5.8) |
 | Entries anteriores | Las extras siguen desactivadas: el registro de entidades conserva `disabled_by`. Sin migración |
-| Device ID | Entero ≥ 0, obligatorio en el alta, único por `device_type`. Va detrás del nombre de cada dispositivo de la entry («Batería 0») y de ahí pasa al `entity_id`. Cambiarlo en reconfigure renombra los `entity_id` generados (§5.6) |
+| Device ID | Entero ≥ 0, obligatorio en el alta, único por `device_type`. Va en el `entity_id` de las entidades nuevas (`sensor.bateria_0_tension`), no en el nombre del dispositivo («Batería»). Cambiarlo en reconfigure renombra los `entity_id` generados (§5.6) |
 | Reconfigure | Tres pasos: conexión, componentes e intervalos, más un cuarto si cambia el Device ID. La conexión se prueba; si falla, no sigue ni guarda |
 | Intervalos | Último paso del alta, después de los componentes, y último paso de reconfigure. Siguen en `entry.data`. Sin options flow |
 | Lista de entidades por intervalo | Una `section` plegada por intervalo, con la lista en el `data_description` de su campo |

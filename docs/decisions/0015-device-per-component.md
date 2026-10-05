@@ -31,5 +31,5 @@ del BMS añadirían 14 más.
 - El `unique_id` de las entidades no cambia (`custom_components/modbus_solar/adapters/inbound/entities/base.py:53`):
   pasar una entidad a otro dispositivo conserva su historial.
 - Desmarcar un componente borra sus entidades y su dispositivo del registro, con su historial (`custom_components/modbus_solar/__init__.py:28-53`).
-- Dos entries del mismo tipo se distinguen por el Device ID del alta: va detrás del nombre de cada dispositivo («Batería 0», «Batería 1») y de ahí pasa al `entity_id` (`custom_components/modbus_solar/adapters/inbound/entities/base.py:25-26`).
+- Dos entries del mismo tipo se distinguen por el Device ID del alta: va en el `entity_id` (`sensor.bateria_0_tension`, `sensor.bateria_1_tension`), no en el nombre del dispositivo (`custom_components/modbus_solar/adapters/inbound/entities/base.py:61-72`).
 - Una entry creada antes, sin componentes guardados, toma todos los del perfil.
