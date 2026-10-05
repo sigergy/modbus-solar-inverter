@@ -213,3 +213,24 @@ def test_entity_cannot_be_ascii() -> None:
     reg = RegisterSpec(address=0, dtype=DataType.ASCII, length=2)
     problems = validate_profile(profile(replace(ent("a", 0), register=reg)))
     assert problems == ["a: ascii only for serial"]
+
+
+def flag(key: str, address: int, bit: int, dtype: DataType = DataType.U16) -> EntitySpec:
+    return replace(ent(key, address, dtype), platform=Platform.BINARY_SENSOR, bit=bit)
+
+
+def test_bits_may_share_a_register() -> None:
+    assert validate_profile(profile(ent("a", 0), flag("b0", 5, 0), flag("b1", 5, 1))) == []
+
+
+def test_bit_and_plain_entity_still_overlap() -> None:
+    assert validate_profile(profile(ent("a", 5), flag("b0", 5, 0))) == ["overlap: a and b0"]
+
+
+def test_bit_rules() -> None:
+    assert validate_profile(profile(ent("a", 0), flag("b", 5, 16))) == ["b: bit out of range"]
+    assert validate_profile(profile(ent("a", 0), flag("b", 5, 0, DataType.U32))) == ["b: bit requires u16"]
+    no_bit = replace(ent("b", 5), platform=Platform.BINARY_SENSOR)
+    assert validate_profile(profile(ent("a", 0), no_bit)) == ["b: binary_sensor requires bit"]
+    sensor_bit = replace(ent("b", 5), bit=0)
+    assert validate_profile(profile(ent("a", 0), sensor_bit)) == ["b: bit requires binary_sensor"]

@@ -1,6 +1,7 @@
 """Decodificación de palabras Modbus a valor de entidad."""
 
 from collections.abc import Mapping
+from dataclasses import replace
 
 import pytest
 
@@ -88,3 +89,9 @@ def test_text_wrong_word_count_raises() -> None:
     reg = RegisterSpec(address=0, dtype=DataType.ASCII, length=3)
     with pytest.raises(DecodeError, match="expected 3 words"):
         decode_text(reg, (0x4142,))
+
+
+def test_bit_decodes_to_bool() -> None:
+    spec = replace(entity(DataType.U16), platform=Platform.BINARY_SENSOR, bit=3)
+    assert decode(spec, (0b1000,)) is True
+    assert decode(spec, (0b0111,)) is False
