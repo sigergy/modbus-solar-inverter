@@ -4,6 +4,7 @@ from dataclasses import replace
 
 from custom_components.modbus_solar.domain.control import GatedLimitSpec, WriteSpec
 from custom_components.modbus_solar.domain.energy import EnergySpec, SignFilter
+from custom_components.modbus_solar.domain.metering import FlowSpec, MeteringModeSpec
 from custom_components.modbus_solar.domain.profile import ComponentSpec, DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
     Component,
@@ -267,3 +268,55 @@ def test_energy_in_component_of_its_sources() -> None:
     entities = (power("a", 0), replace(power("b", 1), component=Component.PV))
     bad = replace(with_energies(energy("e", "b"), entities=entities), components=(ComponentSpec(Component.PV),))
     assert validate_profile(bad) == ["e: component differs from sources"]
+
+
+def flow(power_key: str = "p_in", energy_key: str = "e_in", sign: SignFilter = SignFilter.POSITIVE) -> FlowSpec:
+    return FlowSpec(
+        power_key=power_key,
+        power_role=Role.GRID_IMPORT_POWER,
+        energy_key=energy_key,
+        energy_role=Role.ENERGY_GRID_IMPORT,
+        sign=sign,
+    )
+
+
+def mode(key: str = "m", source: str = "a", flows: tuple[FlowSpec, ...] | None = None) -> MeteringModeSpec:
+    return MeteringModeSpec(
+        key=key, source=source, component=Component.GENERATOR, flows=(flow(),) if flows is None else flows
+    )
+
+
+def with_modes(*modes: MeteringModeSpec, entities: tuple[EntitySpec, ...] = ()) -> DeviceProfile:
+    return replace(profile(*(entities or (power("a", 0), ent("b", 1)))), metering_modes=modes)
+
+
+def test_metering_valid() -> None:
+    # dos modos comparten claves con el mismo rol y signo; Generador no está declarado y vale
+    assert validate_profile(with_modes(mode("x"), mode("y"))) == []
+
+
+def test_metering_mode_repeated_or_without_flows() -> None:
+    assert validate_profile(with_modes(mode("x"), mode("x"))) == ["metering: x repeated"]
+    assert validate_profile(with_modes(mode("x", flows=()))) == ["metering x: no flows"]
+
+
+def test_metering_source_must_be_known_power() -> None:
+    assert validate_profile(with_modes(mode("x", source="z"))) == ["metering x: unknown source z"]
+    assert validate_profile(with_modes(mode("x", source="b"))) == ["metering x: source b is not power"]
+
+
+def test_metering_keys_do_not_clash() -> None:
+    # con una entidad, consigo mismas dentro del modo
+    assert validate_profile(with_modes(mode("x", flows=(flow(power_key="b"),)))) == ["duplicate key: b"]
+    assert validate_profile(with_modes(mode("x", flows=(flow(), flow())))) == [
+        "duplicate key: p_in",
+        "duplicate key: e_in",
+    ]
+
+
+def test_metering_key_same_role_and_sign_across_modes() -> None:
+    other = mode("y", flows=(flow(sign=SignFilter.NEGATIVE),))
+    assert validate_profile(with_modes(mode("x"), other)) == [
+        "metering: p_in differs between modes",
+        "metering: e_in differs between modes",
+    ]
