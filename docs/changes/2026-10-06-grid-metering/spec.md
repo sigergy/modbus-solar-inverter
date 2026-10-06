@@ -292,4 +292,4 @@ Solo en CI (ADR 0007).
 | `__init__.py` | `select` con el modo; `_remove_unselected` con las claves y dispositivos de modo |
 | `const.py` | `CONF_METERING` |
 | `strings.json`, `translations/es.json`, `translations/en.json` | Pasos, selector, error, dispositivo y entidades |
-| `docs/decisions/0016-metering-mode.md` | ADR nuevo: el modo de medición decide la fuente y el dispositivo |
+| `docs/decisions/0017-metering-mode.md` | ADR nuevo: el modo de medición decide la fuente y el dispositivo |
