@@ -46,6 +46,10 @@ def test_every_entity_and_enum_state_is_translated() -> None:
                 options.setdefault(spec.key, set()).update(spec.enum.values())
         for energy in profile.energies:
             assert "name" in entities["sensor"][energy.key], energy.key
+        for mode in profile.metering_modes:
+            for flow in mode.flows:
+                assert "name" in entities["sensor"][flow.power_key], flow.power_key
+                assert "name" in entities["sensor"][flow.energy_key], flow.energy_key
     # la clave es translation_key en todos los perfiles: state lleva la unión de sus opciones
     for key, values in options.items():
         assert set(entities["sensor"][key]["state"]) == values, key
@@ -73,6 +77,26 @@ def test_entity_short_names() -> None:
         entities = load(name)["entity"]
         got = {k: entities["binary_sensor" if k.startswith("bms_") else "sensor"][k]["name"] for k in names}
         assert got == names, name
+
+
+def test_metering_entity_names() -> None:
+    expected = {
+        "strings.json": {
+            "grid_import_power": "Grid import power",
+            "grid_export_power": "Grid export power",
+            "generator_power": "Generator power",
+            "generator_energy": "Generator energy",
+        },
+        "translations/es.json": {
+            "grid_import_power": "Potencia de red",
+            "grid_export_power": "Potencia a la red",
+            "generator_power": "Potencia del generador",
+            "generator_energy": "Energía del generador",
+        },
+    }
+    for name, names in expected.items():
+        sensors = load(name)["entity"]["sensor"]
+        assert {key: sensors[key]["name"] for key in names} == names, name
 
 
 def test_flow_steps_errors_and_aborts_are_translated() -> None:
