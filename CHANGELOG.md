@@ -4,6 +4,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0b1] - 2026-10-06
+
 ### Añadido
 
 - STORAGE 1Play TL M: nuevo paso «Medición de red» en el alta y en reconfigurar. Dice qué vatímetro mide la red:
