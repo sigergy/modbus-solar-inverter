@@ -23,3 +23,4 @@ Flujo: `research/` → `decisions/` → `changes/` → al cerrar, `features/`, `
 | [2026-10-04-irradiance-sensor](changes/2026-10-04-irradiance-sensor/spec.md) | cerrado |
 | [2026-10-04-setup-flow-v2](changes/2026-10-04-setup-flow-v2/spec.md) | cerrado |
 | [2026-10-04-reason-labels](changes/2026-10-04-reason-labels/spec.md) | borrador |
+| [2026-10-06-grid-metering](changes/2026-10-06-grid-metering/spec.md) | borrador |
