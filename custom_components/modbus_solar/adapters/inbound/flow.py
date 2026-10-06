@@ -704,6 +704,8 @@ class DeviceConfigFlow(ConfigFlow):
                     self._device_id = device_id
                     # el escrito manda; si está vacío, el leído; si no hay ninguno, la clave desaparece
                     self._serial = serial or result.serial or None
+                    if profile.metering_modes:
+                        return await self.async_step_reconfigure_metering()
                     if profile.components:
                         return await self.async_step_reconfigure_components()
                     self._components = []
@@ -757,11 +759,27 @@ class DeviceConfigFlow(ConfigFlow):
             return vol.Optional(CONF_DEVICE_ID)
         return vol.Required(CONF_DEVICE_ID, default=stored_id)
 
+    async def async_step_reconfigure_metering(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        profile = self._profile
+        if user_input is not None:
+            self._metering = user_input[CONF_METERING]
+            if profile.components:
+                return await self.async_step_reconfigure_components()
+            self._components = []
+            return await self.async_step_reconfigure_intervals()
+        # sin modo guardado (entry anterior), el primero del perfil
+        return self._show_metering("reconfigure_metering", profile, entry.data.get(CONF_METERING))
+
     async def async_step_reconfigure_components(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         profile = self._profile
         if user_input is not None:
             chosen = set(user_input[CONF_COMPONENTS])
+            if missing_meter(profile, self._metering, chosen):
+                return await self._show_components(
+                    "reconfigure_components", profile, list(user_input[CONF_COMPONENTS]), self._metering, missing=True
+                )
             self._components = [c.component for c in profile.components if c.component.value in chosen]
             return await self.async_step_reconfigure_intervals()
         stored = entry.data.get(CONF_COMPONENTS)
@@ -787,6 +805,9 @@ class DeviceConfigFlow(ConfigFlow):
                     CONF_COMPONENTS: [c.value for c in components],
                     CONF_INTERVALS: {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {}), **shown},
                 }
+                mode = metering_mode(profile, self._metering)
+                if mode is not None:
+                    data[CONF_METERING] = mode.key
                 for key, value in ((CONF_DEVICE_ID, self._device_id), (CONF_SERIAL_NUMBER, self._serial)):
                     if value is None:
                         data.pop(key, None)

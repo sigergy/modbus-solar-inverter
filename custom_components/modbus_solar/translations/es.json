@@ -142,6 +142,14 @@
           }
         }
       },
+      "reconfigure_metering": {
+        "title": "¿Cómo se mide la red?",
+        "description": "{model}. Entre «Consumos en Grid» y «Consumos en Cargas Críticas», las potencias y energías de red cambian de dispositivo y conservan su historial. Al pasar a «Aislada» se borran con su historial; al salir de «Aislada» se borran las del generador.",
+        "data": {
+          "metering": "Medición de red"
+        },
+        "submit": "Siguiente"
+      },
       "reconfigure_components": {
         "title": "¿Qué tiene tu instalación?",
         "description": "{model}. {main} se añade siempre. Lo que desmarques se quita de Home Assistant con su historial.",

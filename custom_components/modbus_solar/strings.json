@@ -142,6 +142,14 @@
           }
         }
       },
+      "reconfigure_metering": {
+        "title": "How is the grid measured?",
+        "description": "{model}. Between «Loads on Grid» and «Loads on Critical Loads» the grid powers and energies move to the other device and keep their history. Switching to «Off-grid» removes them with their history; leaving «Off-grid» removes the generator ones.",
+        "data": {
+          "metering": "Grid metering"
+        },
+        "submit": "Next"
+      },
       "reconfigure_components": {
         "title": "What does your installation have?",
         "description": "{model}. {main} is always added. What you untick is removed from Home Assistant with its history.",
