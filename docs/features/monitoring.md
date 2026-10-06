@@ -92,7 +92,7 @@ Un bit a 1 enciende la entidad. Los bits no listados no se publican.
 
 ### Medición de red
 
-El usuario elige en el alta qué vatímetro mide el intercambio con la red: ver [device-setup](device-setup.md) y ADR [0017](../decisions/0017-metering-mode.md). El modo decide la potencia leída que se usa como fuente, las entidades calculadas y su dispositivo (`profiles/ingeteam/oneplay_storage.py:173-189`, `:446-466`).
+El usuario elige en el alta qué vatímetro mide el intercambio con la red: ver [device-setup](device-setup.md) y ADR [0017](../decisions/0017-metering-mode.md). El modo decide la potencia leída que se usa como fuente, las entidades calculadas y su dispositivo (`profiles/ingeteam/oneplay_storage.py:173-188`, `:446-467`).
 
 | Modo | Fuente (registro, tier) | Entidades | Dispositivo |
 |---|---|---|---|

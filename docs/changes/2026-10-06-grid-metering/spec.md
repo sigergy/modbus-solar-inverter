@@ -63,7 +63,7 @@ una instalación sin vatímetro externo esas energías son falsas.
 | Las energías de red cuelgan de `Component.GRID` e integran `grid_power` | `profiles/ingeteam/oneplay_storage.py:411-424` |
 | Signo supuesto de 30072: > 0 importa | `docs/changes/2026-10-04-storage-profile/spec.md` §3.5 |
 | El signo de 30052 no está documentado ni supuesto | `ABH2010IMB08` |
-| No hay registro que diga qué vatímetro usa el equipo. CMD 18 «Self-Consumption Activation», opción 2 «Self-Consumption mode to CG Wattmeter», es un comando de escritura | `ABH2010IMB08`; `AAA0030IMB03_N`, pág. 6 |
+| No hay registro que diga qué vatímetro usa el equipo. CMD 18 «Self-Consumption Activation», opción 2 «Self-Consumption mode to CG Wattmeter», es un comando de escritura. En `AAA0030IMB03_N` pág. 6 su fila está marcada «n/a» para el 1PLAY SUN STORAGE TL M | `ABH2010IMB08`; `AAA0030IMB03_N`, pág. 6 |
 | Una energía solo admite como fuentes sensores de potencia leídos, del mismo tier | `domain/validate.py:80-96` |
 | `select` filtra por componente; el principal va siempre | `application/selection.py:230-243` |
 | Desmarcar un componente borra sus entidades y su dispositivo | `__init__.py:28-53` |
@@ -231,8 +231,9 @@ guardado, o el primero. Descripción:
 ## 8. Datos y compatibilidad
 
 - `CONF_METERING = "metering"` en `const.py`.
-- Entry sin `metering`: primer modo, `grid_loads`. Las energías siguen en Red con la misma fuente. Solo se añaden
-  las dos potencias nuevas.
+- Entry sin `metering`: primer modo, `grid_loads`, que fuerza la Red (`application/selection.py:42-44`). Con Red
+  elegida, las energías siguen en Red con la misma fuente y solo se añaden las dos potencias nuevas. Sin Red elegida,
+  vuelven el dispositivo Red y sus entidades; para quitarlo, reconfigurar y elegir «Consumos en Cargas Críticas».
 - No hace falta migración de versión: el valor ausente tiene un significado fijo.
 - Cambiar de modo en reconfigurar recarga la entry, como hoy al cambiar componentes.
 - Las energías continúan su total tras cambiar de fuente. No vuelven a cero.

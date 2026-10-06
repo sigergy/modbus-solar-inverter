@@ -61,7 +61,7 @@ Dice qué vatímetro mide el intercambio con la red. No hay registro que lo diga
 
 - Campo `metering` («Medición de red»), un desplegable con los modos del perfil (`adapters/inbound/flow.py:460-483`).
 - Valor por defecto: el elegido antes en el mismo flujo; si no, el primer modo del perfil.
-- Opciones del STORAGE 1Play TL M, en este orden (`profiles/ingeteam/oneplay_storage.py:448-466`):
+- Opciones del STORAGE 1Play TL M, en este orden (`profiles/ingeteam/oneplay_storage.py:448-467`):
 
 | Clave | Opción | Cuándo | Vatímetro (registro) | Entidades | Dispositivo |
 |---|---|---|---|---|---|
@@ -74,7 +74,7 @@ Casos de instalación: `ABH2014IQM01`, apdo. 19.8, pág. 60; entrada «grid/gens
 ### Paso 5 · componentes (`components`)
 
 - Campo `components`, lista de casillas con los componentes opcionales del perfil. El principal va siempre y no sale en la lista (`adapters/inbound/flow.py:485-539`).
-- Marcados por defecto los de `ComponentSpec.default` (`domain/profile.py:28-31`). En el STORAGE, vatímetro interno y cargador VE salen desmarcados (`profiles/ingeteam/oneplay_storage.py:205-213`).
+- Marcados por defecto los de `ComponentSpec.default` (`domain/profile.py:28-30`). En el STORAGE, vatímetro interno y cargador VE salen desmarcados (`profiles/ingeteam/oneplay_storage.py:205-213`).
 - **Componente forzado.** El vatímetro del modo elegido sale marcado, aunque el perfil lo tenga desmarcado: Red con «Consumos en Grid», Vatímetro interno con los otros dos (`adapters/inbound/flow.py:512-517`, `application/selection.py:28-30`). Si se desmarca, error `metering_component_required`: «{component} hace falta para «{mode}». Márcalo o cambia la medición de red.» (`adapters/inbound/flow.py:242-245`, `:489-492`, `:528-533`).
 - Generador no sale en la lista: no es un componente opcional del perfil. Lo crea el modo «Aislada».
 

@@ -32,7 +32,7 @@ El valor se codifica con `encode`: `round(valor / scale)`, dentro del rango de 1
 
 El equipo no tiene registro de lectura de este ajuste (ADR [0012](../decisions/0012-optimistic-restored-state.md)). HA muestra lo último que escribió y lo restaura tras reiniciar, sin escribir al equipo.
 
-- Primer arranque: number a 6000 W y switch ON, sin escribir nada (`adapters/inbound/runtime.py:99-100`; `tests/ha/test_control.py:74-81`, `:142-149`).
+- Primer arranque: number a 6000 W y switch ON, sin escribir nada (`adapters/inbound/runtime.py:109-110`; `tests/ha/test_control.py:74-81`, `:142-149`).
 - Restaurar no escribe: el inversor conserva lo que tenía (`adapters/inbound/entities/number.py:24-30`, `adapters/inbound/entities/switch.py:23-28`; `tests/ha/test_control.py:115-121`, `:200-213`). Un valor restaurado fuera del rango se ignora (`adapters/inbound/entities/number.py:29`).
 - Sobrevive a recargar la entry y no vuelve a escribir (`tests/ha/test_control.py:216-228`).
 - El switch lleva `assumed_state` (`adapters/inbound/entities/switch.py:17-18`).

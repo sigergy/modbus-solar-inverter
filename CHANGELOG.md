@@ -19,7 +19,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   vatímetro externo y sin él eran falsas. Una instalación anterior queda en «Consumos en Grid» y conserva su
   historial.
 - El vatímetro elegido en la medición de red sale marcado en «Componentes» y no se puede desmarcar.
-
+- Aviso: una instalación anterior sin «Red» en «Componentes» recupera el dispositivo Red, porque «Consumos en Grid»
+  lo necesita. Si desmarcaste Red, reconfigura y elige «Consumos en Cargas Críticas».
 - STORAGE 1Play TL M: el switch y el límite de vertido a red ya no se crean. Sin batería el inversor ignora el
   comando (CMD 26). El código sigue en el perfil, desactivado con `EXPORT_CONTROL_ENABLED = False`. Las entidades
   de una instalación anterior quedan sin uso: se borran al quitar y volver a añadir el equipo.

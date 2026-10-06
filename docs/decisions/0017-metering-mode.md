@@ -5,7 +5,7 @@ date: 2026-10-06
 
 # 0017 — Modo de medición de red elegido a mano
 
-Amplía [0009](0009-computed-energy.md) y [0015](0015-device-per-component.md).
+Amplía [0009](0009-computed-energy.md), [0015](0015-device-per-component.md) y [0016](0016-instant-tier.md).
 
 ## Contexto
 
@@ -17,12 +17,12 @@ En el STORAGE 1Play TL M el intercambio con la red lo mide un vatímetro u otro 
 
 Hasta ahora las energías de red integraban siempre 30072. En una instalación sin vatímetro externo eran falsas.
 
-Ningún registro dice qué vatímetro usa el equipo. CMD 18 «Self-Consumption Activation», opción 2 «Self-Consumption mode to CG Wattmeter», es un comando de escritura (`AAA0030IMB03_N`, pág. 6); el mapa de lectura no lo trae (`ABH2010IMB08`).
+Ningún registro dice qué vatímetro usa el equipo. CMD 18 «Self-Consumption Activation», opción 2 «Self-Consumption mode to CG Wattmeter», es un comando de escritura (`AAA0030IMB03_N`, pág. 6); en esa misma página la fila de CMD 18 está marcada «n/a» para el 1PLAY SUN STORAGE TL M. El mapa de lectura no lo trae (`ABH2010IMB08`).
 
 ## Decisión
 
 - El perfil declara modos de medición, `metering_modes` (`custom_components/modbus_solar/domain/profile.py:67-68`). Cada modo es un `MeteringModeSpec` con la potencia leída que hace de fuente, el componente de sus entidades y sus flujos (`custom_components/modbus_solar/domain/metering.py:9-25`).
-- Un solo desplegable, «Medición de red». El modo decide a la vez la fuente, las entidades y el dispositivo (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:448-466`):
+- Un solo desplegable, «Medición de red». El modo decide a la vez la fuente, las entidades y el dispositivo (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:448-467`):
 
 | Modo | Fuente | Entidades | Dispositivo |
 |---|---|---|---|
@@ -39,8 +39,8 @@ Ningún registro dice qué vatímetro usa el equipo. CMD 18 «Self-Consumption A
 
 - Las energías de red conservan clave, `unique_id` e historial entre «Consumos en Grid» y «Consumos en Cargas Críticas»: cambian de fuente y de dispositivo.
 - Pasar a «Aislada» borra las entidades de red con su historial; salir de «Aislada» borra las del generador y el dispositivo Generador (`custom_components/modbus_solar/__init__.py:28-64`).
-- Una entry existente se comporta como antes, más las dos potencias de red nuevas.
-- Con «Consumos en Cargas Críticas» o «Aislada» las energías de red siguen al tier `fast` de 30052, no al `instant` de 30072.
+- Una entry existente toma «Consumos en Grid», que fuerza la Red (`custom_components/modbus_solar/application/selection.py:42-44`). Con Red elegida se comporta como antes, más las dos potencias de red nuevas. Sin Red elegida, recupera el dispositivo Red con sus entidades; para quitarlo hay que reconfigurar y elegir «Consumos en Cargas Críticas».
+- Con «Consumos en Cargas Críticas» o «Aislada» las energías de red siguen al tier `fast` de 30052, no al `instant` de 30072 que fija [0016](0016-instant-tier.md).
 - Un modo mal elegido da cifras falsas sin aviso: la integración no puede comprobarlo.
 - Los signos de 30072 y 30052 son supuestos, > 0 = entra potencia por las bornas de red. Se verifican en la VM.
 - Un perfil sin modos no cambia: no hay paso de medición.

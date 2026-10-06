@@ -1451,4 +1451,6 @@ Skill `project-docs`, modo sync. Sin tests nuevos.
 - **Tarea 5.** `filter_power` devolvía `-0.0`, que HA mostraría como «-0.0» en la potencia exportada con `grid_power = 0`. Devuelve `0.0` literal, con un test con `math.copysign`. Efecto: `filter_power(NaN)` da `0.0`.
 - **Tarea 6.** `test_off_grid_mode_creates_generator` comprueba también el dispositivo y el valor del generador.
 - **Tarea 7.** `test_reconfigure_three_steps` espera `["battery", "grid"]` por defecto antes de la Tarea 8: el arreglo interino ya fuerza la Red.
+- **Revisión final.** Una entry STORAGE sin `metering` y sin Red elegida recupera el dispositivo Red: `grid_loads` fuerza `Component.GRID` (`application/selection.py:42-44`). Se documenta en CHANGELOG, ADR 0017 y spec §8, con `test_entry_without_mode_and_grid_regains_grid_device`.
+- **Revisión final.** Un cambio de modo que borra el dispositivo Red o Vatímetro interno conserva las energías de red: `test_mode_switch_removing_device_keeps_energies` pasa en CI sin tocar `__init__.py`.
 - **Workspace.** El seguimiento de subagentes va fuera del repo: las reglas del equipo prohíben `.superpowers/` en repos.

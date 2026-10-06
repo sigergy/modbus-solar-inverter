@@ -83,7 +83,7 @@ Rutas completas bajo `custom_components/modbus_solar/` (`adapters/inbound/` para
 
 Las escrituras no pasan por el coordinator: el number y el switch llaman al caso de uso, que escribe primero y cambia el estado después. Si la escritura falla, el estado no cambia (`custom_components/modbus_solar/application/control.py:12-15`). Detalle: [features/control](../features/control.md).
 
-- El primer refresh de cada coordinator se lanza en segundo plano: un equipo caído no retrasa el arranque de HA ni bloquea la entry (`custom_components/modbus_solar/__init__.py:83-85`).
+- El primer refresh de cada coordinator se lanza en segundo plano: un equipo caído no retrasa el arranque de HA ni bloquea la entry (`custom_components/modbus_solar/__init__.py:84-86`).
 - `always_update` va por tier. Por defecto es `False` y HA solo escribe estado si cambia el `TierResult` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:33`, `:41-43`). Los tiers con fuentes de energía usan `True` para que la integral avance con potencia constante (`custom_components/modbus_solar/adapters/inbound/runtime.py:83-84`, `:95`).
 - Las claves habilitadas se leen del entity registry en el setup (`custom_components/modbus_solar/__init__.py:79`, `custom_components/modbus_solar/adapters/inbound/runtime.py:51-67`). Una energía habilitada añade sus `sources` aunque su sensor de potencia esté deshabilitado (`custom_components/modbus_solar/adapters/inbound/runtime.py:58-61`). Habilitar o deshabilitar una entidad recarga la entry y con ella las claves (`docs/changes/2026-10-04-skeleton/spec.md:323-325`).
 
