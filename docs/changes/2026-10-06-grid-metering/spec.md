@@ -31,7 +31,7 @@ vatímetro u otro (`ABH2014IQM01`, apdo. 19.8, pág. 60):
   críticas. Las bornas de red del inversor son el único punto de conexión, y el vatímetro interno (30052) mide el
   intercambio.
 - **Aislada.** Se usa el vatímetro interno y todas las cargas van en cargas críticas. Las bornas de red pueden
-  llevar un grupo electrógeno: el manual llama a esa entrada «grid/genset» (apdo. 10.3).
+  llevar un grupo electrógeno: el manual llama a esa entrada «grid/genset» (apdo. 11, pág. 32).
 
 Hoy la integración solo lee la red del vatímetro externo (`profiles/ingeteam/oneplay_storage.py:261`, `:271-273`).
 Las energías importada y exportada integran siempre 30072 (`profiles/ingeteam/oneplay_storage.py:411-424`). En
@@ -63,7 +63,7 @@ una instalación sin vatímetro externo esas energías son falsas.
 | Las energías de red cuelgan de `Component.GRID` e integran `grid_power` | `profiles/ingeteam/oneplay_storage.py:411-424` |
 | Signo supuesto de 30072: > 0 importa | `docs/changes/2026-10-04-storage-profile/spec.md` §3.5 |
 | El signo de 30052 no está documentado ni supuesto | `ABH2010IMB08` |
-| No hay registro que diga qué vatímetro usa el equipo. CMD 18 «Self-Consumption to CG Wattmeter» es de escritura | `ABH2010IMB08`; `AAA0030IMB03_N` |
+| No hay registro que diga qué vatímetro usa el equipo. CMD 18 «Self-Consumption Activation», opción 2 «Self-Consumption mode to CG Wattmeter», es un comando de escritura | `ABH2010IMB08`; `AAA0030IMB03_N`, pág. 6 |
 | Una energía solo admite como fuentes sensores de potencia leídos, del mismo tier | `domain/validate.py:80-96` |
 | `select` filtra por componente; el principal va siempre | `application/selection.py:230-243` |
 | Desmarcar un componente borra sus entidades y su dispositivo | `__init__.py:28-53` |

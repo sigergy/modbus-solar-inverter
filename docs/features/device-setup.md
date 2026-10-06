@@ -43,7 +43,7 @@ Al enviar, el flow abre una unit temporal (`config_flow.py:20-33`) y llama a `pr
 2. Lee los tiers `fast` e `instant`, limitados a las entidades habilitadas por defecto (`application/probe.py:24-26`).
 3. Si el perfil declara `serial`, lo lee como texto ASCII (`application/probe.py:35-43`, `domain/decode.py:39-44`). Su fallo no invalida la sonda: el número de serie queda en `None`.
 
-Todo dentro de un tiempo máximo de `PROBE_TIMEOUT_S = 20` s (`adapters/inbound/flow.py:62`, `:862-865`). Si falla, no se crea la entry y el formulario vuelve con lo que escribió el usuario.
+Todo dentro de un tiempo máximo de `PROBE_TIMEOUT_S = 20` s (`adapters/inbound/flow.py:62`, `:864-867`). Si falla, no se crea la entry y el formulario vuelve con lo que escribió el usuario.
 
 Ningún perfil declara hoy `serial`: los mapas de Ingeteam no documentan el registro. El mecanismo está listo para el perfil que lo declare.
 
@@ -51,9 +51,9 @@ Ningún perfil declara hoy `serial`: los mapas de Ingeteam no documentan el regi
 
 | Error | Cuándo | Origen |
 |---|---|---|
-| `cannot_connect` | el equipo no responde o la sonda supera 20 s | `DeviceUnavailable` o `TimeoutError` (`adapters/inbound/flow.py:391-392`) |
-| `endpoint_in_use` | el endpoint ya está en uso con otros parámetros de enlace | `HomeAssistantError` de `async_get_temporary_unit`, traducido a `EndpointInUse` (`config_flow.py:30-32`, `adapters/inbound/flow.py:389-390`) |
-| `invalid_response` | excepción Modbus o valor fuera del enum | `DeviceProtocolError` o `DecodeError` (`adapters/inbound/flow.py:393-394`, `domain/decode.py:28-29`) |
+| `cannot_connect` | el equipo no responde o la sonda supera 20 s | `DeviceUnavailable` o `TimeoutError` (`adapters/inbound/flow.py:394-395`) |
+| `endpoint_in_use` | el endpoint ya está en uso con otros parámetros de enlace | `HomeAssistantError` de `async_get_temporary_unit`, traducido a `EndpointInUse` (`config_flow.py:30-32`, `adapters/inbound/flow.py:392-393`) |
+| `invalid_response` | excepción Modbus o valor fuera del enum | `DeviceProtocolError` o `DecodeError` (`adapters/inbound/flow.py:396-397`, `domain/decode.py:30-31`) |
 
 ### Paso 4 · medición de red (`metering`)
 
@@ -69,7 +69,7 @@ Dice qué vatímetro mide el intercambio con la red. No hay registro que lo diga
 | `critical_loads` | Consumos en Cargas Críticas | todos los consumos en la salida de cargas críticas | interno (30052) | las mismas cuatro | Vatímetro interno |
 | `off_grid` | Aislada | sin red; las bornas de red pueden llevar un grupo electrógeno | interno (30052) | Potencia del generador, Energía del generador | Generador |
 
-Casos de instalación: `ABH2014IQM01`, apdo. 19.8, pág. 60; entrada «grid/genset» de las bornas de red: apdo. 10.3. Qué miden esas entidades: [monitoring](monitoring.md#medición-de-red).
+Casos de instalación: `ABH2014IQM01`, apdo. 19.8, pág. 60; entrada «grid/genset» de las bornas de red: apdo. 11, pág. 32. Qué miden esas entidades: [monitoring](monitoring.md#medición-de-red).
 
 ### Paso 5 · componentes (`components`)
 
@@ -128,13 +128,13 @@ Una entry sin `metering` toma el primer modo del perfil, «Consumos en Grid»: l
 
 ## Reconfigure
 
-Hasta cinco pasos (`adapters/inbound/flow.py:675-860`).
+Hasta cinco pasos (`adapters/inbound/flow.py:675-862`).
 
 1. **`reconfigure` · conexión.** Cambia `host`, `port`, `unit_id`, `device_id` y `serial_number`. Prueba la conexión con la misma sonda del alta; si falla, no sigue ni guarda (`adapters/inbound/flow.py:675-715`). Recalcula el `unique_id` con el endpoint nuevo; si choca con otra entry del dominio, aborta con `already_configured` (`adapters/inbound/flow.py:685-687`). `device_id_in_use` e `invalid_serial_number` como en el alta.
 2. **`reconfigure_metering`.** El mismo desplegable del alta, solo si el perfil declara modos. Por defecto, el modo guardado; sin él, el primero (`adapters/inbound/flow.py:707-708`, `:762-772`). La descripción avisa: entre «Consumos en Grid» y «Consumos en Cargas Críticas», las potencias y energías de red cambian de dispositivo y conservan su historial; al pasar a «Aislada» se borran con su historial; al salir de «Aislada» se borran las del generador.
 3. **`reconfigure_components`.** Marca o desmarca los componentes. Sin la clave guardada (entry antigua) salen todos marcados (`adapters/inbound/flow.py:774-788`). Misma regla de componente forzado que el alta.
 4. **`reconfigure_intervals`.** Igual que `intervals` del alta, con los valores guardados por defecto. Guarda también `metering` (`adapters/inbound/flow.py:790-833`, `:808-810`).
-5. **`reconfigure_rename`.** Solo si cambia el Device ID. Muestra cuántas entidades se renombran, cuántas se mantienen y cuántas chocan; al confirmar renombra los `entity_id` que empiezan por el prefijo del ID viejo y guarda (`adapters/inbound/flow.py:249-303`, `:835-860`). Las que no siguen el patrón generado (por ejemplo, las que el usuario personalizó) se mantienen; si la entry no tenía ID, el ID viejo se muestra como «sin ID»; las que chocarían con un `entity_id` existente no se renombran.
+5. **`reconfigure_rename`.** Solo si cambia el Device ID. Muestra cuántas entidades se renombran, cuántas se mantienen y cuántas chocan; al confirmar renombra los `entity_id` que empiezan por el prefijo del ID viejo y guarda (`adapters/inbound/flow.py:249-303`, `:835-862`). Las que no siguen el patrón generado (por ejemplo, las que el usuario personalizó) se mantienen; si la entry no tenía ID, el ID viejo se muestra como «sin ID»; las que chocarían con un `entity_id` existente no se renombran.
 
 Al final guarda y recarga la entry con `async_update_reload_and_abort`: la recarga abre la conexión con el endpoint nuevo y aplica los componentes y el modo de medición.
 

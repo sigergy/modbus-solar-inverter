@@ -13,11 +13,11 @@ En el STORAGE 1Play TL M el intercambio con la red lo mide un vatímetro u otro 
 
 - con vatímetro externo en el punto de conexión, el externo (registro 30072);
 - sin vatímetro externo, con todas las cargas en la salida de cargas críticas, el interno (registro 30052);
-- en aislada, el interno, y las bornas de red pueden llevar un grupo electrógeno: la entrada «grid/genset» (apdo. 10.3).
+- en aislada, el interno, y las bornas de red pueden llevar un grupo electrógeno: la entrada «grid/genset» (apdo. 11, pág. 32).
 
 Hasta ahora las energías de red integraban siempre 30072. En una instalación sin vatímetro externo eran falsas.
 
-Ningún registro dice qué vatímetro usa el equipo. CMD 18 «Self-Consumption to CG Wattmeter» es de escritura (`AAA0030IMB03_N`); el mapa de lectura no lo trae (`ABH2010IMB08`).
+Ningún registro dice qué vatímetro usa el equipo. CMD 18 «Self-Consumption Activation», opción 2 «Self-Consumption mode to CG Wattmeter», es un comando de escritura (`AAA0030IMB03_N`, pág. 6); el mapa de lectura no lo trae (`ABH2010IMB08`).
 
 ## Decisión
 

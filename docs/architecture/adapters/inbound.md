@@ -6,7 +6,7 @@ Documento vivo. Todo lo que habla con Home Assistant. Rutas bajo `custom_compone
 
 La raíz inyecta `catalog` y `gateway_factory` (`custom_components/modbus_solar/config_flow.py:36-38`).
 
-### `DeviceConfigFlow` (`flow.py:305-865`)
+### `DeviceConfigFlow` (`flow.py:305-867`)
 
 Una config entry por equipo (ADR [0010](../../decisions/0010-entry-per-device.md)). `VERSION = 2` (`flow.py:308`). Detalle de pantallas y textos en [features/device-setup](../../features/device-setup.md).
 
@@ -16,7 +16,7 @@ Alta, en este orden:
 - Paso `model`: un perfil por opción; la opción es el id sin puntos, válido como `translation_key` (`flow.py:95-97`, `:335-358`). Al entrar olvida la sonda, los componentes y el modo de medición (`flow.py:341-344`).
 - Paso `connection`: `host` y una sección plegada `advanced` con `port` y `unit_id`, por defecto `profile.default_port` y `profile.default_unit_id` (`flow.py:399-458`).
   - El duplicado se detecta antes de abrir conexión y aborta con `already_configured` (`flow.py:408-409`).
-  - Valida con `_try_probe` (`flow.py:386-397`, `:410`): abre `gateway_factory` y llama a `probe_device`, todo dentro de `asyncio.timeout(PROBE_TIMEOUT_S)`, 20 s (`flow.py:62`, `:862-865`).
+  - Valida con `_try_probe` (`flow.py:386-397`, `:410`): abre `gateway_factory` y llama a `probe_device`, todo dentro de `asyncio.timeout(PROBE_TIMEOUT_S)`, 20 s (`flow.py:62`, `:864-867`).
   - Con error, vuelve el formulario con lo escrito y un selector de modelo para corregirlo; los puertos del modelo nuevo solo se aplican si no se tocaron. Cambiar de modelo olvida componentes y modo de medición (`_switch_profile`, `flow.py:360-376`, `:371-373`, `:427-429`).
   - Con modos de medición sigue a `metering`; si no, con componentes opcionales a `components`, y sin ellos a `readings` (`flow.py:416-421`).
 - Paso `metering`: desplegable `SelectSelector` con los modos del perfil y `translation_key = metering_mode`; por defecto, lo ya elegido o el primer modo (`flow.py:460-468`, `_show_metering` en `:470-483`). Sigue a `components` o a `readings` (`flow.py:463-467`). ADR [0017](../../decisions/0017-metering-mode.md).
@@ -44,13 +44,13 @@ Funciones auxiliares:
 - `intervals_schema` y `intervals_placeholders` construyen el formulario de intervalos: una sección plegada por tier, con el mínimo y la lista de entidades en la descripción (`flow.py:204-225`). Los comparten el alta y reconfigure por `_show_intervals` (`flow.py:610-636`).
 - `check_intervals(profile, tiers, user_input)` valida primero cada intervalo contra `min_tier_interval(profile, tier)` (`interval_too_short` en el campo del tier) y, solo sin errores, el presupuesto: si `request_rate` supera 1 petición por segundo, `interval_budget_exceeded` en `base` (`flow.py:228-239`, `:148`). ADR [0016](../../decisions/0016-instant-tier.md).
 
-Reconfigure, hasta cinco pasos (`flow.py:675-860`):
+Reconfigure, hasta cinco pasos (`flow.py:675-862`):
 
 - `reconfigure`: `host`, número de serie, Device ID y la sección `advanced` con `port` y `unit_id`. Recalcula el `unique_id`; si choca con otra entry, aborta con `already_configured` (`flow.py:681-687`). Valida Device ID y serie como el alta, con el propio Device ID excluido (`flow.py:688-696`), y abre la sonda (`flow.py:698`). Una entry sin Device ID lo deja opcional (`flow.py:755-760`). El serie escrito manda; si está vacío, el leído; si no hay ninguno, la clave desaparece (`flow.py:705-706`).
 - `reconfigure_metering`: solo con modos de medición; por defecto, el modo guardado o el primero (`flow.py:707-708`, `:762-772`). Su descripción avisa de qué entidades se mueven o se borran.
 - `reconfigure_components`: solo con componentes opcionales; parte de los guardados, o de todos si la entry no tiene la clave. Misma regla de vatímetro forzado que el alta (`flow.py:774-788`).
 - `reconfigure_intervals`: mismos campos y comprobaciones que el alta, con los intervalos guardados por defecto (`flow.py:790-833`). Guarda `components`, `intervals`, `metering` (`flow.py:808-810`), `device_id` y `serial_number` y recarga con `async_update_reload_and_abort` (`flow.py:802-822`). No hay update listener.
-- `reconfigure_rename`: solo si el Device ID cambia (`flow.py:817-820`). `plan_rename` calcula qué `entity_id` llevan el prefijo generado con el ID viejo; renombra los que no chocan con otra entidad y deja los demás (`flow.py:266-302`, `:835-860`).
+- `reconfigure_rename`: solo si el Device ID cambia (`flow.py:817-820`). `plan_rename` calcula qué `entity_id` llevan el prefijo generado con el ID viejo; renombra los que no chocan con otra entidad y deja los demás (`flow.py:266-302`, `:835-862`).
 
 `device_unique_id(host, port, unit_id)` devuelve `f"{host.lower()}:{port}:{unit_id}"` (`flow.py:65-66`).
 

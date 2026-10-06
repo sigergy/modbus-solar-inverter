@@ -113,7 +113,7 @@ El usuario elige en el alta qué vatímetro mide el intercambio con la red: ver 
 - Una fuente sin valor deja la potencia sin valor (`adapters/inbound/entities/derived.py:24-31`). Cada potencia se actualiza con el tier de su fuente (`adapters/inbound/entities/factory.py:50-53`).
 - La fuente se lee aunque su sensor esté deshabilitado, si la potencia calculada está activa (`adapters/inbound/runtime.py:62-66`).
 - Las energías de red conservan clave, `unique_id` y total entre «Consumos en Grid» y «Consumos en Cargas Críticas»: solo cambian de fuente y de dispositivo.
-- En «Aislada» las bornas de red pueden llevar un grupo electrógeno (`ABH2014IQM01`, apdo. 10.3): por eso las entidades son del generador y no de red.
+- En «Aislada» las bornas de red pueden llevar un grupo electrógeno (`ABH2014IQM01`, apdo. 11, pág. 32): por eso las entidades son del generador y no de red.
 
 **Signos supuestos.** El PDF no documenta el signo de 30072 ni de 30052. Se asume > 0 = entra potencia por las bornas de red (`profiles/ingeteam/oneplay_storage.py:446-447`). Pendiente en la VM: los dos signos, qué leen 30070-30072 sin vatímetro externo, y que 30052 da la potencia del grupo en aislada.
 
