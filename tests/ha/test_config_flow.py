@@ -348,12 +348,12 @@ async def test_components_step_then_readings_menu(hass: HomeAssistant, storage_t
     assert selector.config["translation_key"] == "component"
     assert field(result, "components").default() == ["pv", "battery", "grid", "critical_loads", "load"]
     assert result["description_placeholders"] == {"model": "STORAGE 1Play TL M", "main": "Inverter"}
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery"]})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["grid", "battery"]})
     assert result["type"] is FlowResultType.MENU
     assert result["menu_options"] == ["name", "model", "connection"]
     readings = result["description_placeholders"]["readings"]
     assert "**Inverter**" in readings and "**Battery**" in readings
-    assert "Solar array" not in readings and "**Grid**" not in readings
+    assert "Solar array" not in readings and "**Grid**" in readings
 
 
 async def test_profile_without_components_skips_step(hass: HomeAssistant, temp_unit: MagicMock) -> None:
@@ -397,13 +397,15 @@ async def test_storage_entry_saves_components_in_profile_order(
     hass: HomeAssistant, storage_temp_unit: MagicMock
 ) -> None:
     result = await to_components(hass)
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery", "pv"]})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"components": ["battery", "pv", "grid"]}
+    )
     result = await choose(hass, result, "name")
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "House", "device_id": 0})
-    # sin red no hay tier instant: el formulario no lo muestra
-    result = await create(hass, result, {k: v for k, v in STORAGE_INTERVALS.items() if k != "instant"})
+    # con red hay tier instant
+    result = await create(hass, result, STORAGE_INTERVALS)
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["components"] == ["pv", "battery"]
+    assert result["data"]["components"] == ["pv", "battery", "grid"]
 
 
 async def switch_model_after_error(
