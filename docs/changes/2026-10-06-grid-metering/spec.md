@@ -2,7 +2,7 @@
 type: feature
 area: energy
 layers: [domain, application, adapters]
-status: draft
+status: done
 date: 2026-10-06
 refs:
   - decisions/0002-python-profiles.md

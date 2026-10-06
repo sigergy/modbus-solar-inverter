@@ -4,7 +4,21 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Añadido
+
+- STORAGE 1Play TL M: nuevo paso «Medición de red» en el alta y en reconfigurar. Dice qué vatímetro mide la red:
+  «Consumos en Grid» (vatímetro externo, por defecto), «Consumos en Cargas Críticas» (vatímetro interno) o
+  «Aislada».
+- Sensores «Potencia de red» (lo que entra de la red) y «Potencia a la red» (lo que sale), en W.
+- Modo «Aislada»: dispositivo nuevo «Generador» con su potencia y su energía, para el grupo electrógeno en las
+  bornas de red.
+
 ### Cambiado
+
+- Las energías importada y exportada salen del vatímetro que diga la medición de red. Antes salían siempre del
+  vatímetro externo y sin él eran falsas. Una instalación anterior queda en «Consumos en Grid» y conserva su
+  historial.
+- El vatímetro elegido en la medición de red sale marcado en «Componentes» y no se puede desmarcar.
 
 - STORAGE 1Play TL M: el switch y el límite de vertido a red ya no se crean. Sin batería el inversor ignora el
   comando (CMD 26). El código sigue en el perfil, desactivado con `EXPORT_CONTROL_ENABLED = False`. Las entidades

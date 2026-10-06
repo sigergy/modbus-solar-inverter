@@ -35,15 +35,21 @@ Errores:
 
 ## `min_tier_interval` y `request_rate` (`poller.py:46-54`)
 
-`min_tier_interval(profile, tier) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(registros, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s` (`poller.py:49`): agrupa igual que el gateway. Cuenta todas las entidades del perfil en el tier, no solo las de la selección (`poller.py:48`). No lanza errores propios. Lo usa el flujo de intervalos para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:226-227`).
+`min_tier_interval(profile, tier) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(registros, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s` (`poller.py:49`): agrupa igual que el gateway. Cuenta todas las entidades del perfil en el tier, no solo las de la selección (`poller.py:48`). No lanza errores propios. Lo usa el flujo de intervalos para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:234-235`).
 
-`request_rate(profile, intervals) -> float`: peticiones por segundo que piden los tiers con esos intervalos, la suma de `min_tier_interval / intervalo` (`poller.py:52-54`). El equipo admite 1; el flujo rechaza lo que pase de ahí con `interval_budget_exceeded` (`custom_components/modbus_solar/adapters/inbound/flow.py:229-230`). ADR [0016](../decisions/0016-instant-tier.md).
+`request_rate(profile, intervals) -> float`: peticiones por segundo que piden los tiers con esos intervalos, la suma de `min_tier_interval / intervalo` (`poller.py:52-54`). El equipo admite 1; el flujo rechaza lo que pase de ahí con `interval_budget_exceeded` (`custom_components/modbus_solar/adapters/inbound/flow.py:237-238`). ADR [0016](../decisions/0016-instant-tier.md).
 
 ## `Selection` y `select` (`selection.py`)
 
-`Selection` (`selection.py:12-16`): `dataclass` inmutable con las `entities`, `energies` y `controls` de los componentes elegidos.
+`Selection` (`selection.py:13-18`): `dataclass` inmutable con las `entities`, `energies` y `controls` de los componentes elegidos, y las `powers` (`DerivedPowerSpec`) del modo de medición, vacías por defecto.
 
-`select(profile, components) -> Selection` (`selection.py:19-27`): filtra por `component`. El componente `main` siempre entra (`selection.py:22`). `components=None` equivale a todos los opcionales del perfil: así se tratan las entries anteriores a v2, que no guardan la clave (`selection.py:20-21`). La usan el flujo, `build_runtime`, la raíz y diagnostics.
+`metering_mode(profile, metering) -> MeteringModeSpec | None` (`selection.py:21-25`): el modo guardado. Con `None` (entry sin modo) o con una clave desconocida devuelve el primero. Devuelve `None` si el perfil no tiene modos.
+
+`required_component(profile, mode) -> Component` (`selection.py:28-30`): el componente del vatímetro del modo, que es el de su entidad fuente. El flujo lo fuerza en el paso de componentes.
+
+`chosen_components(profile, components, metering=None) -> set[Component]` (`selection.py:33-45`): los componentes elegidos más `main`. `components=None` equivale a todos los opcionales del perfil: así se tratan las entries anteriores a v2, que no guardan la clave (`selection.py:40`). Con modo de medición añade `required_component` y `mode.component` (`selection.py:42-44`).
+
+`select(profile, components, metering=None) -> Selection` (`selection.py:48-72`): filtra entidades, energías y controles por `chosen_components`. Por cada flujo del modo añade una potencia derivada y una energía, las dos con `source=mode.source`, el signo del flujo y `component=mode.component` (`selection.py:53-66`). La energía integra la fuente con el signo del flujo: da el mismo número que integrar la potencia derivada (`selection.py:60`). La usan el flujo, `build_runtime`, la raíz y diagnostics. ADR [0017](../decisions/0017-metering-mode.md).
 
 ## `set_limit` y `set_enabled` (`control.py`)
 
@@ -71,6 +77,6 @@ Errores:
 
 - `DeviceUnavailable` y `DeviceProtocolError` se propagan desde `gateway.read` en la lectura de `probe_key` y de los tiers (`probe.py:21`, `:25-26`). La del número de serie se captura (`probe.py:41-43`).
 - `DecodeError` se propaga si el valor de `probe_key` no es válido, por ejemplo fuera del `enum` (`probe.py:22-23`). En los tiers, como en `read_tier`, un `DecodeError` queda en `decode_errors` y el valor en `None`.
-- Si `probe_key` no existe en el perfil, el `next(...)` sin valor por defecto falla sin gestionar (`probe.py:20`). `validate_profile` lo detecta antes (`custom_components/modbus_solar/domain/validate.py:77-78`).
+- Si `probe_key` no existe en el perfil, el `next(...)` sin valor por defecto falla sin gestionar (`probe.py:20`). `validate_profile` lo detecta antes (`custom_components/modbus_solar/domain/validate.py:107-108`).
 
 El config flow traduce estos errores a claves de formulario (ver [inbound](adapters/inbound.md)).

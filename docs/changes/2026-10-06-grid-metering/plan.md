@@ -2,7 +2,7 @@
 type: feature
 area: energy
 layers: [domain, application, adapters, profiles]
-status: draft
+status: done
 date: 2026-10-06
 ---
 
@@ -1447,4 +1447,8 @@ Skill `project-docs`, modo sync. Sin tests nuevos.
 
 ## Desviaciones
 
-(vacío)
+- **Tarea 4.** Al añadir los modos al perfil, la Red queda forzada y fallaban `test_components_step_then_readings_menu` y `test_storage_entry_saves_components_in_profile_order`. Su adaptación, prevista en la Tarea 7, se adelantó a la Tarea 4 (commit `ebc764f`).
+- **Tarea 5.** `filter_power` devolvía `-0.0`, que HA mostraría como «-0.0» en la potencia exportada con `grid_power = 0`. Devuelve `0.0` literal, con un test con `math.copysign`. Efecto: `filter_power(NaN)` da `0.0`.
+- **Tarea 6.** `test_off_grid_mode_creates_generator` comprueba también el dispositivo y el valor del generador.
+- **Tarea 7.** `test_reconfigure_three_steps` espera `["battery", "grid"]` por defecto antes de la Tarea 8: el arreglo interino ya fuerza la Red.
+- **Workspace.** El seguimiento de subagentes va fuera del repo: las reglas del equipo prohíben `.superpowers/` en repos.

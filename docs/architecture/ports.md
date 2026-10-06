@@ -44,4 +44,4 @@ Contrato (`device.py:20`):
 - `probe_device` (`custom_components/modbus_solar/application/probe.py:19`).
 - `TierCoordinator` y `DeviceRuntime` lo guardan sin conocer la implementación (`custom_components/modbus_solar/adapters/inbound/coordinator.py:30`, `custom_components/modbus_solar/adapters/inbound/runtime.py:26`).
 - `DeviceWriter`: `set_limit` y `set_enabled` (`custom_components/modbus_solar/application/control.py:9-20`). `DeviceRuntime` lo guarda (`custom_components/modbus_solar/adapters/inbound/runtime.py:27`) y `ModbusSolarControl` lo toma de ahí (`custom_components/modbus_solar/adapters/inbound/entities/control.py:31`).
-- `DeviceConfigFlow` lo recibe a través de `gateway_factory` (`custom_components/modbus_solar/adapters/inbound/flow.py:49-52`, `:755-758`).
+- `DeviceConfigFlow` lo recibe a través de `gateway_factory` (`custom_components/modbus_solar/adapters/inbound/flow.py:50-53`, `:861-864`).
