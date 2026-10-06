@@ -80,6 +80,27 @@ def _command(code: int, data1: int) -> WriteSpec:
     return WriteSpec(address=1000, prefix=(code, data1))
 
 
+# Sin batería el inversor acepta el CMD 26 y lo ignora (AAA0030IMB03_N pág. 19: solo aplica con batería
+# «Lead-Acid» o «Ingeteam RS485 Protocol»). Probado en campo el 2026-10-06: tampoco limita el ajuste web.
+# El control queda desactivado: con False no se crean ni el switch ni el number del vertido.
+EXPORT_CONTROL_ENABLED = False
+
+EXPORT_CONTROL = GatedLimitSpec(
+    key="export_limit",
+    switch_key="export_enabled",
+    role=Role.EXPORT_LIMIT,
+    switch_role=Role.EXPORT_ENABLED,
+    # CMD 26 (0x1A) «Battery Control Values», dato 1 0x0A «Grid power» (AAA0030IMB03_N págs. 7, 19-20)
+    write=_command(0x1A, 0x0A),
+    min_value=0,
+    max_value=6000,
+    step=1,
+    unit="W",
+    default=6000,
+    device_class="power",
+)
+
+
 def _core(
     key: str,
     role: Role,
@@ -416,20 +437,5 @@ ONEPLAY_STORAGE = DeviceProfile(
             component=Component.BATTERY,
         ),
     ),
-    controls=(
-        GatedLimitSpec(
-            key="export_limit",
-            switch_key="export_enabled",
-            role=Role.EXPORT_LIMIT,
-            switch_role=Role.EXPORT_ENABLED,
-            # CMD 26 (0x1A) «Battery Control Values», dato 1 0x0A «Grid power» (AAA0030IMB03_N págs. 7, 19-20)
-            write=_command(0x1A, 0x0A),
-            min_value=0,
-            max_value=6000,
-            step=1,
-            unit="W",
-            default=6000,
-            device_class="power",
-        ),
-    ),
+    controls=(EXPORT_CONTROL,) if EXPORT_CONTROL_ENABLED else (),
 )

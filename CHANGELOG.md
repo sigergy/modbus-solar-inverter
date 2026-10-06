@@ -4,6 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Cambiado
+
+- STORAGE 1Play TL M: el switch y el límite de vertido a red ya no se crean. Sin batería el inversor ignora el
+  comando (CMD 26). El código sigue en el perfil, desactivado con `EXPORT_CONTROL_ENABLED = False`. Las entidades
+  de una instalación anterior quedan sin uso: se borran al quitar y volver a añadir el equipo.
+
 ## [0.1.0] - 2026-10-05
 
 Primera versión estable.
