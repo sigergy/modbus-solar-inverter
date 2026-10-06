@@ -176,12 +176,12 @@ async def test_leaving_off_grid_removes_generator(hass: HomeAssistant, patch_sto
 
 
 @pytest.mark.parametrize(
-    ("components", "before", "after"),
+    ("components", "before", "after", "gone"),
     [
         # sin Red elegida: critical_loads borra el dispositivo Red
-        (["internal_meter"], None, "critical_loads"),
+        (["internal_meter"], None, "critical_loads", "grid"),
         # sin Vatímetro interno elegido: grid_loads borra el dispositivo Vatímetro interno
-        (["grid"], "critical_loads", "grid_loads"),
+        (["grid"], "critical_loads", "grid_loads", "internal_meter"),
     ],
 )
 async def test_mode_switch_removing_device_keeps_energies(
@@ -192,6 +192,7 @@ async def test_mode_switch_removing_device_keeps_energies(
     components: list[str],
     before: str | None,
     after: str,
+    gone: str,
 ) -> None:
     # el vatímetro interno exporta 600 W y el externo 300 W: los dos modos acumulan energía
     storage_unit.input[51] = 0x10000 - 600
@@ -203,7 +204,10 @@ async def test_mode_switch_removing_device_keeps_energies(
     old = registry.async_get(entity_id)
     total = float(hass.states.get(entity_id).state)
     assert total > 0
+    assert has_device(hass, entry, gone)
     await switch_mode(hass, entry, after)
+    # el dispositivo del modo anterior se borra; sus energías siguen
+    assert not has_device(hass, entry, gone)
     # mismo registro (entity_id, id, created_at) y mismo total: conserva el historial
     assert registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_grid_export_energy") == entity_id
     new = registry.async_get(entity_id)
