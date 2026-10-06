@@ -75,10 +75,21 @@ def storage_temp_unit(storage_unit: MockModbusUnit) -> Generator[MagicMock]:
         yield mock
 
 
-async def to_components(hass: HomeAssistant) -> dict[str, Any]:
-    """Alta del STORAGE hasta el paso de componentes."""
+async def configure(hass: HomeAssistant, result: dict[str, Any], user_input: dict[str, Any]) -> dict[str, Any]:
+    return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
+
+
+async def to_metering(hass: HomeAssistant) -> dict[str, Any]:
+    """Alta del STORAGE hasta el paso de medición de red."""
     result = await start(hass, "ingeteam_oneplay_storage")
     result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION)
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "metering")
+    return result
+
+
+async def to_components(hass: HomeAssistant, metering: str = "grid_loads") -> dict[str, Any]:
+    """Alta del STORAGE hasta el paso de componentes."""
+    result = await configure(hass, await to_metering(hass), {"metering": metering})
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "components")
     return result
 
@@ -90,10 +101,6 @@ STORAGE_INTERVALS = {
     "normal": {"interval": 60},
     "slow": {"interval": 3600},
 }
-
-
-async def configure(hass: HomeAssistant, result: dict[str, Any], user_input: dict[str, Any]) -> dict[str, Any]:
-    return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
 
 
 async def create(
@@ -163,6 +170,8 @@ async def test_add_inverter(hass: HomeAssistant, temp_unit: MagicMock) -> None:
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "intervals")
     result = await create(hass, result)
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    # el 1Play no tiene modos de medición
+    assert "metering" not in result["data"]
     entry = result["result"]
     assert (entry.title, entry.unique_id, entry.version) == ("Roof", "inverter.lan:502:1", 2)
     assert dict(entry.data) == {
@@ -362,20 +371,15 @@ async def test_profile_without_components_skips_step(hass: HomeAssistant, temp_u
     assert result["menu_options"] == ["name", "model", "connection"]
 
 
-async def test_components_can_be_empty(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
-    result = await to_components(hass)
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": []})
-    assert result["type"] is FlowResultType.MENU
-    assert "**Battery**" not in result["description_placeholders"]["readings"]
-
-
 async def test_back_to_model_forgets_components(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
     result = await to_components(hass)
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery"]})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["grid", "battery"]})
     result = await choose(hass, result, "model")
     assert result["step_id"] == "model"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"profile": "ingeteam_oneplay_storage"})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION)
+    assert result["step_id"] == "metering"
+    result = await configure(hass, result, {"metering": "grid_loads"})
     assert result["step_id"] == "components"
     assert field(result, "components").default() == ["pv", "battery", "grid", "critical_loads", "load"]
 
@@ -384,13 +388,16 @@ async def test_back_to_connection_keeps_values_and_components(
     hass: HomeAssistant, storage_temp_unit: MagicMock
 ) -> None:
     result = await to_components(hass)
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["battery"]})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"components": ["grid", "battery"]})
     result = await choose(hass, result, "connection")
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "connection")
     assert field(result, "host").description == {"suggested_value": "192.168.1.50"}
     result = await hass.config_entries.flow.async_configure(result["flow_id"], CONNECTION)
+    assert result["step_id"] == "metering"
+    result = await configure(hass, result, {"metering": "grid_loads"})
     assert result["step_id"] == "components"
-    assert field(result, "components").default() == ["battery"]
+    # en el orden del perfil
+    assert field(result, "components").default() == ["battery", "grid"]
 
 
 async def test_storage_entry_saves_components_in_profile_order(
@@ -406,6 +413,69 @@ async def test_storage_entry_saves_components_in_profile_order(
     result = await create(hass, result, STORAGE_INTERVALS)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["components"] == ["pv", "battery", "grid"]
+    assert result["data"]["metering"] == "grid_loads"
+
+
+async def test_metering_step_dropdown(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_metering(hass)
+    selector = result["data_schema"].schema["metering"]
+    assert [o["value"] for o in selector.config["options"]] == ["grid_loads", "critical_loads", "off_grid"]
+    assert (selector.config["mode"], selector.config["translation_key"]) == ("dropdown", "metering_mode")
+    assert field(result, "metering").default() == "grid_loads"
+
+
+async def test_metering_mode_forces_its_meter(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    # el vatímetro interno sale marcado aunque el perfil lo tenga desmarcado
+    result = await to_components(hass, "critical_loads")
+    assert field(result, "components").default() == [
+        "pv",
+        "battery",
+        "grid",
+        "internal_meter",
+        "critical_loads",
+        "load",
+    ]
+    result = await configure(hass, result, {"components": ["battery"]})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "components")
+    assert result["errors"] == {"base": "metering_component_required"}
+    assert (
+        result["description_placeholders"].items()
+        >= {
+            "component": "Internal meter",
+            "mode": "Loads on Critical Loads",
+        }.items()
+    )
+    # el formulario conserva lo marcado
+    assert field(result, "components").default() == ["battery"]
+
+
+async def test_off_grid_entry_saves_mode(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_components(hass, "off_grid")
+    result = await configure(hass, result, {"components": ["battery", "internal_meter"]})
+    result = await choose(hass, result, "name")
+    result = await configure(hass, result, {"name": "Cabin", "device_id": 0})
+    # sin Red no hay tier instant
+    result = await create(hass, result, {k: v for k, v in STORAGE_INTERVALS.items() if k != "instant"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert (result["data"]["metering"], result["data"]["components"]) == ("off_grid", ["battery", "internal_meter"])
+
+
+async def test_off_grid_intervals_list_generator(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_components(hass, "off_grid")
+    result = await configure(hass, result, {"components": ["internal_meter"]})
+    result = await choose(hass, result, "name")
+    result = await configure(hass, result, {"name": "Cabin", "device_id": 0})
+    assert "- Generator · Generator power" in result["description_placeholders"]["fast_entities"]
+    assert "- Generator · Generator energy" in result["description_placeholders"]["fast_entities"]
+
+
+async def test_back_to_connection_keeps_metering(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_components(hass, "off_grid")
+    result = await configure(hass, result, {"components": ["internal_meter"]})
+    result = await choose(hass, result, "connection")
+    result = await configure(hass, result, CONNECTION)
+    assert result["step_id"] == "metering"
+    assert field(result, "metering").default() == "off_grid"
 
 
 async def switch_model_after_error(
@@ -468,12 +538,13 @@ async def test_intervals_step_storage_lists_entities_by_tier(hass: HomeAssistant
     assert interval_defaults(result) == {"instant": 5, "fast": 10, "normal": 60, "slow": 3600}
     placeholders = result["description_placeholders"]
     assert placeholders["instant_min"] == "1"
-    # spec 4.4: 3 leídas y 2 energías calculadas; sin controles en este tier
+    # spec 4.4: 3 leídas, 2 potencias y 2 energías calculadas; sin controles en este tier
     instant = placeholders["instant_entities"]
     lines = [line for line in instant.splitlines() if line.startswith("- ")]
     assert lines[:3] == ["- Grid · Voltage", "- Grid · Frequency", "- Grid · Power"]
-    assert len(lines) == 5
+    assert len(lines) == 7
     assert "Grid · Import energy" in instant
+    assert "Grid · Grid import power" in instant
     # las entidades desactivadas por defecto llevan la marca
     assert "(disabled)" in placeholders["fast_entities"]
 
@@ -531,7 +602,8 @@ async def test_reconfigure_three_steps(hass: HomeAssistant, storage_temp_unit: M
     entry = storage_entry()
     result = await reconfigure(hass, entry)
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_components")
-    assert field(result, "components").default() == ["battery"]
+    # la Red sale marcada: es el vatímetro del modo (entry sin modo = el primero)
+    assert field(result, "components").default() == ["battery", "grid"]
     result = await configure(hass, result, {"components": ["grid", "battery"]})
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_intervals")
     # lo guardado, completado con los valores por defecto

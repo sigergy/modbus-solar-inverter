@@ -106,6 +106,7 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "user",
         "model",
         "connection",
+        "metering",
         "components",
         "readings",
         "name",
@@ -124,9 +125,27 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "interval_budget_exceeded",
         "device_id_in_use",
         "invalid_serial_number",
+        "metering_component_required",
     }
     assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
     assert "config_subentries" not in strings
+
+
+def test_metering_step_and_modes_are_translated() -> None:
+    modes = {m.key for p in ALL_PROFILES for m in p.metering_modes}
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        data = load(name)
+        assert set(data["selector"]["metering_mode"]["options"]) == modes, name
+        step = data["config"]["step"]["metering"]
+        assert step["title"] and step["data"]["metering"] and "{model}" in step["description"], name
+        error = data["config"]["error"]["metering_component_required"]
+        assert "{component}" in error and "{mode}" in error, name
+    labels = {
+        "strings.json": ["Loads on Grid", "Loads on Critical Loads", "Off-grid"],
+        "translations/es.json": ["Consumos en Grid", "Consumos en Cargas Críticas", "Aislada"],
+    }
+    for name, expected in labels.items():
+        assert list(load(name)["selector"]["metering_mode"]["options"].values()) == expected, name
 
 
 def test_controls_and_write_error_are_translated() -> None:
