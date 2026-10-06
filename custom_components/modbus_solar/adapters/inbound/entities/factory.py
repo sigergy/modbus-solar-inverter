@@ -11,6 +11,7 @@ from ..coordinator import TierCoordinator
 from ..runtime import DeviceRuntime
 from .base import ModbusSolarEntity
 from .binary_sensor import ModbusSolarBinarySensor
+from .derived import ModbusSolarDerivedPowerSensor
 from .energy import ModbusSolarEnergySensor
 from .number import ModbusSolarNumber
 from .switch import ModbusSolarSwitch
@@ -46,6 +47,10 @@ def build_sensors(runtime: DeviceRuntime) -> list[SensorEntity]:
         # validate_profile garantiza que todas las fuentes van en el mismo tier
         coordinator = runtime.coordinators[by_key[energy.sources[0]].poll]
         sensors.append(ModbusSolarEnergySensor(coordinator, runtime, energy))
+    for power in runtime.selection.powers:
+        # la potencia derivada se actualiza con el coordinator de su fuente
+        coordinator = runtime.coordinators[by_key[power.source].poll]
+        sensors.append(ModbusSolarDerivedPowerSensor(coordinator, runtime, power))
     return sensors
 
 

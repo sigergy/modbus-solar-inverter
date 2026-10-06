@@ -5,11 +5,12 @@ from collections import Counter
 import pytest
 
 from custom_components.modbus_solar.application.poller import min_tier_interval
+from custom_components.modbus_solar.application.selection import select
 from custom_components.modbus_solar.domain.blocks import plan_blocks
 from custom_components.modbus_solar.domain.energy import SignFilter
 from custom_components.modbus_solar.domain.types import Component, DataType, PollTier, RegisterKind, Role
 from custom_components.modbus_solar.domain.validate import validate_profile
-from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import EXPORT_CONTROL, ONEPLAY_STORAGE
 
 PROFILE = ONEPLAY_STORAGE
 
@@ -179,15 +180,63 @@ def test_energies() -> None:
     # signos supuestos (spec §3.5): grid_power > 0 importa; battery_power > 0 descarga
     assert [(e.key, e.role, e.sources, e.sign, e.enabled_default) for e in ONEPLAY_STORAGE.energies] == [
         ("solar_energy", Role.ENERGY_SOLAR, ("pv1_power", "pv2_power"), SignFilter.POSITIVE, True),
-        ("grid_import_energy", Role.ENERGY_GRID_IMPORT, ("grid_power",), SignFilter.POSITIVE, True),
-        ("grid_export_energy", Role.ENERGY_GRID_EXPORT, ("grid_power",), SignFilter.NEGATIVE, True),
         ("battery_charge_energy", Role.ENERGY_BATTERY_CHARGE, ("battery_power",), SignFilter.NEGATIVE, True),
         ("battery_discharge_energy", Role.ENERGY_BATTERY_DISCHARGE, ("battery_power",), SignFilter.POSITIVE, True),
     ]
 
 
+def test_metering_modes() -> None:
+    # spec §4; signos supuestos: 30072 y 30052 > 0 = entra potencia por las bornas de red
+    grid = [
+        (
+            "grid_import_power",
+            Role.GRID_IMPORT_POWER,
+            "grid_import_energy",
+            Role.ENERGY_GRID_IMPORT,
+            SignFilter.POSITIVE,
+        ),
+        (
+            "grid_export_power",
+            Role.GRID_EXPORT_POWER,
+            "grid_export_energy",
+            Role.ENERGY_GRID_EXPORT,
+            SignFilter.NEGATIVE,
+        ),
+    ]
+    generator = [
+        ("generator_power", Role.GENERATOR_POWER, "generator_energy", Role.ENERGY_GENERATOR, SignFilter.POSITIVE)
+    ]
+    modes = [
+        (
+            m.key,
+            m.source,
+            m.component,
+            [(f.power_key, f.power_role, f.energy_key, f.energy_role, f.sign) for f in m.flows],
+        )
+        for m in PROFILE.metering_modes
+    ]
+    assert modes == [
+        ("grid_loads", "grid_power", Component.GRID, grid),
+        ("critical_loads", "internal_meter_power", Component.INTERNAL_METER, grid),
+        ("off_grid", "internal_meter_power", Component.GENERATOR, generator),
+    ]
+
+
+def test_default_mode_keeps_grid_energies_on_grid() -> None:
+    selection = select(PROFILE, None)
+    energies = {e.key: (e.sources, e.component) for e in selection.energies}
+    assert energies["grid_import_energy"] == (("grid_power",), Component.GRID)
+    assert energies["grid_export_energy"] == (("grid_power",), Component.GRID)
+    assert [p.key for p in selection.powers] == ["grid_import_power", "grid_export_power"]
+
+
+def test_export_control_disabled() -> None:
+    # sin batería el inversor ignora el CMD 26: el control no se crea hasta tener fuente que funcione
+    assert ONEPLAY_STORAGE.controls == ()
+
+
 def test_export_control() -> None:
-    (control,) = ONEPLAY_STORAGE.controls
+    control = EXPORT_CONTROL
     assert (control.key, control.switch_key) == ("export_limit", "export_enabled")
     assert (control.role, control.switch_role) == (Role.EXPORT_LIMIT, Role.EXPORT_ENABLED)
     # AAA0030IMB03_N págs. 4, 7 y 19-20: CMD 26 (0x1A), dato 1 0x0A «Grid power», desde la dirección 1000
@@ -210,10 +259,10 @@ def test_entities_per_component() -> None:
     counts.update(c.component for c in PROFILE.controls)  # cada control da número y switch: cuenta 2
     counts.update(c.component for c in PROFILE.controls)
     assert counts == {
-        Component.MAIN: 13,
+        Component.MAIN: 11,
         Component.PV: 8,
         Component.BATTERY: 25,
-        Component.GRID: 5,
+        Component.GRID: 3,
         Component.INTERNAL_METER: 4,
         Component.CRITICAL_LOADS: 4,
         Component.LOAD: 1,

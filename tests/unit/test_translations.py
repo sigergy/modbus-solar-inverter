@@ -8,6 +8,7 @@ from typing import Any
 from custom_components.modbus_solar.adapters.inbound.flow import profile_option
 from custom_components.modbus_solar.domain.types import Component, PollTier
 from custom_components.modbus_solar.profiles import ALL_PROFILES
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import EXPORT_CONTROL
 
 # hassfest translation_key_validator
 TRANSLATION_KEY = re.compile(r"^(?!.+[_-]{2})(?![_-])[a-z0-9-_]+(?<![_-])$")
@@ -45,6 +46,10 @@ def test_every_entity_and_enum_state_is_translated() -> None:
                 options.setdefault(spec.key, set()).update(spec.enum.values())
         for energy in profile.energies:
             assert "name" in entities["sensor"][energy.key], energy.key
+        for mode in profile.metering_modes:
+            for flow in mode.flows:
+                assert "name" in entities["sensor"][flow.power_key], flow.power_key
+                assert "name" in entities["sensor"][flow.energy_key], flow.energy_key
     # la clave es translation_key en todos los perfiles: state lleva la unión de sus opciones
     for key, values in options.items():
         assert set(entities["sensor"][key]["state"]) == values, key
@@ -74,6 +79,26 @@ def test_entity_short_names() -> None:
         assert got == names, name
 
 
+def test_metering_entity_names() -> None:
+    expected = {
+        "strings.json": {
+            "grid_import_power": "Grid import power",
+            "grid_export_power": "Grid export power",
+            "generator_power": "Generator power",
+            "generator_energy": "Generator energy",
+        },
+        "translations/es.json": {
+            "grid_import_power": "Potencia de red",
+            "grid_export_power": "Potencia a la red",
+            "generator_power": "Potencia del generador",
+            "generator_energy": "Energía del generador",
+        },
+    }
+    for name, names in expected.items():
+        sensors = load(name)["entity"]["sensor"]
+        assert {key: sensors[key]["name"] for key in names} == names, name
+
+
 def test_flow_steps_errors_and_aborts_are_translated() -> None:
     strings = load("strings.json")
     config = strings["config"]
@@ -81,11 +106,13 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "user",
         "model",
         "connection",
+        "metering",
         "components",
         "readings",
         "name",
         "intervals",
         "reconfigure",
+        "reconfigure_metering",
         "reconfigure_components",
         "reconfigure_intervals",
         "reconfigure_rename",
@@ -99,17 +126,36 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "interval_budget_exceeded",
         "device_id_in_use",
         "invalid_serial_number",
+        "metering_component_required",
     }
     assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
     assert "config_subentries" not in strings
 
 
+def test_metering_step_and_modes_are_translated() -> None:
+    modes = {m.key for p in ALL_PROFILES for m in p.metering_modes}
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        data = load(name)
+        assert set(data["selector"]["metering_mode"]["options"]) == modes, name
+        step = data["config"]["step"]["metering"]
+        assert step["title"] and step["data"]["metering"] and "{model}" in step["description"], name
+        error = data["config"]["error"]["metering_component_required"]
+        assert "{component}" in error and "{mode}" in error, name
+    labels = {
+        "strings.json": ["Loads on Grid", "Loads on Critical Loads", "Off-grid"],
+        "translations/es.json": ["Consumos en Grid", "Consumos en Cargas Críticas", "Aislada"],
+    }
+    for name, expected in labels.items():
+        assert list(load(name)["selector"]["metering_mode"]["options"].values()) == expected, name
+
+
 def test_controls_and_write_error_are_translated() -> None:
     strings = load("strings.json")
-    for profile in ALL_PROFILES:
-        for control in profile.controls:
-            assert "name" in strings["entity"]["number"][control.key], control.key
-            assert "name" in strings["entity"]["switch"][control.switch_key], control.switch_key
+    # los controles desactivados en su perfil también conservan su traducción
+    controls = {EXPORT_CONTROL, *(control for profile in ALL_PROFILES for control in profile.controls)}
+    for control in controls:
+        assert "name" in strings["entity"]["number"][control.key], control.key
+        assert "name" in strings["entity"]["switch"][control.switch_key], control.switch_key
     assert "{error}" in strings["exceptions"]["write_failed"]["message"]
 
 
@@ -233,3 +279,10 @@ def test_reconfigure_rename_step_texts() -> None:
         ("translations/es.json", "sin ID"),
     ):
         assert load(name)["selector"]["rename_old_id"]["options"]["none"] == text, name
+
+
+def test_reconfigure_metering_step_texts() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        step = load(name)["config"]["step"]["reconfigure_metering"]
+        assert step["title"] and step["data"]["metering"] and step["submit"], name
+        assert "{model}" in step["description"], name

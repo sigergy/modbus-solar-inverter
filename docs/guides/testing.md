@@ -35,7 +35,7 @@ Se usa en `tests/unit/test_poller.py`, `tests/unit/test_probe.py` y `tests/ha/te
 
 `tests/fakes.py:36-46`: `DeviceWriter` en memoria. Anota cada `(spec, valor)` en `writes` o lanza el `error` que se le pase. Se usa en `tests/unit/test_control_usecases.py`.
 
-Los tests de `tests/ha/test_control.py` no lo usan: ejercitan el `ModbusGateway` real contra `storage_unit` y recogen las escrituras con `on_write`, que el mock no guarda (fixture `writes`, `tests/ha/test_control.py:37-42`).
+Los tests de `tests/ha/test_control.py` no lo usan: ejercitan el `ModbusGateway` real contra `storage_unit` y recogen las escrituras con `on_write`, que el mock no guarda (fixture `writes`, `tests/ha/test_control.py:52-57`).
 
 ## Ciclo RED / GREEN
 

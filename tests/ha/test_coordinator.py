@@ -10,12 +10,13 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.modbus_solar.adapters.inbound.coordinator import TierCoordinator
 from custom_components.modbus_solar.adapters.inbound.runtime import build_runtime, enabled_keys
+from custom_components.modbus_solar.application.selection import select
 from custom_components.modbus_solar.const import DOMAIN
 from custom_components.modbus_solar.domain.control import GatedState
 from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable
 from custom_components.modbus_solar.domain.types import PollTier
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
-from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import EXPORT_CONTROL, ONEPLAY_STORAGE
 from tests.fakes import INGETEAM_WORDS, FakeGateway, FakeWriter
 from tests.ha.common import DEVICE_ID, device_entry
 
@@ -144,7 +145,9 @@ async def test_energy_sources_are_read_with_power_sensor_disabled(hass: HomeAssi
 async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> None:
     entry = device_entry()
     entry.add_to_hass(hass)
-    runtime = build_runtime(hass, entry, ONEPLAY_STORAGE, FakeGateway({}), FakeWriter(), set())
+    # el control del vertido está desactivado en el perfil: se añade para probar su estado
+    profile = replace(ONEPLAY_STORAGE, controls=(EXPORT_CONTROL,))
+    runtime = build_runtime(hass, entry, profile, FakeGateway({}), FakeWriter(), set())
     assert {tier: c.always_update for tier, c in runtime.coordinators.items()} == {
         PollTier.INSTANT: True,
         PollTier.FAST: True,
@@ -153,3 +156,15 @@ async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> N
     }
     # un estado por control, con el límite por defecto del perfil
     assert runtime.control_states == {"export_limit": GatedState(limit=6000)}
+
+
+async def test_enabled_derived_power_reads_its_source(hass: HomeAssistant) -> None:
+    entry = device_entry()
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    # sensor de red y energías desactivados: la potencia derivada activa sigue pidiendo grid_power
+    for key in ("grid_power", "grid_import_energy", "grid_export_energy"):
+        registry.async_get_or_create(
+            "sensor", DOMAIN, f"{DEVICE_ID}_{key}", config_entry=entry, disabled_by=er.RegistryEntryDisabler.USER
+        )
+    assert "grid_power" in enabled_keys(registry, DEVICE_ID, select(ONEPLAY_STORAGE, None))

@@ -52,11 +52,11 @@ Dos reglas más, sin contrato propio:
 
 ```
 async_setup_entry
-  └─ async_get_unit(hass, entry, ModbusTcpParams, unit_id)        __init__.py:60
-       └─ ModbusGateway(unit, profile)                             __init__.py:61
-            └─ select(profile, chosen)                             __init__.py:64, selection.py:19
-                 └─ _remove_unselected                             __init__.py:65
-                 └─ build_runtime → un TierCoordinator por tier    __init__.py:68, runtime.py:80-94
+  └─ async_get_unit(hass, entry, ModbusTcpParams, unit_id)        __init__.py:71
+       └─ ModbusGateway(unit, profile)                             __init__.py:72
+            └─ select(profile, requested, metering)                __init__.py:76, selection.py:48
+                 └─ _remove_unselected                             __init__.py:78
+                 └─ build_runtime → un TierCoordinator por tier    __init__.py:81, runtime.py:85-99
 
 TierCoordinator._async_update_data                                 coordinator.py:53
   └─ read_tier(tier, gateway, profile, keys)                       coordinator.py:55, poller.py:21
@@ -83,9 +83,9 @@ Rutas completas bajo `custom_components/modbus_solar/` (`adapters/inbound/` para
 
 Las escrituras no pasan por el coordinator: el number y el switch llaman al caso de uso, que escribe primero y cambia el estado después. Si la escritura falla, el estado no cambia (`custom_components/modbus_solar/application/control.py:12-15`). Detalle: [features/control](../features/control.md).
 
-- El primer refresh de cada coordinator se lanza en segundo plano: un equipo caído no retrasa el arranque de HA ni bloquea la entry (`custom_components/modbus_solar/__init__.py:71-73`).
-- `always_update` va por tier. Por defecto es `False` y HA solo escribe estado si cambia el `TierResult` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:33`, `:41-43`). Los tiers con fuentes de energía usan `True` para que la integral avance con potencia constante (`custom_components/modbus_solar/adapters/inbound/runtime.py:78-79`, `:90`).
-- Las claves habilitadas se leen del entity registry en el setup (`custom_components/modbus_solar/__init__.py:66`, `custom_components/modbus_solar/adapters/inbound/runtime.py:51-62`). Una energía habilitada añade sus `sources` aunque su sensor de potencia esté deshabilitado (`custom_components/modbus_solar/adapters/inbound/runtime.py:58-61`). Habilitar o deshabilitar una entidad recarga la entry y con ella las claves (`docs/changes/2026-10-04-skeleton/spec.md:323-325`).
+- El primer refresh de cada coordinator se lanza en segundo plano: un equipo caído no retrasa el arranque de HA ni bloquea la entry (`custom_components/modbus_solar/__init__.py:84-86`).
+- `always_update` va por tier. Por defecto es `False` y HA solo escribe estado si cambia el `TierResult` (`custom_components/modbus_solar/adapters/inbound/coordinator.py:33`, `:41-43`). Los tiers con fuentes de energía usan `True` para que la integral avance con potencia constante (`custom_components/modbus_solar/adapters/inbound/runtime.py:83-84`, `:95`).
+- Las claves habilitadas se leen del entity registry en el setup (`custom_components/modbus_solar/__init__.py:79`, `custom_components/modbus_solar/adapters/inbound/runtime.py:51-67`). Una energía habilitada añade sus `sources` aunque su sensor de potencia esté deshabilitado (`custom_components/modbus_solar/adapters/inbound/runtime.py:58-61`). Habilitar o deshabilitar una entidad recarga la entry y con ella las claves (`docs/changes/2026-10-04-skeleton/spec.md:323-325`).
 
 ## Composición
 
@@ -94,10 +94,10 @@ Solo `__init__.py` y `config_flow.py` conocen a la vez adaptadores de entrada, d
 `custom_components/modbus_solar/__init__.py`:
 
 - `CATALOG = Catalog(ALL_PROFILES)`: la raíz inyecta los perfiles al catálogo (`:24`).
-- `async_setup_entry` crea el `DeviceRuntime` del equipo de la entry (`:56-76`). Calcula la selección de componentes con `select`; una entry sin la clave `components` (anterior a v2) toma todos los opcionales (`:62-64`). Borra del registro lo que ya no está elegido (`:65`). Usa el mismo `ModbusGateway` como lector y escritor (`:67-68`), guarda el runtime en `entry.runtime_data` (`:69`), lanza los primeros refresh (`:71-73`) y reenvía las plataformas (`:75`). Sin update listener: el reconfigure recarga la entry.
-- `_remove_unselected` borra del registro de entidades y de dispositivos lo que pertenece a componentes que ya no están elegidos (`:28-53`). ADR [0015](../decisions/0015-device-per-component.md).
+- `async_setup_entry` crea el `DeviceRuntime` del equipo de la entry (`:67-89`). Calcula la selección de componentes y de medición de red con `select`; una entry sin la clave `components` (anterior a v2) toma todos los opcionales, y una sin `metering`, el primer modo del perfil (`:73-77`). Borra del registro lo que ya no se usa (`:78`). Usa el mismo `ModbusGateway` como lector y escritor (`:80-81`), guarda el runtime en `entry.runtime_data` (`:82`), lanza los primeros refresh (`:84-86`) y reenvía las plataformas (`:88`). Sin update listener: el reconfigure recarga la entry.
+- `_remove_unselected` borra del registro de entidades y de dispositivos lo que pertenece a componentes que ya no están elegidos, y las entidades y dispositivos de los modos de medición que no se usan (`:28-64`). ADR [0015](../decisions/0015-device-per-component.md) y [0017](../decisions/0017-metering-mode.md).
 - `PLATFORMS = [SENSOR, BINARY_SENSOR, NUMBER, SWITCH]` (`:25`).
-- `async_migrate_entry` deja las entries v1 en `MIGRATION_ERROR` con un mensaje en el log (`:83-91`). Las entries v2 anteriores al alta por componentes siguen cargando sin migración (`:91`).
+- `async_migrate_entry` deja las entries v1 en `MIGRATION_ERROR` con un mensaje en el log (`:96-104`). Las entries v2 anteriores al alta por componentes o sin medición de red siguen cargando sin migración (`:104`).
 - `sensor.py:10-13`, `binary_sensor.py:10-13`, `number.py:10-13`, `switch.py:10-13` y `diagnostics.py:12-19` son delegaciones finas a `adapters/inbound/`.
 
 `custom_components/modbus_solar/config_flow.py`:

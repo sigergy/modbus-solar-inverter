@@ -14,7 +14,7 @@ from .adapters.inbound.runtime import ModbusSolarConfigEntry, build_runtime, ena
 from .adapters.outbound.modbus_gateway import ModbusGateway
 from .application.catalog import Catalog
 from .application.selection import Selection, chosen_components, select
-from .const import CONF_COMPONENTS, CONF_PROFILE, CONF_UNIT_ID, DOMAIN
+from .const import CONF_COMPONENTS, CONF_METERING, CONF_PROFILE, CONF_UNIT_ID, DOMAIN
 from .domain.profile import DeviceProfile
 from .domain.types import Component
 from .profiles import ALL_PROFILES
@@ -32,10 +32,21 @@ def _remove_unselected(
     selection: Selection,
     chosen: set[Component],
 ) -> None:
-    """Borra del registro entidades y dispositivos de los componentes que ya no están elegidos."""
-    all_keys = {e.key for e in profile.entities} | {e.key for e in profile.energies} | {c.key for c in profile.controls}
+    """Borra del registro entidades y dispositivos de los componentes y modos de medición que ya no se usan."""
+    modes = profile.metering_modes
+    # las claves de todos los modos son de la integración aunque el modo actual no las use
+    flow_keys = {key for mode in modes for flow in mode.flows for key in (flow.power_key, flow.energy_key)}
+    all_keys = (
+        {e.key for e in profile.entities}
+        | {e.key for e in profile.energies}
+        | {c.key for c in profile.controls}
+        | flow_keys
+    )
     kept = (
-        {e.key for e in selection.entities} | {e.key for e in selection.energies} | {c.key for c in selection.controls}
+        {e.key for e in selection.entities}
+        | {e.key for e in selection.energies}
+        | {c.key for c in selection.controls}
+        | {p.key for p in selection.powers}
     )
     registry = er.async_get(hass)
     prefix = f"{entry.entry_id}_"
@@ -44,9 +55,9 @@ def _remove_unselected(
         if key in all_keys and key not in kept:
             registry.async_remove(entity.entity_id)
     devices = dr.async_get(hass)
-    gone = {
-        (DOMAIN, f"{entry.entry_id}_{spec.component}") for spec in profile.components if spec.component not in chosen
-    }
+    # componentes opcionales y dispositivos que solo crea un modo (Generador)
+    optional = {spec.component for spec in profile.components} | {mode.component for mode in modes}
+    gone = {(DOMAIN, f"{entry.entry_id}_{component}") for component in optional if component not in chosen}
     # async_get_device está deprecada: se filtran los dispositivos de la entry por identificador
     for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
         if device.identifiers & gone:
@@ -61,8 +72,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ModbusSolarConfigEntry) 
     gateway = ModbusGateway(unit, profile)
     components = data.get(CONF_COMPONENTS)  # None: entry anterior a v2, todos los opcionales
     requested = None if components is None else {Component(c) for c in components}
-    selection = select(profile, requested)
-    chosen = chosen_components(profile, requested)
+    metering = data.get(CONF_METERING)  # None: entry sin modo, el primero del perfil
+    selection = select(profile, requested, metering)
+    chosen = chosen_components(profile, requested, metering)
     _remove_unselected(hass, entry, profile, selection, chosen)
     keys = enabled_keys(er.async_get(hass), entry.entry_id, selection)
     # el mismo ModbusGateway lee y escribe: dos puertos, una implementación

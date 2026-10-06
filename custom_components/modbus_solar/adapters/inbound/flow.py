@@ -1,7 +1,7 @@
 """Config flow: una entry por inversor. Catálogo y gateway los inyecta config_flow.py."""
 
 import asyncio
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
@@ -29,12 +29,13 @@ from homeassistant.util import slugify
 from ...application.catalog import Catalog
 from ...application.poller import min_tier_interval, request_rate
 from ...application.probe import ProbeResult, probe_device
-from ...application.selection import Selection, select
+from ...application.selection import Selection, metering_mode, required_component, select
 from ...const import (
     BRAND_TITLES,
     CONF_COMPONENTS,
     CONF_DEVICE_ID,
     CONF_INTERVALS,
+    CONF_METERING,
     CONF_PROFILE,
     CONF_SERIAL_NUMBER,
     CONF_UNIT_ID,
@@ -153,9 +154,14 @@ def present_tiers(selection: Selection) -> list[PollTier]:
 
 
 def entity_list(profile: DeviceProfile, selection: Selection, tier: PollTier, translations: Mapping[str, str]) -> str:
-    """Entidades de un tier con su dispositivo: leídas, energías calculadas y controles (spec 4.4)."""
+    """Entidades de un tier con su dispositivo: leídas, potencias y energías calculadas y controles (spec 4.4)."""
     prefix = f"component.{DOMAIN}"
-    order = (Component.MAIN, *(c.component for c in profile.components))
+    # el dispositivo de un modo (Generador) va detrás de los opcionales
+    order = (
+        Component.MAIN,
+        *(c.component for c in profile.components),
+        *(m.component for m in profile.metering_modes),
+    )
     poll_of = {e.key: e.poll for e in profile.entities}
     disabled = translations.get(f"{prefix}.selector.entity_list.options.disabled", "disabled")
     calculated = translations.get(f"{prefix}.selector.entity_list.options.calculated", "calculated")
@@ -168,6 +174,7 @@ def entity_list(profile: DeviceProfile, selection: Selection, tier: PollTier, tr
 
     # agrupadas por componente; dentro de cada uno, el orden del perfil
     read = sorted((e for e in selection.entities if e.poll is tier), key=lambda e: order.index(e.component))
+    powers = sorted((p for p in selection.powers if poll_of[p.source] is tier), key=lambda p: order.index(p.component))
     energies = sorted(
         (e for e in selection.energies if poll_of[e.sources[0]] is tier), key=lambda e: order.index(e.component)
     )
@@ -176,8 +183,9 @@ def entity_list(profile: DeviceProfile, selection: Selection, tier: PollTier, tr
         (c for c in selection.controls if poll_of[profile.probe_key] is tier), key=lambda c: order.index(c.component)
     )
     parts = ["\n".join(line(e.component, e.platform.value, e.key, e.enabled_default) for e in read)]
-    if energies:
-        lines = [line(e.component, "sensor", e.key, e.enabled_default) for e in energies]
+    if powers or energies:
+        lines = [line(p.component, "sensor", p.key, p.enabled_default) for p in powers]
+        lines += [line(e.component, "sensor", e.key, e.enabled_default) for e in energies]
         parts.append("\n".join([calculated, *lines]))
     if controls:
         # cada control son dos entidades: el number y su switch
@@ -229,6 +237,12 @@ def check_intervals(
     if not errors and rate > MAX_REQUEST_RATE:
         errors["base"] = "interval_budget_exceeded"
     return intervals, errors, rate
+
+
+def missing_meter(profile: DeviceProfile, metering: str | None, chosen: Collection[str]) -> bool:
+    """El vatímetro del modo no está entre los componentes marcados."""
+    mode = metering_mode(profile, metering)
+    return mode is not None and required_component(profile, mode).value not in chosen
 
 
 @dataclass
@@ -301,6 +315,8 @@ class DeviceConfigFlow(ConfigFlow):
     _probe: ProbeResult | None = None
     # None = aún sin elegir: el paso muestra los valores por defecto del perfil
     _components: list[Component] | None = None
+    # modo de medición elegido; None = aún sin elegir (el primero del perfil)
+    _metering: str | None = None
     # nombre, Device ID y número de serie ya resueltos; los usa el último paso
     _title: str = ""
     _device_id: int | None = None
@@ -325,6 +341,7 @@ class DeviceConfigFlow(ConfigFlow):
         # al volver aquí desde las lecturas se olvidan las lecturas y los componentes
         self._probe = None
         self._components = None
+        self._metering = None
         return self.async_show_form(
             step_id="model",
             data_schema=vol.Schema({vol.Required(CONF_PROFILE): self._profile_selector()}),
@@ -351,8 +368,9 @@ class DeviceConfigFlow(ConfigFlow):
         advanced = user_input[CONF_ADVANCED]
         untouched = (advanced[CONF_PORT], advanced[CONF_UNIT_ID]) == (old.default_port, old.default_unit_id)
         self._profile = new
-        # los componentes elegidos eran de otro modelo
+        # los componentes y el modo elegidos eran de otro modelo
         self._components = None
+        self._metering = None
         if untouched:
             return {**user_input, CONF_ADVANCED: {CONF_PORT: new.default_port, CONF_UNIT_ID: new.default_unit_id}}
         return user_input
@@ -395,6 +413,8 @@ class DeviceConfigFlow(ConfigFlow):
             else:
                 self._connection = {CONF_HOST: host, CONF_PORT: port, CONF_UNIT_ID: unit_id}
                 self._probe = result
+                if profile.metering_modes:
+                    return await self.async_step_metering()
                 if profile.components:
                     return await self.async_step_components()
                 self._components = []
@@ -437,10 +457,39 @@ class DeviceConfigFlow(ConfigFlow):
             description_placeholders=placeholders,
         )
 
+    async def async_step_metering(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        profile = self._profile
+        if user_input is not None:
+            self._metering = user_input[CONF_METERING]
+            if profile.components:
+                return await self.async_step_components()
+            self._components = []
+            return await self.async_step_readings()
+        return self._show_metering("metering", profile, self._metering)
+
+    def _show_metering(self, step_id: str, profile: DeviceProfile, default: str | None) -> ConfigFlowResult:
+        """Desplegable de modos de medición. Lo comparten el alta y reconfigure."""
+        mode = metering_mode(profile, default)
+        if mode is None:
+            raise RuntimeError(f"{step_id} step without metering modes")
+        options = [SelectOptionDict(value=m.key, label=m.key) for m in profile.metering_modes]
+        selector = SelectSelector(
+            SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN, translation_key="metering_mode")
+        )
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=vol.Schema({vol.Required(CONF_METERING, default=mode.key): selector}),
+            description_placeholders={"model": profile.models[0]},
+        )
+
     async def async_step_components(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         profile = self._profile
         if user_input is not None:
             chosen = set(user_input[CONF_COMPONENTS])
+            if missing_meter(profile, self._metering, chosen):
+                return await self._show_components(
+                    "components", profile, list(user_input[CONF_COMPONENTS]), self._metering, missing=True
+                )
             # en el orden del perfil
             self._components = [c.component for c in profile.components if c.component.value in chosen]
             return await self.async_step_readings()
@@ -448,9 +497,24 @@ class DeviceConfigFlow(ConfigFlow):
             default = [c.component.value for c in profile.components if c.default]
         else:
             default = [c.value for c in self._components]
-        return await self._show_components("components", profile, default)
+        return await self._show_components("components", profile, default, self._metering)
 
-    async def _show_components(self, step_id: str, profile: DeviceProfile, default: list[str]) -> ConfigFlowResult:
+    async def _show_components(
+        self,
+        step_id: str,
+        profile: DeviceProfile,
+        default: list[str],
+        metering: str | None,
+        *,
+        missing: bool = False,
+    ) -> ConfigFlowResult:
+        """Selector de componentes. Lo comparten el alta y reconfigure."""
+        mode = metering_mode(profile, metering)
+        wanted = set(default)
+        if mode is not None and not missing:
+            # el vatímetro del modo sale marcado aunque el perfil lo tenga desmarcado
+            wanted.add(required_component(profile, mode).value)
+        default = [c.component.value for c in profile.components if c.component.value in wanted]
         options = [SelectOptionDict(value=c.component.value, label=c.component.value) for c in profile.components]
         selector = SelectSelector(
             SelectSelectorConfig(
@@ -459,17 +523,26 @@ class DeviceConfigFlow(ConfigFlow):
         )
         translations = await self._translations()
         main = translations.get(f"component.{DOMAIN}.device.{profile.device_type}.name", profile.device_type)
+        placeholders = {"model": profile.models[0], "main": main}
+        errors: dict[str, str] = {}
+        if missing and mode is not None:
+            meter = required_component(profile, mode).value
+            prefix = f"component.{DOMAIN}"
+            errors["base"] = "metering_component_required"
+            placeholders["component"] = translations.get(f"{prefix}.device.{meter}.name", meter)
+            placeholders["mode"] = translations.get(f"{prefix}.selector.metering_mode.options.{mode.key}", mode.key)
         return self.async_show_form(
             step_id=step_id,
             data_schema=vol.Schema({vol.Required(CONF_COMPONENTS, default=default): selector}),
-            description_placeholders={"model": profile.models[0], "main": main},
+            errors=errors,
+            description_placeholders=placeholders,
         )
 
     async def async_step_readings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         probe, connection = self._probe, self._connection
         if probe is None or connection is None:
             raise RuntimeError("readings step without a successful probe")
-        selection = select(self._profile, self._components or [])
+        selection = select(self._profile, self._components or [], self._metering)
         readings = format_readings(
             self._profile, selection, probe, await self._translations(), self.hass.config.language
         )
@@ -539,13 +612,14 @@ class DeviceConfigFlow(ConfigFlow):
         step_id: str,
         profile: DeviceProfile,
         components: list[Component],
+        metering: str | None,
         defaults: Mapping[str, int],
         errors: dict[str, str],
         rate: float | None,
         typed: Mapping[str, Any] | None,
     ) -> ConfigFlowResult:
         """Formulario de intervalos: un campo por tier con entidades. Lo comparten el alta y reconfigure."""
-        selection = select(profile, components)
+        selection = select(profile, components, metering)
         tiers = present_tiers(selection)
         translations = await self._translations()
         placeholders = intervals_placeholders(profile, selection, tiers, translations)
@@ -569,7 +643,7 @@ class DeviceConfigFlow(ConfigFlow):
         errors: dict[str, str] = {}
         rate: float | None = None
         if user_input is not None:
-            tiers = present_tiers(select(profile, components))
+            tiers = present_tiers(select(profile, components, self._metering))
             shown, errors, rate = check_intervals(profile, tiers, user_input)
             if not errors:
                 data: dict[str, Any] = {
@@ -579,13 +653,23 @@ class DeviceConfigFlow(ConfigFlow):
                     # los tiers sin entidades no se muestran y conservan el valor por defecto
                     CONF_INTERVALS: {**DEFAULT_INTERVALS, **shown},
                 }
+                mode = metering_mode(profile, self._metering)
+                if mode is not None:
+                    data[CONF_METERING] = mode.key
                 if self._device_id is not None:
                     data[CONF_DEVICE_ID] = self._device_id
                 if self._serial:
                     data[CONF_SERIAL_NUMBER] = self._serial
                 return self.async_create_entry(title=self._title, data=data)
         return await self._show_intervals(
-            "intervals", profile, components, DEFAULT_INTERVALS, errors, rate if "base" in errors else None, user_input
+            "intervals",
+            profile,
+            components,
+            self._metering,
+            DEFAULT_INTERVALS,
+            errors,
+            rate if "base" in errors else None,
+            user_input,
         )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -620,6 +704,8 @@ class DeviceConfigFlow(ConfigFlow):
                     self._device_id = device_id
                     # el escrito manda; si está vacío, el leído; si no hay ninguno, la clave desaparece
                     self._serial = serial or result.serial or None
+                    if profile.metering_modes:
+                        return await self.async_step_reconfigure_metering()
                     if profile.components:
                         return await self.async_step_reconfigure_components()
                     self._components = []
@@ -673,17 +759,33 @@ class DeviceConfigFlow(ConfigFlow):
             return vol.Optional(CONF_DEVICE_ID)
         return vol.Required(CONF_DEVICE_ID, default=stored_id)
 
+    async def async_step_reconfigure_metering(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        profile = self._profile
+        if user_input is not None:
+            self._metering = user_input[CONF_METERING]
+            if profile.components:
+                return await self.async_step_reconfigure_components()
+            self._components = []
+            return await self.async_step_reconfigure_intervals()
+        # sin modo guardado (entry anterior), el primero del perfil
+        return self._show_metering("reconfigure_metering", profile, entry.data.get(CONF_METERING))
+
     async def async_step_reconfigure_components(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         profile = self._profile
         if user_input is not None:
             chosen = set(user_input[CONF_COMPONENTS])
+            if missing_meter(profile, self._metering, chosen):
+                return await self._show_components(
+                    "reconfigure_components", profile, list(user_input[CONF_COMPONENTS]), self._metering, missing=True
+                )
             self._components = [c.component for c in profile.components if c.component.value in chosen]
             return await self.async_step_reconfigure_intervals()
         stored = entry.data.get(CONF_COMPONENTS)
         # sin la clave (entry antigua) se ofrecen todos los componentes opcionales
         default = [c.component.value for c in profile.components] if stored is None else list(stored)
-        return await self._show_components("reconfigure_components", profile, default)
+        return await self._show_components("reconfigure_components", profile, default, self._metering)
 
     async def async_step_reconfigure_intervals(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
@@ -694,7 +796,7 @@ class DeviceConfigFlow(ConfigFlow):
         errors: dict[str, str] = {}
         rate: float | None = None
         if user_input is not None:
-            tiers = present_tiers(select(profile, components))
+            tiers = present_tiers(select(profile, components, self._metering))
             shown, errors, rate = check_intervals(profile, tiers, user_input)
             if not errors:
                 data: dict[str, Any] = {
@@ -703,6 +805,9 @@ class DeviceConfigFlow(ConfigFlow):
                     CONF_COMPONENTS: [c.value for c in components],
                     CONF_INTERVALS: {**DEFAULT_INTERVALS, **entry.data.get(CONF_INTERVALS, {}), **shown},
                 }
+                mode = metering_mode(profile, self._metering)
+                if mode is not None:
+                    data[CONF_METERING] = mode.key
                 for key, value in ((CONF_DEVICE_ID, self._device_id), (CONF_SERIAL_NUMBER, self._serial)):
                     if value is None:
                         data.pop(key, None)
@@ -720,6 +825,7 @@ class DeviceConfigFlow(ConfigFlow):
             "reconfigure_intervals",
             profile,
             components,
+            self._metering,
             defaults,
             errors,
             rate if "base" in errors else None,

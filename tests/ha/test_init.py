@@ -1,8 +1,10 @@
 """Setup, unload, migración y recarga de la entry de un inversor."""
 
+from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -16,7 +18,7 @@ from custom_components.modbus_solar.application.selection import select
 from custom_components.modbus_solar.const import DOMAIN
 from custom_components.modbus_solar.domain.types import Platform
 from custom_components.modbus_solar.profiles import ALL_PROFILES
-from tests.ha.common import DEVICE_ID, device_entry, setup_entry, setup_storage_entry
+from tests.ha.common import DEVICE_ID, device_entry, setup_entry, setup_storage_entry, state_of, tick
 
 
 async def test_setup_builds_runtime_and_device(
@@ -97,6 +99,7 @@ async def test_entry_without_components_loads_all_optional(hass: HomeAssistant, 
     expected = (
         sum(1 for e in selection.entities if e.platform in (Platform.SENSOR, Platform.BINARY_SENSOR))
         + len(selection.energies)
+        + len(selection.powers)
         + 2 * len(selection.controls)
     )
     assert len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)) == expected
@@ -119,3 +122,103 @@ async def test_deselecting_removes_entities_and_device(hass: HomeAssistant, patc
     )
     devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
     assert all((DOMAIN, f"{entry.entry_id}_battery") not in d.identifiers for d in devices)
+
+
+async def switch_mode(hass: HomeAssistant, entry: MockConfigEntry, metering: str) -> None:
+    hass.config_entries.async_update_entry(entry, data=entry.data | {"metering": metering})
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+
+def unique_ids(hass: HomeAssistant, entry: MockConfigEntry) -> set[str]:
+    return {e.unique_id for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)}
+
+
+def has_device(hass: HomeAssistant, entry: MockConfigEntry, component: str) -> bool:
+    wanted = (DOMAIN, f"{entry.entry_id}_{component}")
+    return any(wanted in d.identifiers for d in dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id))
+
+
+async def test_switch_to_internal_meter_keeps_energy_and_moves_it(
+    hass: HomeAssistant, patch_storage_unit: MagicMock
+) -> None:
+    entry = await setup_storage_entry(hass, components=["grid"])
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_grid_import_energy")
+    await switch_mode(hass, entry, "critical_loads")
+    # mismo unique_id y entity_id: conserva el historial
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_grid_import_energy") == entity_id
+    meter = next(
+        d
+        for d in dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+        if (DOMAIN, f"{entry.entry_id}_internal_meter") in d.identifiers
+    )
+    assert registry.async_get(entity_id).device_id == meter.id
+
+
+async def test_switch_to_off_grid_removes_grid_flows(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    entry = await setup_storage_entry(hass, components=["grid"])
+    await switch_mode(hass, entry, "off_grid")
+    ids = unique_ids(hass, entry)
+    for key in ("grid_import_power", "grid_export_power", "grid_import_energy", "grid_export_energy"):
+        assert f"{entry.entry_id}_{key}" not in ids, key
+    assert f"{entry.entry_id}_generator_energy" in ids
+    assert has_device(hass, entry, "generator")
+
+
+async def test_leaving_off_grid_removes_generator(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    entry = await setup_storage_entry(hass, components=["grid"], metering="off_grid")
+    await switch_mode(hass, entry, "grid_loads")
+    ids = unique_ids(hass, entry)
+    assert f"{entry.entry_id}_generator_power" not in ids
+    assert f"{entry.entry_id}_generator_energy" not in ids
+    assert not has_device(hass, entry, "generator")
+
+
+@pytest.mark.parametrize(
+    ("components", "before", "after", "gone"),
+    [
+        # sin Red elegida: critical_loads borra el dispositivo Red
+        (["internal_meter"], None, "critical_loads", "grid"),
+        # sin Vatímetro interno elegido: grid_loads borra el dispositivo Vatímetro interno
+        (["grid"], "critical_loads", "grid_loads", "internal_meter"),
+    ],
+)
+async def test_mode_switch_removing_device_keeps_energies(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    patch_storage_unit: MagicMock,
+    storage_unit: MockModbusUnit,
+    components: list[str],
+    before: str | None,
+    after: str,
+    gone: str,
+) -> None:
+    # el vatímetro interno exporta 600 W y el externo 300 W: los dos modos acumulan energía
+    storage_unit.input[51] = 0x10000 - 600
+    entry = await setup_storage_entry(hass, components=components, metering=before)
+    freezer.tick(timedelta(seconds=6))
+    await tick(hass, 0)
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_grid_export_energy")
+    old = registry.async_get(entity_id)
+    total = float(hass.states.get(entity_id).state)
+    assert total > 0
+    assert has_device(hass, entry, gone)
+    await switch_mode(hass, entry, after)
+    # el dispositivo del modo anterior se borra; sus energías siguen
+    assert not has_device(hass, entry, gone)
+    # mismo registro (entity_id, id, created_at) y mismo total: conserva el historial
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_grid_export_energy") == entity_id
+    new = registry.async_get(entity_id)
+    assert (new.id, new.created_at) == (old.id, old.created_at)
+    assert float(state_of(hass, "grid_export_energy").state) == pytest.approx(total)
+
+
+async def test_entry_without_mode_and_grid_regains_grid_device(
+    hass: HomeAssistant, patch_storage_unit: MagicMock
+) -> None:
+    # entry sin modo guardado: grid_loads fuerza la Red aunque no esté elegida
+    entry = await setup_storage_entry(hass, components=["battery"])
+    assert has_device(hass, entry, "grid")
+    assert f"{entry.entry_id}_grid_export_energy" in unique_ids(hass, entry)

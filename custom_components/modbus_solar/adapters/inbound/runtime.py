@@ -59,6 +59,11 @@ def enabled_keys(registry: er.EntityRegistry, entry_id: str, selection: Selectio
         # una energía activa necesita leer sus fuentes aunque su sensor de potencia esté deshabilitado
         if _is_enabled(registry, Platform.SENSOR, entry_id, energy.key, energy.enabled_default):
             keys.update(energy.sources)
+    powers = selection.powers if isinstance(selection, Selection) else ()
+    for power in powers:
+        # una potencia derivada activa necesita leer su fuente
+        if _is_enabled(registry, Platform.SENSOR, entry_id, power.key, power.enabled_default):
+            keys.add(power.source)
     return frozenset(keys)
 
 

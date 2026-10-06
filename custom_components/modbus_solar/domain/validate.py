@@ -4,9 +4,10 @@ from itertools import combinations
 
 from .control import GatedLimitSpec
 from .encode import encode
+from .energy import SignFilter
 from .errors import EncodeError
 from .profile import DeviceProfile, RegisterSpec
-from .types import Component, DataType, Platform, WordOrder
+from .types import Component, DataType, Platform, Role, WordOrder
 
 
 def _overlaps(a: RegisterSpec, b: RegisterSpec) -> bool:
@@ -66,6 +67,35 @@ def _component_problems(profile: DeviceProfile) -> list[str]:
     return problems
 
 
+def _metering_problems(profile: DeviceProfile, seen: set[str]) -> list[str]:
+    """Modos de medición: clave única, fuente de potencia leída y claves de flujo sin choques."""
+    problems: list[str] = []
+    by_key = {spec.key: spec for spec in profile.entities}
+    modes: set[str] = set()
+    # una clave puede repetirse entre modos (mismo unique_id): con el mismo rol y signo
+    flow_keys: dict[str, tuple[Role, SignFilter]] = {}
+    for mode in profile.metering_modes:
+        if mode.key in modes:
+            problems.append(f"metering: {mode.key} repeated")
+        modes.add(mode.key)
+        if not mode.flows:
+            problems.append(f"metering {mode.key}: no flows")
+        source = by_key.get(mode.source)
+        if source is None:
+            problems.append(f"metering {mode.key}: unknown source {mode.source}")
+        elif source.device_class != "power":
+            problems.append(f"metering {mode.key}: source {mode.source} is not power")
+        mode_keys: set[str] = set()
+        for flow in mode.flows:
+            for key, role in ((flow.power_key, flow.power_role), (flow.energy_key, flow.energy_role)):
+                if key in seen or key in mode_keys:
+                    problems.append(f"duplicate key: {key}")
+                mode_keys.add(key)
+                if flow_keys.setdefault(key, (role, flow.sign)) != (role, flow.sign):
+                    problems.append(f"metering: {key} differs between modes")
+    return problems
+
+
 def validate_profile(profile: DeviceProfile) -> list[str]:
     problems: list[str] = []
 
@@ -88,7 +118,7 @@ def validate_profile(profile: DeviceProfile) -> list[str]:
                 problems.append(f"{energy.key}: unknown source {key}")
             elif source.device_class != "power":
                 problems.append(f"{energy.key}: source {key} is not power")
-        # la energía vive en el componente de sus fuentes
+        # una energía del perfil vive en el componente de sus fuentes (las de un modo, en el del modo)
         if any(source is not None and source.component is not energy.component for source in sources):
             problems.append(f"{energy.key}: component differs from sources")
         # el sensor de energía se suscribe a un solo coordinator
@@ -102,6 +132,7 @@ def validate_profile(profile: DeviceProfile) -> list[str]:
             seen.add(key)
         problems.extend(_control_problems(control, profile.max_block_registers))
 
+    problems.extend(_metering_problems(profile, seen))
     problems.extend(_component_problems(profile))
 
     for a, b in combinations(profile.entities, 2):

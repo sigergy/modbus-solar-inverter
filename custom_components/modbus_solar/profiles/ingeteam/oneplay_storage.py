@@ -2,6 +2,7 @@
 
 from ...domain.control import GatedLimitSpec, WriteSpec
 from ...domain.energy import EnergySpec, SignFilter
+from ...domain.metering import FlowSpec, MeteringModeSpec
 from ...domain.profile import ComponentSpec, DeviceProfile, EntitySpec, RegisterSpec
 from ...domain.types import Component, DataType, Platform, PollTier, RegisterKind, Role
 
@@ -80,6 +81,27 @@ def _command(code: int, data1: int) -> WriteSpec:
     return WriteSpec(address=1000, prefix=(code, data1))
 
 
+# Sin batería el inversor acepta el CMD 26 y lo ignora (AAA0030IMB03_N pág. 19: solo aplica con batería
+# «Lead-Acid» o «Ingeteam RS485 Protocol»). Probado en campo el 2026-10-06: tampoco limita el ajuste web.
+# El control queda desactivado: con False no se crean ni el switch ni el number del vertido.
+EXPORT_CONTROL_ENABLED = False
+
+EXPORT_CONTROL = GatedLimitSpec(
+    key="export_limit",
+    switch_key="export_enabled",
+    role=Role.EXPORT_LIMIT,
+    switch_role=Role.EXPORT_ENABLED,
+    # CMD 26 (0x1A) «Battery Control Values», dato 1 0x0A «Grid power» (AAA0030IMB03_N págs. 7, 19-20)
+    write=_command(0x1A, 0x0A),
+    min_value=0,
+    max_value=6000,
+    step=1,
+    unit="W",
+    default=6000,
+    device_class="power",
+)
+
+
 def _core(
     key: str,
     role: Role,
@@ -145,6 +167,25 @@ def _bms_bit(key: str, register: int, bit: int, role: Role) -> EntitySpec:
         device_class="problem" if role is Role.BMS_ALARM else None,
         entity_category="diagnostic",
     )
+
+
+# intercambio con la red: mismas claves (y unique_id) con el vatímetro externo o con el interno
+GRID_FLOWS = (
+    FlowSpec(
+        power_key="grid_import_power",
+        power_role=Role.GRID_IMPORT_POWER,
+        energy_key="grid_import_energy",
+        energy_role=Role.ENERGY_GRID_IMPORT,
+        sign=SignFilter.POSITIVE,
+    ),
+    FlowSpec(
+        power_key="grid_export_power",
+        power_role=Role.GRID_EXPORT_POWER,
+        energy_key="grid_export_energy",
+        energy_role=Role.ENERGY_GRID_EXPORT,
+        sign=SignFilter.NEGATIVE,
+    ),
+)
 
 
 ONEPLAY_STORAGE = DeviceProfile(
@@ -378,7 +419,7 @@ ONEPLAY_STORAGE = DeviceProfile(
         _bms_bit("bms_forced_charge_soc", 30069, 4, Role.BMS_FLAG),
     ),
     # el mapa no trae contadores: la integración integra la potencia (spec §4).
-    # Signos supuestos (spec §3.5): grid_power > 0 importa de red; battery_power > 0 descarga
+    # Signo supuesto (spec §3.5): battery_power > 0 descarga. Las energías de red las llevan los modos de medición
     energies=(
         EnergySpec(
             key="solar_energy",
@@ -386,20 +427,6 @@ ONEPLAY_STORAGE = DeviceProfile(
             sources=("pv1_power", "pv2_power"),
             sign=SignFilter.POSITIVE,
             component=Component.PV,
-        ),
-        EnergySpec(
-            key="grid_import_energy",
-            role=Role.ENERGY_GRID_IMPORT,
-            sources=("grid_power",),
-            sign=SignFilter.POSITIVE,
-            component=Component.GRID,
-        ),
-        EnergySpec(
-            key="grid_export_energy",
-            role=Role.ENERGY_GRID_EXPORT,
-            sources=("grid_power",),
-            sign=SignFilter.NEGATIVE,
-            component=Component.GRID,
         ),
         EnergySpec(
             key="battery_charge_energy",
@@ -416,20 +443,27 @@ ONEPLAY_STORAGE = DeviceProfile(
             component=Component.BATTERY,
         ),
     ),
-    controls=(
-        GatedLimitSpec(
-            key="export_limit",
-            switch_key="export_enabled",
-            role=Role.EXPORT_LIMIT,
-            switch_role=Role.EXPORT_ENABLED,
-            # CMD 26 (0x1A) «Battery Control Values», dato 1 0x0A «Grid power» (AAA0030IMB03_N págs. 7, 19-20)
-            write=_command(0x1A, 0x0A),
-            min_value=0,
-            max_value=6000,
-            step=1,
-            unit="W",
-            default=6000,
-            device_class="power",
+    # spec grid-metering §4. Signos supuestos (sin verificar en el equipo): 30072 y 30052 > 0 = entra potencia
+    # por las bornas de red. En aislada las bornas de red llevan el grupo electrógeno (ABH2014IQM01, apdo. 11, pág. 32)
+    metering_modes=(
+        MeteringModeSpec(key="grid_loads", source="grid_power", component=Component.GRID, flows=GRID_FLOWS),
+        MeteringModeSpec(
+            key="critical_loads", source="internal_meter_power", component=Component.INTERNAL_METER, flows=GRID_FLOWS
+        ),
+        MeteringModeSpec(
+            key="off_grid",
+            source="internal_meter_power",
+            component=Component.GENERATOR,
+            flows=(
+                FlowSpec(
+                    power_key="generator_power",
+                    power_role=Role.GENERATOR_POWER,
+                    energy_key="generator_energy",
+                    energy_role=Role.ENERGY_GENERATOR,
+                    sign=SignFilter.POSITIVE,
+                ),
+            ),
         ),
     ),
+    controls=(EXPORT_CONTROL,) if EXPORT_CONTROL_ENABLED else (),
 )
