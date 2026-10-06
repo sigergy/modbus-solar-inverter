@@ -1,6 +1,8 @@
 """Control del vertido del STORAGE: number y switch con estado optimista y restaurado."""
 
-from unittest.mock import MagicMock
+from collections.abc import Generator
+from dataclasses import replace
+from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.components.number import ATTR_VALUE, SERVICE_SET_VALUE
@@ -20,6 +22,9 @@ from modbus_connection import ModbusConnectionError, ModbusExceptionError
 from modbus_connection.mock import MockModbusUnit, WriteEvent
 from pytest_homeassistant_custom_component.common import mock_restore_cache_with_extra_data
 
+from custom_components.modbus_solar.application.catalog import Catalog
+from custom_components.modbus_solar.profiles import ALL_PROFILES
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import EXPORT_CONTROL
 from tests.ha.common import STORAGE_DATA, device_entry, entity_id_of, setup_entry, tick
 
 NUMBER = "number.inverter_grid_export_limit"
@@ -32,6 +37,16 @@ RESTORED_NUMBER = {
     "native_unit_of_measurement": "W",
     "native_value": 2500.0,
 }
+
+
+@pytest.fixture(autouse=True)
+def storage_with_controls() -> Generator[None]:
+    """El control del vertido está desactivado en el perfil: aquí se activa para probar number y switch."""
+    profiles = tuple(
+        replace(p, controls=(EXPORT_CONTROL,)) if p.id == "ingeteam.oneplay_storage" else p for p in ALL_PROFILES
+    )
+    with patch("custom_components.modbus_solar.CATALOG", Catalog(profiles)):
+        yield
 
 
 @pytest.fixture

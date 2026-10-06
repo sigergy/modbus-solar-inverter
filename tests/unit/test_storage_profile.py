@@ -9,7 +9,7 @@ from custom_components.modbus_solar.domain.blocks import plan_blocks
 from custom_components.modbus_solar.domain.energy import SignFilter
 from custom_components.modbus_solar.domain.types import Component, DataType, PollTier, RegisterKind, Role
 from custom_components.modbus_solar.domain.validate import validate_profile
-from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import EXPORT_CONTROL, ONEPLAY_STORAGE
 
 PROFILE = ONEPLAY_STORAGE
 
@@ -186,8 +186,13 @@ def test_energies() -> None:
     ]
 
 
+def test_export_control_disabled() -> None:
+    # sin batería el inversor ignora el CMD 26: el control no se crea hasta tener fuente que funcione
+    assert ONEPLAY_STORAGE.controls == ()
+
+
 def test_export_control() -> None:
-    (control,) = ONEPLAY_STORAGE.controls
+    control = EXPORT_CONTROL
     assert (control.key, control.switch_key) == ("export_limit", "export_enabled")
     assert (control.role, control.switch_role) == (Role.EXPORT_LIMIT, Role.EXPORT_ENABLED)
     # AAA0030IMB03_N págs. 4, 7 y 19-20: CMD 26 (0x1A), dato 1 0x0A «Grid power», desde la dirección 1000
@@ -210,7 +215,7 @@ def test_entities_per_component() -> None:
     counts.update(c.component for c in PROFILE.controls)  # cada control da número y switch: cuenta 2
     counts.update(c.component for c in PROFILE.controls)
     assert counts == {
-        Component.MAIN: 13,
+        Component.MAIN: 11,
         Component.PV: 8,
         Component.BATTERY: 25,
         Component.GRID: 5,

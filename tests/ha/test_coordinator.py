@@ -15,7 +15,7 @@ from custom_components.modbus_solar.domain.control import GatedState
 from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable
 from custom_components.modbus_solar.domain.types import PollTier
 from custom_components.modbus_solar.profiles.ingeteam.oneplay import ONEPLAY
-from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import ONEPLAY_STORAGE
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import EXPORT_CONTROL, ONEPLAY_STORAGE
 from tests.fakes import INGETEAM_WORDS, FakeGateway, FakeWriter
 from tests.ha.common import DEVICE_ID, device_entry
 
@@ -144,7 +144,9 @@ async def test_energy_sources_are_read_with_power_sensor_disabled(hass: HomeAssi
 async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> None:
     entry = device_entry()
     entry.add_to_hass(hass)
-    runtime = build_runtime(hass, entry, ONEPLAY_STORAGE, FakeGateway({}), FakeWriter(), set())
+    # el control del vertido está desactivado en el perfil: se añade para probar su estado
+    profile = replace(ONEPLAY_STORAGE, controls=(EXPORT_CONTROL,))
+    runtime = build_runtime(hass, entry, profile, FakeGateway({}), FakeWriter(), set())
     assert {tier: c.always_update for tier, c in runtime.coordinators.items()} == {
         PollTier.INSTANT: True,
         PollTier.FAST: True,

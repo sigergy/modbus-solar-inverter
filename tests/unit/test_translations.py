@@ -8,6 +8,7 @@ from typing import Any
 from custom_components.modbus_solar.adapters.inbound.flow import profile_option
 from custom_components.modbus_solar.domain.types import Component, PollTier
 from custom_components.modbus_solar.profiles import ALL_PROFILES
+from custom_components.modbus_solar.profiles.ingeteam.oneplay_storage import EXPORT_CONTROL
 
 # hassfest translation_key_validator
 TRANSLATION_KEY = re.compile(r"^(?!.+[_-]{2})(?![_-])[a-z0-9-_]+(?<![_-])$")
@@ -106,10 +107,11 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
 
 def test_controls_and_write_error_are_translated() -> None:
     strings = load("strings.json")
-    for profile in ALL_PROFILES:
-        for control in profile.controls:
-            assert "name" in strings["entity"]["number"][control.key], control.key
-            assert "name" in strings["entity"]["switch"][control.switch_key], control.switch_key
+    # los controles desactivados en su perfil también conservan su traducción
+    controls = {EXPORT_CONTROL, *(control for profile in ALL_PROFILES for control in profile.controls)}
+    for control in controls:
+        assert "name" in strings["entity"]["number"][control.key], control.key
+        assert "name" in strings["entity"]["switch"][control.switch_key], control.switch_key
     assert "{error}" in strings["exceptions"]["write_failed"]["message"]
 
 
