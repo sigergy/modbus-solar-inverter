@@ -116,7 +116,7 @@ Hasta `0.1.0b2` había una entry por marca con un subentry por equipo (ADR [0004
 
 Una entry v2 creada antes del flujo de componentes no guarda `components`, `device_id` ni `serial_number`: toma todos los componentes del perfil (`select(profile, None)`, `application/selection.py:40`) y sus dispositivos y `entity_id` no llevan Device ID. El `unique_id` de la entry y el de las entidades no cambian.
 
-Una entry sin `metering` toma el primer modo del perfil, «Consumos en Grid»: las energías de red siguen en Red con la misma fuente y solo se añaden Potencia de red y Potencia a la red (`__init__.py:75-77`, `application/selection.py:21-25`). No hay migración: el valor ausente tiene un significado fijo, y el flow sigue en `VERSION = 2`.
+Una entry sin `metering` toma el primer modo del perfil, «Consumos en Grid», que fuerza la Red (`__init__.py:75-77`, `application/selection.py:21-25`, `:42-44`). Con Red elegida, las energías de red siguen en Red con la misma fuente y solo se añaden Potencia de red y Potencia a la red. Sin Red elegida, vuelven el dispositivo Red y sus entidades; para quitarlo, basta con reconfigurar y elegir «Consumos en Cargas Críticas» o «Aislada». No hay migración: el valor ausente tiene un significado fijo, y el flow sigue en `VERSION = 2`.
 
 ## Componentes y dispositivos
 

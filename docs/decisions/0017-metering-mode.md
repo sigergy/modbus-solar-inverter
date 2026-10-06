@@ -39,7 +39,7 @@ Ningún registro dice qué vatímetro usa el equipo. CMD 18 «Self-Consumption A
 
 - Las energías de red conservan clave, `unique_id` e historial entre «Consumos en Grid» y «Consumos en Cargas Críticas»: cambian de fuente y de dispositivo.
 - Pasar a «Aislada» borra las entidades de red con su historial; salir de «Aislada» borra las del generador y el dispositivo Generador (`custom_components/modbus_solar/__init__.py:28-64`).
-- Una entry existente toma «Consumos en Grid», que fuerza la Red (`custom_components/modbus_solar/application/selection.py:42-44`). Con Red elegida se comporta como antes, más las dos potencias de red nuevas. Sin Red elegida, recupera el dispositivo Red con sus entidades; para quitarlo hay que reconfigurar y elegir «Consumos en Cargas Críticas».
+- Una entry existente toma «Consumos en Grid», que fuerza la Red (`custom_components/modbus_solar/application/selection.py:42-44`). Con Red elegida se comporta como antes, más las dos potencias de red nuevas. Sin Red elegida, recupera el dispositivo Red con sus entidades; para quitarlo basta con reconfigurar y elegir «Consumos en Cargas Críticas» o «Aislada».
 - Con «Consumos en Cargas Críticas» o «Aislada» las energías de red siguen al tier `fast` de 30052, no al `instant` de 30072 que fija [0016](0016-instant-tier.md).
 - Un modo mal elegido da cifras falsas sin aviso: la integración no puede comprobarlo.
 - Los signos de 30072 y 30052 son supuestos, > 0 = entra potencia por las bornas de red. Se verifican en la VM.
