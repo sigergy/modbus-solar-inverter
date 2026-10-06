@@ -112,6 +112,7 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "name",
         "intervals",
         "reconfigure",
+        "reconfigure_metering",
         "reconfigure_components",
         "reconfigure_intervals",
         "reconfigure_rename",
@@ -278,3 +279,10 @@ def test_reconfigure_rename_step_texts() -> None:
         ("translations/es.json", "sin ID"),
     ):
         assert load(name)["selector"]["rename_old_id"]["options"]["none"] == text, name
+
+
+def test_reconfigure_metering_step_texts() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        step = load(name)["config"]["step"]["reconfigure_metering"]
+        assert step["title"] and step["data"]["metering"] and step["submit"], name
+        assert "{model}" in step["description"], name
