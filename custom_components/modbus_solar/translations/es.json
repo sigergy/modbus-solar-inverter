@@ -36,6 +36,16 @@
           }
         }
       },
+      "metering": {
+        "title": "¿Cómo se mide la red?",
+        "description": "{model}. Elige dónde están conectados los consumos de la casa. Así se decide qué vatímetro mide el intercambio con la red y de qué dispositivo cuelgan la potencia y la energía de red.",
+        "data": {
+          "metering": "Medición de red"
+        },
+        "data_description": {
+          "metering": "Consumos en Grid: vatímetro externo en el punto de conexión. Consumos en Cargas Críticas: todos los consumos en la salida de cargas críticas; el vatímetro interno mide la red. Aislada: sin red; las bornas de red pueden llevar un generador."
+        }
+      },
       "components": {
         "title": "¿Qué tiene tu instalación?",
         "description": "{model}. {main} se añade siempre. Marca el resto de partes que tiene tu instalación: cada una sale en Home Assistant como un dispositivo propio. Se puede cambiar después en «Reconfigurar».",
@@ -196,7 +206,8 @@
       "interval_too_short": "Demasiado corto para este equipo: leer todos sus registros tarda más.",
       "device_id_in_use": "Ya hay un {device_type} con el ID {device_id}.",
       "invalid_serial_number": "Usa solo letras y números, sin espacios.",
-      "interval_budget_exceeded": "Estos intervalos piden {rate} lecturas por segundo y el dispositivo admite 1. Sube alguno."
+      "interval_budget_exceeded": "Estos intervalos piden {rate} lecturas por segundo y el dispositivo admite 1. Sube alguno.",
+      "metering_component_required": "{component} hace falta para «{mode}». Márcalo o cambia la medición de red."
     },
     "abort": {
       "already_configured": "Este dispositivo ya está añadido.",
@@ -506,6 +517,13 @@
         "critical_loads": "Cargas críticas — salida de respaldo",
         "load": "Consumo — consumo total de la casa",
         "ev_charger": "Cargador VE"
+      }
+    },
+    "metering_mode": {
+      "options": {
+        "grid_loads": "Consumos en Grid",
+        "critical_loads": "Consumos en Cargas Críticas",
+        "off_grid": "Aislada"
       }
     },
     "serial_help": {
