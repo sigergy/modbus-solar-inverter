@@ -138,3 +138,54 @@ async def test_serial_on_main_device_only(hass: HomeAssistant, patch_storage_uni
     assert main is not None and component is not None
     assert main.serial_number == "AB1"
     assert component.serial_number is None
+
+
+async def test_grid_powers_from_external_meter(
+    hass: HomeAssistant, patch_storage_unit: MagicMock, storage_unit: MockModbusUnit
+) -> None:
+    entry = await setup_storage_entry(hass, components=None)
+    # grid_power = -300 W: exporta
+    assert float(state_of(hass, "grid_import_power").state) == 0
+    assert float(state_of(hass, "grid_export_power").state) == 300
+    power = state_of(hass, "grid_import_power")
+    assert (power.attributes["unit_of_measurement"], power.attributes["device_class"]) == ("W", "power")
+    assert power.attributes["state_class"] == "measurement"
+    registry_entry = er.async_get(hass).async_get(entity_id_of(hass, "grid_import_power"))
+    assert registry_entry.device_id == device_of(hass, entry.entry_id, "_grid").id
+    storage_unit.input[71] = 450
+    await tick(hass, 6)
+    assert float(state_of(hass, "grid_import_power").state) == 450
+    assert float(state_of(hass, "grid_export_power").state) == 0
+
+
+async def test_derived_power_unavailable_without_source(
+    hass: HomeAssistant, patch_storage_unit: MagicMock, storage_unit: MockModbusUnit
+) -> None:
+    await setup_storage_entry(hass, components=None)
+    storage_unit.fail_requests(ModbusConnectionError("no route"))
+    await tick(hass, 6)
+    assert state_of(hass, "grid_import_power").state == "unavailable"
+
+
+async def test_critical_loads_mode_uses_internal_meter(
+    hass: HomeAssistant, patch_storage_unit: MagicMock, storage_unit: MockModbusUnit
+) -> None:
+    # 30052 (dirección 51) = -1200 W
+    storage_unit.input[51] = 0x10000 - 1200
+    entry = await setup_storage_entry(hass, components=["battery"], metering="critical_loads")
+    assert float(state_of(hass, "grid_export_power").state) == 1200
+    registry = er.async_get(hass)
+    meter = device_of(hass, entry.entry_id, "_internal_meter")
+    for key in ("grid_export_power", "grid_import_energy"):
+        assert registry.async_get(entity_id_of(hass, key)).device_id == meter.id, key
+    # sin Red marcada, el modo no la fuerza
+    assert device_of(hass, entry.entry_id, "_grid") is None
+
+
+async def test_off_grid_mode_creates_generator(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    entry = await setup_storage_entry(hass, components=["battery"], metering="off_grid")
+    generator = device_of(hass, entry.entry_id, "_generator")
+    assert generator is not None and generator.name == "Generator"
+    assert state_of(hass, "generator_power") is not None
+    assert entity_id_of(hass, "grid_import_power") is None
+    assert entity_id_of(hass, "grid_import_energy") is None

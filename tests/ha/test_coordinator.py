@@ -10,6 +10,7 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.modbus_solar.adapters.inbound.coordinator import TierCoordinator
 from custom_components.modbus_solar.adapters.inbound.runtime import build_runtime, enabled_keys
+from custom_components.modbus_solar.application.selection import select
 from custom_components.modbus_solar.const import DOMAIN
 from custom_components.modbus_solar.domain.control import GatedState
 from custom_components.modbus_solar.domain.errors import DeviceProtocolError, DeviceUnavailable
@@ -155,3 +156,15 @@ async def test_tiers_with_energy_sources_always_update(hass: HomeAssistant) -> N
     }
     # un estado por control, con el límite por defecto del perfil
     assert runtime.control_states == {"export_limit": GatedState(limit=6000)}
+
+
+async def test_enabled_derived_power_reads_its_source(hass: HomeAssistant) -> None:
+    entry = device_entry()
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    # sensor de red y energías desactivados: la potencia derivada activa sigue pidiendo grid_power
+    for key in ("grid_power", "grid_import_energy", "grid_export_energy"):
+        registry.async_get_or_create(
+            "sensor", DOMAIN, f"{DEVICE_ID}_{key}", config_entry=entry, disabled_by=er.RegistryEntryDisabler.USER
+        )
+    assert "grid_power" in enabled_keys(registry, DEVICE_ID, select(ONEPLAY_STORAGE, None))

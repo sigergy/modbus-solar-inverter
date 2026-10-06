@@ -97,6 +97,7 @@ async def test_entry_without_components_loads_all_optional(hass: HomeAssistant, 
     expected = (
         sum(1 for e in selection.entities if e.platform in (Platform.SENSOR, Platform.BINARY_SENSOR))
         + len(selection.energies)
+        + len(selection.powers)
         + 2 * len(selection.controls)
     )
     assert len(er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)) == expected

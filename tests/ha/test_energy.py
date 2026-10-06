@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.modbus_solar.const import DOMAIN
-from tests.ha.common import DEVICE_ID, device_entry, entity_id_of, setup_entry, state_of
+from tests.ha.common import DEVICE_ID, device_entry, entity_id_of, setup_entry, setup_storage_entry, state_of
 from tests.ha.common import STORAGE_DATA as STORAGE
 
 
@@ -119,3 +119,14 @@ async def test_energy_counts_with_power_sensor_disabled(
     await hass.async_block_till_done(wait_background_tasks=True)
     await advance(hass, freezer, 6)
     assert kwh(hass, "solar_energy") == pytest.approx(0.005)
+
+
+async def test_energy_integrates_the_mode_source(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, patch_storage_unit: MagicMock, storage_unit: MockModbusUnit
+) -> None:
+    # vatímetro interno exporta 600 W; el externo (-300 W) no cuenta
+    storage_unit.input[51] = 0x10000 - 600
+    await setup_storage_entry(hass, components=None, metering="critical_loads")
+    await advance(hass, freezer, 6)
+    assert kwh(hass, "grid_export_energy") == pytest.approx(600 * 6 / 3_600_000)
+    assert kwh(hass, "grid_import_energy") == 0

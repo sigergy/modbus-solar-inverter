@@ -1,5 +1,7 @@
 """EnergyAccumulator: trapecio sobre la potencia filtrada por signo."""
 
+import math
+
 import pytest
 
 from custom_components.modbus_solar.domain.energy import EnergyAccumulator, SignFilter, filter_power
@@ -58,3 +60,9 @@ def test_filter_power() -> None:
     assert filter_power(-1500.0, SignFilter.POSITIVE) == 0.0
     assert filter_power(-1500.0, SignFilter.NEGATIVE) == 1500.0
     assert filter_power(1500.0, SignFilter.NEGATIVE) == 0.0
+
+
+def test_filter_power_never_returns_negative_zero() -> None:
+    # -0.0 se mostraría en HA como «-0.0»
+    assert math.copysign(1.0, filter_power(0.0, SignFilter.NEGATIVE)) == 1.0
+    assert math.copysign(1.0, filter_power(-0.0, SignFilter.POSITIVE)) == 1.0
