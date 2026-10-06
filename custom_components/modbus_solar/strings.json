@@ -392,6 +392,18 @@
       "solar_energy": {
         "name": "PV energy"
       },
+      "grid_import_power": {
+        "name": "Grid import power"
+      },
+      "grid_export_power": {
+        "name": "Grid export power"
+      },
+      "generator_power": {
+        "name": "Generator power"
+      },
+      "generator_energy": {
+        "name": "Generator energy"
+      },
       "grid_import_energy": {
         "name": "Import energy"
       },

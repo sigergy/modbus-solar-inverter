@@ -392,6 +392,18 @@
       "solar_energy": {
         "name": "Energía FV"
       },
+      "grid_import_power": {
+        "name": "Potencia de red"
+      },
+      "grid_export_power": {
+        "name": "Potencia a la red"
+      },
+      "generator_power": {
+        "name": "Potencia del generador"
+      },
+      "generator_energy": {
+        "name": "Energía del generador"
+      },
       "grid_import_energy": {
         "name": "Energía importada"
       },
