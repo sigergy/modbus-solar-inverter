@@ -649,9 +649,12 @@ async def test_reconfigure_metering_then_components(hass: HomeAssistant, storage
     assert (entry.data["metering"], entry.data["components"]) == ("critical_loads", ["battery", "internal_meter"])
 
 
-async def test_reconfigure_metering_defaults_to_stored(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
-    result = await reconfigure(hass, storage_entry(metering="off_grid"))
-    assert field(result, "metering").default() == "off_grid"
+@pytest.mark.parametrize("metering", ["critical_loads", "off_grid"])
+async def test_reconfigure_metering_defaults_to_stored(
+    hass: HomeAssistant, storage_temp_unit: MagicMock, metering: str
+) -> None:
+    result = await reconfigure(hass, storage_entry(metering=metering))
+    assert field(result, "metering").default() == metering
 
 
 async def test_reconfigure_profile_without_components_skips_step(hass: HomeAssistant, temp_unit: MagicMock) -> None:
