@@ -118,7 +118,7 @@ def validate_profile(profile: DeviceProfile) -> list[str]:
                 problems.append(f"{energy.key}: unknown source {key}")
             elif source.device_class != "power":
                 problems.append(f"{energy.key}: source {key} is not power")
-        # la energía vive en el componente de sus fuentes
+        # una energía del perfil vive en el componente de sus fuentes (las de un modo, en el del modo)
         if any(source is not None and source.component is not energy.component for source in sources):
             problems.append(f"{energy.key}: component differs from sources")
         # el sensor de energía se suscribe a un solo coordinator

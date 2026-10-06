@@ -641,7 +641,7 @@ Y en `ONEPLAY_STORAGE`, tras `energies`:
 
 ```python
     # spec grid-metering §4. Signos supuestos (sin verificar en el equipo): 30072 y 30052 > 0 = entra potencia
-    # por las bornas de red. En aislada las bornas de red llevan el grupo electrógeno (ABH2014IQM01, apdo. 10.3)
+    # por las bornas de red. En aislada las bornas de red llevan el grupo electrógeno (ABH2014IQM01, apdo. 11, pág. 32)
     metering_modes=(
         MeteringModeSpec(key="grid_loads", source="grid_power", component=Component.GRID, flows=GRID_FLOWS),
         MeteringModeSpec(
