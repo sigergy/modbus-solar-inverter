@@ -4,6 +4,7 @@ import dataclasses
 
 import pytest
 
+from custom_components.modbus_solar.domain.energy import SignFilter
 from custom_components.modbus_solar.domain.errors import (
     DecodeError,
     DeviceProtocolError,
@@ -11,6 +12,7 @@ from custom_components.modbus_solar.domain.errors import (
     EncodeError,
     EndpointInUse,
 )
+from custom_components.modbus_solar.domain.metering import DerivedPowerSpec, FlowSpec, MeteringModeSpec
 from custom_components.modbus_solar.domain.profile import DeviceProfile, EntitySpec, RegisterSpec
 from custom_components.modbus_solar.domain.types import (
     Component,
@@ -47,6 +49,7 @@ def test_enum_values_are_stable() -> None:
         "critical_loads",
         "load",
         "ev_charger",
+        "generator",
     ]
     assert [r.value for r in Role] == [
         "inverter_state",
@@ -80,6 +83,10 @@ def test_enum_values_are_stable() -> None:
         "wind_speed",
         "cell_temperature",
         "external_temperature",
+        "grid_import_power",
+        "grid_export_power",
+        "generator_power",
+        "energy_generator",
     ]
 
 
@@ -140,3 +147,37 @@ def test_ascii_words_come_from_register_length() -> None:
         _ = DataType.ASCII.words
     assert RegisterSpec(address=0, dtype=DataType.ASCII, length=5).words == 5
     assert RegisterSpec(address=0, dtype=DataType.U32).words == 2
+
+
+def test_metering_specs_are_frozen_and_profile_has_no_modes_by_default() -> None:
+    flow = FlowSpec(
+        power_key="grid_import_power",
+        power_role=Role.GRID_IMPORT_POWER,
+        energy_key="grid_import_energy",
+        energy_role=Role.ENERGY_GRID_IMPORT,
+        sign=SignFilter.POSITIVE,
+    )
+    mode = MeteringModeSpec(key="grid_loads", source="grid_power", component=Component.GRID, flows=(flow,))
+    power = DerivedPowerSpec(
+        key="grid_import_power",
+        role=Role.GRID_IMPORT_POWER,
+        source="grid_power",
+        sign=SignFilter.POSITIVE,
+        component=Component.GRID,
+    )
+    assert power.enabled_default is True
+    for spec in (flow, mode, power):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            spec.key = "x"  # type: ignore[misc]
+    profile = DeviceProfile(
+        id="t.d",
+        brand="t",
+        device_type="inverter",
+        models=("M",),
+        min_request_interval_s=1.0,
+        default_port=502,
+        default_unit_id=1,
+        probe_key="a",
+        entities=(),
+    )
+    assert profile.metering_modes == ()

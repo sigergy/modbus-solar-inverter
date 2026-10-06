@@ -2,7 +2,7 @@
 
 import pytest
 
-from custom_components.modbus_solar.domain.energy import EnergyAccumulator, SignFilter
+from custom_components.modbus_solar.domain.energy import EnergyAccumulator, SignFilter, filter_power
 
 
 def run(acc: EnergyAccumulator, *samples: tuple[float, float | None]) -> float:
@@ -51,3 +51,10 @@ def test_total_never_decreases() -> None:
     samples = [(0, 500), (5, -800), (10, 1200), (15, None), (20, -50), (25, 300)]
     totals = [run(acc, sample) for sample in samples]
     assert totals == sorted(totals)
+
+
+def test_filter_power() -> None:
+    assert filter_power(1500.0, SignFilter.POSITIVE) == 1500.0
+    assert filter_power(-1500.0, SignFilter.POSITIVE) == 0.0
+    assert filter_power(-1500.0, SignFilter.NEGATIVE) == 1500.0
+    assert filter_power(1500.0, SignFilter.NEGATIVE) == 0.0
