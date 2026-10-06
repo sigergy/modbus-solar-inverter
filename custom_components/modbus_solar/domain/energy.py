@@ -13,6 +13,11 @@ class SignFilter(StrEnum):
     NEGATIVE = "negative"
 
 
+def filter_power(power_w: float, sign: SignFilter) -> float:
+    """Parte de la potencia que cuenta según el signo: la positiva, o la negativa en valor absoluto."""
+    return max(power_w, 0.0) if sign is SignFilter.POSITIVE else max(-power_w, 0.0)
+
+
 @dataclass(frozen=True, kw_only=True)
 class EnergySpec:
     key: str  # también translation_key y sufijo del unique_id
@@ -41,7 +46,7 @@ class EnergyAccumulator:
             # sin valor: el tramo que contiene esta muestra no se integra
             self._last = None
             return
-        filtered = max(power_w, 0.0) if self._sign is SignFilter.POSITIVE else max(-power_w, 0.0)
+        filtered = filter_power(power_w, self._sign)
         if self._last is not None:
             last_t, last_w = self._last
             elapsed = t - last_t

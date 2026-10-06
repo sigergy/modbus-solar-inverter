@@ -230,6 +230,9 @@
     },
     "ev_charger": {
       "name": "EV charger"
+    },
+    "generator": {
+      "name": "Generator"
     }
   },
   "entity": {

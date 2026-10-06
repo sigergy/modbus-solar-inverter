@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .control import GatedLimitSpec
 from .energy import EnergySpec
+from .metering import MeteringModeSpec
 from .types import Component, DataType, Platform, PollTier, RegisterKind, Role, WordOrder
 
 
@@ -63,3 +64,5 @@ class DeviceProfile:
     controls: tuple[GatedLimitSpec, ...] = ()  # parámetros escribibles del equipo
     serial: RegisterSpec | None = None  # número de serie por Modbus, opcional
     components: tuple[ComponentSpec, ...] = ()  # componentes opcionales; main es implícito
+    # modos de medición de red; el primero es el de por defecto
+    metering_modes: tuple[MeteringModeSpec, ...] = ()

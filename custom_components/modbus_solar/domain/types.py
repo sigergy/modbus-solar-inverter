@@ -68,6 +68,11 @@ class Role(StrEnum):
     WIND_SPEED = "wind_speed"
     CELL_TEMPERATURE = "cell_temperature"
     EXTERNAL_TEMPERATURE = "external_temperature"  # ambiente o módulo, según el modelo
+    # potencias derivadas y energía del generador (medición de red)
+    GRID_IMPORT_POWER = "grid_import_power"
+    GRID_EXPORT_POWER = "grid_export_power"
+    GENERATOR_POWER = "generator_power"
+    ENERGY_GENERATOR = "energy_generator"
 
 
 class Component(StrEnum):
@@ -81,6 +86,7 @@ class Component(StrEnum):
     CRITICAL_LOADS = "critical_loads"
     LOAD = "load"
     EV_CHARGER = "ev_charger"
+    GENERATOR = "generator"
 
 
 class Platform(StrEnum):
