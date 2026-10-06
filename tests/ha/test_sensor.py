@@ -182,10 +182,17 @@ async def test_critical_loads_mode_uses_internal_meter(
     assert device_of(hass, entry.entry_id, "_grid") is None
 
 
-async def test_off_grid_mode_creates_generator(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+async def test_off_grid_mode_creates_generator(
+    hass: HomeAssistant, patch_storage_unit: MagicMock, storage_unit: MockModbusUnit
+) -> None:
+    # 30052 (dirección 51) = 800 W
+    storage_unit.input[51] = 800
     entry = await setup_storage_entry(hass, components=["battery"], metering="off_grid")
     generator = device_of(hass, entry.entry_id, "_generator")
     assert generator is not None and generator.name == "Generator"
-    assert state_of(hass, "generator_power") is not None
+    assert float(state_of(hass, "generator_power").state) == 800
+    registry = er.async_get(hass)
+    for key in ("generator_power", "generator_energy"):
+        assert registry.async_get(entity_id_of(hass, key)).device_id == generator.id, key
     assert entity_id_of(hass, "grid_import_power") is None
     assert entity_id_of(hass, "grid_import_energy") is None
