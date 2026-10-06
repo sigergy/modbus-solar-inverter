@@ -6,6 +6,8 @@ CONF_PROFILE = "profile"
 CONF_UNIT_ID = "unit_id"
 CONF_INTERVALS = "intervals"
 CONF_COMPONENTS = "components"
+# modo de medición de red; ausente = el primero del perfil
+CONF_METERING = "metering"
 CONF_DEVICE_ID = "device_id"
 CONF_SERIAL_NUMBER = "serial_number"
 

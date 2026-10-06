@@ -7,6 +7,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ....const import BRAND_TITLES, DOMAIN
 from ....domain.control import GatedLimitSpec
 from ....domain.energy import EnergySpec
+from ....domain.metering import DerivedPowerSpec
 from ....domain.profile import DeviceProfile, EntitySpec
 from ....domain.types import Component
 from ..coordinator import TierCoordinator
@@ -42,7 +43,7 @@ class ModbusSolarEntity(CoordinatorEntity[TierCoordinator]):
         self,
         coordinator: TierCoordinator,
         runtime: DeviceRuntime,
-        spec: EntitySpec | EnergySpec | GatedLimitSpec,
+        spec: EntitySpec | EnergySpec | GatedLimitSpec | DerivedPowerSpec,
         key: str | None = None,
     ) -> None:
         super().__init__(coordinator)

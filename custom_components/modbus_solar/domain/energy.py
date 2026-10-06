@@ -15,7 +15,9 @@ class SignFilter(StrEnum):
 
 def filter_power(power_w: float, sign: SignFilter) -> float:
     """Parte de la potencia que cuenta según el signo: la positiva, o la negativa en valor absoluto."""
-    return max(power_w, 0.0) if sign is SignFilter.POSITIVE else max(-power_w, 0.0)
+    value = power_w if sign is SignFilter.POSITIVE else -power_w
+    # 0.0 literal: max(-0.0, 0.0) devuelve -0.0 y HA mostraría «-0.0»
+    return value if value > 0 else 0.0
 
 
 @dataclass(frozen=True, kw_only=True)

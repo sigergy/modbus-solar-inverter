@@ -14,7 +14,7 @@ from .adapters.inbound.runtime import ModbusSolarConfigEntry, build_runtime, ena
 from .adapters.outbound.modbus_gateway import ModbusGateway
 from .application.catalog import Catalog
 from .application.selection import Selection, chosen_components, select
-from .const import CONF_COMPONENTS, CONF_PROFILE, CONF_UNIT_ID, DOMAIN
+from .const import CONF_COMPONENTS, CONF_METERING, CONF_PROFILE, CONF_UNIT_ID, DOMAIN
 from .domain.profile import DeviceProfile
 from .domain.types import Component
 from .profiles import ALL_PROFILES
@@ -61,8 +61,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ModbusSolarConfigEntry) 
     gateway = ModbusGateway(unit, profile)
     components = data.get(CONF_COMPONENTS)  # None: entry anterior a v2, todos los opcionales
     requested = None if components is None else {Component(c) for c in components}
-    selection = select(profile, requested)
-    chosen = chosen_components(profile, requested)
+    metering = data.get(CONF_METERING)  # None: entry sin modo, el primero del perfil
+    selection = select(profile, requested, metering)
+    chosen = chosen_components(profile, requested, metering)
     _remove_unselected(hass, entry, profile, selection, chosen)
     keys = enabled_keys(er.async_get(hass), entry.entry_id, selection)
     # el mismo ModbusGateway lee y escribe: dos puertos, una implementación
