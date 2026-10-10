@@ -2,7 +2,7 @@
 type: feature
 area: energy
 layers: [domain, application, adapters, profiles]
-status: draft
+status: done
 date: 2026-10-11
 ---
 
@@ -1607,3 +1607,10 @@ git commit -m "docs: costes de red"
 ```
 
 Con push, expected: CI en verde.
+
+## Desviaciones
+
+- Task 5: el precio fijo usa `step="any"` en lugar de `0.0001`. HA rechaza un `step` menor que `0.001` en
+  `NumberSelector`, y las tarifas llevan 4 decimales (`adapters/inbound/flow.py`, constante `PRICE`).
+- Task 2: `tests/unit/test_types.py::test_enum_values_are_stable` fija la lista de `Role`; se añadieron
+  `cost_grid_import` y `cost_grid_export`. El plan no lo preveía.

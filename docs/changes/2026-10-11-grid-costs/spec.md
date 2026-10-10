@@ -2,8 +2,11 @@
 type: feature
 area: energy
 layers: [domain, application, adapters]
-status: draft
+status: done
 date: 2026-10-11
+release: 0.3.0
+audience: [user, team]
+summary: "Seguimiento de costes de red en el STORAGE 1Play TL M: precio fijo o dinámico por sentido y sensores de coste de la energía importada y exportada."
 refs:
   - decisions/0009-computed-energy.md
   - decisions/0017-metering-mode.md

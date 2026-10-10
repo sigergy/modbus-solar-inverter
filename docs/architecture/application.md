@@ -35,21 +35,23 @@ Errores:
 
 ## `min_tier_interval` y `request_rate` (`poller.py:46-54`)
 
-`min_tier_interval(profile, tier) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(registros, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s` (`poller.py:49`): agrupa igual que el gateway. Cuenta todas las entidades del perfil en el tier, no solo las de la selección (`poller.py:48`). No lanza errores propios. Lo usa el flujo de intervalos para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:234-235`).
+`min_tier_interval(profile, tier) -> float`: segundos mínimos para leer el tier entero respetando el espaciado entre peticiones. Es `len(plan_blocks(registros, profile.max_gap, profile.max_block_registers)) * profile.min_request_interval_s` (`poller.py:49`): agrupa igual que el gateway. Cuenta todas las entidades del perfil en el tier, no solo las de la selección (`poller.py:48`). No lanza errores propios. Lo usa el flujo de intervalos para rechazar intervalos demasiado cortos (`custom_components/modbus_solar/adapters/inbound/flow.py:252-253`).
 
-`request_rate(profile, intervals) -> float`: peticiones por segundo que piden los tiers con esos intervalos, la suma de `min_tier_interval / intervalo` (`poller.py:52-54`). El equipo admite 1; el flujo rechaza lo que pase de ahí con `interval_budget_exceeded` (`custom_components/modbus_solar/adapters/inbound/flow.py:237-238`). ADR [0016](../decisions/0016-instant-tier.md).
+`request_rate(profile, intervals) -> float`: peticiones por segundo que piden los tiers con esos intervalos, la suma de `min_tier_interval / intervalo` (`poller.py:52-54`). El equipo admite 1; el flujo rechaza lo que pase de ahí con `interval_budget_exceeded` (`custom_components/modbus_solar/adapters/inbound/flow.py:255-256`). ADR [0016](../decisions/0016-instant-tier.md).
 
 ## `Selection` y `select` (`selection.py`)
 
-`Selection` (`selection.py:13-18`): `dataclass` inmutable con las `entities`, `energies` y `controls` de los componentes elegidos, y las `powers` (`DerivedPowerSpec`) del modo de medición, vacías por defecto.
+`Selection` (`selection.py:17-23`): `dataclass` inmutable con las `entities`, `energies` y `controls` de los componentes elegidos, las `powers` (`DerivedPowerSpec`) del modo de medición y los `costs` (`DerivedCostSpec`) de sus flujos. `powers` y `costs` van vacías por defecto; `costs` queda vacía sin seguimiento de costes (`selection.py:22-23`).
 
-`metering_mode(profile, metering) -> MeteringModeSpec | None` (`selection.py:21-25`): el modo guardado. Con `None` (entry sin modo) o con una clave desconocida devuelve el primero. Devuelve `None` si el perfil no tiene modos.
+`COST_DIRECTIONS` (`selection.py:14`): el sentido del precio de cada signo. `SignFilter.POSITIVE` es `import` (lo que entra se compra) y `SignFilter.NEGATIVE` es `export` (lo que sale se vende). Es la clave del precio en `entry.data["costs"]`. El flujo de alta tiene su propia tupla `COST_DIRECTIONS = ("import", "export")` (`custom_components/modbus_solar/adapters/inbound/flow.py:70`): dos constantes con el mismo nombre y valores que hay que mantener a la par. Ver [inbound](adapters/inbound.md).
 
-`required_component(profile, mode) -> Component` (`selection.py:28-30`): el componente del vatímetro del modo, que es el de su entidad fuente. El flujo lo fuerza en el paso de componentes.
+`metering_mode(profile, metering) -> MeteringModeSpec | None` (`selection.py:26-30`): el modo guardado. Con `None` (entry sin modo) o con una clave desconocida devuelve el primero. Devuelve `None` si el perfil no tiene modos.
 
-`chosen_components(profile, components, metering=None) -> set[Component]` (`selection.py:33-45`): los componentes elegidos más `main`. `components=None` equivale a todos los opcionales del perfil: así se tratan las entries anteriores a v2, que no guardan la clave (`selection.py:40`). Con modo de medición añade `required_component` y `mode.component` (`selection.py:42-44`).
+`required_component(profile, mode) -> Component` (`selection.py:33-35`): el componente del vatímetro del modo, que es el de su entidad fuente. El flujo lo fuerza en el paso de componentes.
 
-`select(profile, components, metering=None) -> Selection` (`selection.py:48-72`): filtra entidades, energías y controles por `chosen_components`. Por cada flujo del modo añade una potencia derivada y una energía, las dos con `source=mode.source`, el signo del flujo y `component=mode.component` (`selection.py:53-66`). La energía integra la fuente con el signo del flujo: da el mismo número que integrar la potencia derivada (`selection.py:60`). La usan el flujo, `build_runtime`, la raíz y diagnostics. ADR [0017](../decisions/0017-metering-mode.md).
+`chosen_components(profile, components, metering=None) -> set[Component]` (`selection.py:38-50`): los componentes elegidos más `main`. `components=None` equivale a todos los opcionales del perfil: así se tratan las entries anteriores a v2, que no guardan la clave (`selection.py:45`). Con modo de medición añade `required_component` y `mode.component` (`selection.py:47-49`).
+
+`select(profile, components, metering=None, costs=None) -> Selection` (`selection.py:53-99`): filtra entidades, energías y controles por `chosen_components`. Por cada flujo del modo añade una potencia derivada y una energía, las dos con `source=mode.source`, el signo del flujo y `component=mode.component` (`selection.py:65-78`). La energía integra la fuente con el signo del flujo: da el mismo número que integrar la potencia derivada (`selection.py:72`). `costs` es `entry.data["costs"]` (`selection.py:59`). Con `costs` no vacío, añade un `DerivedCostSpec` por cada flujo con `cost_key` y `cost_role`, con la misma fuente y signo que su energía y `direction=COST_DIRECTIONS[f.sign]` (`selection.py:79-92`). Con `None` o vacío, `Selection.costs` queda vacía. `select` no mira qué sentidos hay dentro de `costs`: los precios de cada sentido los lee el sensor (ver [inbound](adapters/inbound.md)). La usan el flujo, `build_runtime`, la raíz y diagnostics. ADR [0017](../decisions/0017-metering-mode.md).
 
 ## `set_limit` y `set_enabled` (`control.py`)
 
@@ -77,6 +79,6 @@ Errores:
 
 - `DeviceUnavailable` y `DeviceProtocolError` se propagan desde `gateway.read` en la lectura de `probe_key` y de los tiers (`probe.py:21`, `:25-26`). La del número de serie se captura (`probe.py:41-43`).
 - `DecodeError` se propaga si el valor de `probe_key` no es válido, por ejemplo fuera del `enum` (`probe.py:22-23`). En los tiers, como en `read_tier`, un `DecodeError` queda en `decode_errors` y el valor en `None`.
-- Si `probe_key` no existe en el perfil, el `next(...)` sin valor por defecto falla sin gestionar (`probe.py:20`). `validate_profile` lo detecta antes (`custom_components/modbus_solar/domain/validate.py:107-108`).
+- Si `probe_key` no existe en el perfil, el `next(...)` sin valor por defecto falla sin gestionar (`probe.py:20`). `validate_profile` lo detecta antes (`custom_components/modbus_solar/domain/validate.py:112-113`).
 
 El config flow traduce estos errores a claves de formulario (ver [inbound](adapters/inbound.md)).
