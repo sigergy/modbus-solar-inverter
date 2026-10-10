@@ -46,6 +46,27 @@
           "metering": "Consumos en Grid: vatímetro externo en el punto de conexión. Consumos en Cargas Críticas: todos los consumos en la salida de cargas críticas; el vatímetro interno mide la red. Aislada: sin red; las bornas de red pueden llevar un generador."
         }
       },
+      "costs": {
+        "title": "Costes de red",
+        "description": "{model}. Sigue lo que cuesta la energía que compras a la red y la que le vendes. Cada sentido tiene su precio: fijo, o leído de una entidad de Home Assistant.",
+        "data": {
+          "enabled": "Seguimiento de costes",
+          "import_mode": "Precio de la importada",
+          "export_mode": "Precio de la exportada"
+        },
+        "submit": "Siguiente"
+      },
+      "cost_prices": {
+        "title": "Precios",
+        "description": "Los precios fijos van en €/kWh. Una entidad de precio debe estar en €/kWh o €/MWh.",
+        "data": {
+          "import_price": "Precio de la importada",
+          "export_price": "Precio de la exportada",
+          "import_entity": "Entidad del precio de la importada",
+          "export_entity": "Entidad del precio de la exportada"
+        },
+        "submit": "Siguiente"
+      },
       "components": {
         "title": "¿Qué tiene tu instalación?",
         "description": "{model}. {main} se añade siempre. Marca el resto de partes que tiene tu instalación: cada una sale en Home Assistant como un dispositivo propio. Se puede cambiar después en «Reconfigurar».",
@@ -150,6 +171,27 @@
         },
         "submit": "Siguiente"
       },
+      "reconfigure_costs": {
+        "title": "Costes de red",
+        "description": "{model}. Si desmarcas la casilla, se borran los dos sensores de coste con su historial.",
+        "data": {
+          "enabled": "Seguimiento de costes",
+          "import_mode": "Precio de la importada",
+          "export_mode": "Precio de la exportada"
+        },
+        "submit": "Siguiente"
+      },
+      "reconfigure_cost_prices": {
+        "title": "Precios",
+        "description": "Los precios fijos van en €/kWh. Una entidad de precio debe estar en €/kWh o €/MWh.",
+        "data": {
+          "import_price": "Precio de la importada",
+          "export_price": "Precio de la exportada",
+          "import_entity": "Entidad del precio de la importada",
+          "export_entity": "Entidad del precio de la exportada"
+        },
+        "submit": "Siguiente"
+      },
       "reconfigure_components": {
         "title": "¿Qué tiene tu instalación?",
         "description": "{model}. {main} se añade siempre. Lo que desmarques se quita de Home Assistant con su historial.",
@@ -215,7 +257,8 @@
       "device_id_in_use": "Ya hay un {device_type} con el ID {device_id}.",
       "invalid_serial_number": "Usa solo letras y números, sin espacios.",
       "interval_budget_exceeded": "Estos intervalos piden {rate} lecturas por segundo y el dispositivo admite 1. Sube alguno.",
-      "metering_component_required": "{component} hace falta para «{mode}». Márcalo o cambia la medición de red."
+      "metering_component_required": "{component} hace falta para «{mode}». Márcalo o cambia la medición de red.",
+      "price_unit_invalid": "La entidad debe tener unidad €/kWh o €/MWh."
     },
     "abort": {
       "already_configured": "Este dispositivo ya está añadido.",
@@ -423,6 +466,12 @@
       "generator_energy": {
         "name": "Energía del generador"
       },
+      "grid_import_cost": {
+        "name": "Coste de la energía importada"
+      },
+      "grid_export_cost": {
+        "name": "Coste de la energía exportada"
+      },
       "grid_import_energy": {
         "name": "Energía importada"
       },
@@ -551,6 +600,12 @@
       "options": {
         "disabled": "(desactivada)",
         "calculated": "Calculadas a partir de estas potencias"
+      }
+    },
+    "cost_mode": {
+      "options": {
+        "fixed": "Precio fijo",
+        "dynamic": "Precio dinámico (entidad)"
       }
     }
   }

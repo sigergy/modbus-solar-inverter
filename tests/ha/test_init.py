@@ -18,7 +18,7 @@ from custom_components.modbus_solar.application.selection import select
 from custom_components.modbus_solar.const import DOMAIN
 from custom_components.modbus_solar.domain.types import Platform
 from custom_components.modbus_solar.profiles import ALL_PROFILES
-from tests.ha.common import DEVICE_ID, device_entry, setup_entry, setup_storage_entry, state_of, tick
+from tests.ha.common import DEVICE_ID, device_entry, entity_id_of, setup_entry, setup_storage_entry, state_of, tick
 
 
 async def test_setup_builds_runtime_and_device(
@@ -222,3 +222,14 @@ async def test_entry_without_mode_and_grid_regains_grid_device(
     entry = await setup_storage_entry(hass, components=["battery"])
     assert has_device(hass, entry, "grid")
     assert f"{entry.entry_id}_grid_export_energy" in unique_ids(hass, entry)
+
+
+async def test_removing_costs_removes_cost_sensors(hass: HomeAssistant, patch_storage_unit: MagicMock) -> None:
+    costs = {"import": {"mode": "fixed", "price": 0.15}, "export": {"mode": "fixed", "price": 0.05}}
+    entry = await setup_storage_entry(hass, None, costs=costs)
+    assert entity_id_of(hass, "grid_import_cost") is not None
+    hass.config_entries.async_update_entry(entry, data={k: v for k, v in entry.data.items() if k != "costs"})
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert entity_id_of(hass, "grid_import_cost") is None
+    assert entity_id_of(hass, "grid_export_cost") is None

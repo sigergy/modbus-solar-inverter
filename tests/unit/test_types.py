@@ -87,6 +87,8 @@ def test_enum_values_are_stable() -> None:
         "grid_export_power",
         "generator_power",
         "energy_generator",
+        "cost_grid_import",
+        "cost_grid_export",
     ]
 
 

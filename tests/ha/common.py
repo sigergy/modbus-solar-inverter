@@ -65,6 +65,7 @@ async def setup_storage_entry(
     serial_number: str | None = None,
     host: str | None = None,
     metering: str | None = None,
+    costs: dict[str, Any] | None = None,
 ) -> MockConfigEntry:
     """Entry del STORAGE con los componentes elegidos; None = sin la clave (entry anterior a v2)."""
     data = dict(STORAGE_DATA) if components is None else {**STORAGE_DATA, "components": components}
@@ -74,6 +75,8 @@ async def setup_storage_entry(
         data["serial_number"] = serial_number
     if metering is not None:
         data["metering"] = metering
+    if costs is not None:
+        data["costs"] = costs
     # varias entries en un test: el host distingue unique_id y entry_id
     entry_id = DEVICE_ID
     if host is not None:

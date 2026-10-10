@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-11
+
+### Añadido
+
+- Seguimiento de costes de red en el STORAGE 1Play TL M: precio fijo o dinámico por sentido y sensores de coste de la
+  energía importada y exportada.
+
 ## [0.2.0] - 2026-10-10
 
 Versión estable. Mismo código que 0.2.0b1.

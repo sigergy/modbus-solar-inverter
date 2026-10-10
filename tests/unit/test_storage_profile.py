@@ -194,6 +194,8 @@ def test_metering_modes() -> None:
             "grid_import_energy",
             Role.ENERGY_GRID_IMPORT,
             SignFilter.POSITIVE,
+            "grid_import_cost",
+            Role.COST_GRID_IMPORT,
         ),
         (
             "grid_export_power",
@@ -201,17 +203,30 @@ def test_metering_modes() -> None:
             "grid_export_energy",
             Role.ENERGY_GRID_EXPORT,
             SignFilter.NEGATIVE,
+            "grid_export_cost",
+            Role.COST_GRID_EXPORT,
         ),
     ]
     generator = [
-        ("generator_power", Role.GENERATOR_POWER, "generator_energy", Role.ENERGY_GENERATOR, SignFilter.POSITIVE)
+        (
+            "generator_power",
+            Role.GENERATOR_POWER,
+            "generator_energy",
+            Role.ENERGY_GENERATOR,
+            SignFilter.POSITIVE,
+            None,
+            None,
+        )
     ]
     modes = [
         (
             m.key,
             m.source,
             m.component,
-            [(f.power_key, f.power_role, f.energy_key, f.energy_role, f.sign) for f in m.flows],
+            [
+                (f.power_key, f.power_role, f.energy_key, f.energy_role, f.sign, f.cost_key, f.cost_role)
+                for f in m.flows
+            ],
         )
         for m in PROFILE.metering_modes
     ]
@@ -341,3 +356,15 @@ def test_extra_tiers_and_enabled() -> None:
     for prefix in ("internal_meter_", "critical_load_", "ev_charger_"):
         for e in (e for e in PROFILE.entities if e.key.startswith(prefix)):
             assert (e.poll, e.enabled_default, e.entity_category) == (PollTier.FAST, True, None), e.key
+
+
+def test_costs_follow_the_grid_meter() -> None:
+    costs = {"import": {"mode": "fixed", "price": 0.15}, "export": {"mode": "fixed", "price": 0.05}}
+    on_grid = select(PROFILE, None, "grid_loads", costs)
+    assert [(c.key, c.source, c.component) for c in on_grid.costs] == [
+        ("grid_import_cost", "grid_power", Component.GRID),
+        ("grid_export_cost", "grid_power", Component.GRID),
+    ]
+    internal = select(PROFILE, None, "critical_loads", costs)
+    assert {(c.source, c.component) for c in internal.costs} == {("internal_meter_power", Component.INTERNAL_METER)}
+    assert select(PROFILE, None, "off_grid", costs).costs == ()

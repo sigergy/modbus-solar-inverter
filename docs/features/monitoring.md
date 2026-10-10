@@ -1,6 +1,6 @@
 # Funcionalidad: monitorización
 
-Documento vivo. Rutas bajo `custom_components/modbus_solar/` salvo indicación. Nombres de las entidades en `strings.json:257-505`.
+Documento vivo. Rutas bajo `custom_components/modbus_solar/` salvo indicación. Nombres de las entidades en `strings.json:300-554`.
 
 ## Perfiles
 
@@ -14,9 +14,9 @@ Los tres van en el catálogo (`profiles/__init__.py:8`).
 
 ## Tiers y componentes
 
-Cada entidad lee en uno de cuatro tiers: `instant` (5 s por defecto), `fast` (10 s), `normal` (60 s) y `slow` (3600 s) (`const.py:15`). Los intervalos se eligen en el alta y en el reconfigure, con un mínimo por tier y un presupuesto de una petición por segundo entre todos: ver [device-setup](device-setup.md) y ADR [0016](../decisions/0016-instant-tier.md).
+Cada entidad lee en uno de cuatro tiers: `instant` (5 s por defecto), `fast` (10 s), `normal` (60 s) y `slow` (3600 s) (`const.py:17`). Los intervalos se eligen en el alta y en el reconfigure, con un mínimo por tier y un presupuesto de una petición por segundo entre todos: ver [device-setup](device-setup.md) y ADR [0016](../decisions/0016-instant-tier.md).
 
-El STORAGE reparte sus entidades en componentes, cada uno con su dispositivo en HA: el inversor (principal), `pv`, `battery`, `grid`, `internal_meter`, `critical_loads`, `load` y `ev_charger` (`profiles/ingeteam/oneplay_storage.py:40-70`, `:205-213`). Con la medición «Aislada» se añade el dispositivo Generador (ver [Medición de red](#medición-de-red)). Solo se crean las entidades de los componentes elegidos en el alta. ADR [0015](../decisions/0015-device-per-component.md).
+El STORAGE reparte sus entidades en componentes, cada uno con su dispositivo en HA: el inversor (principal), `pv`, `battery`, `grid`, `internal_meter`, `critical_loads`, `load` y `ev_charger` (`profiles/ingeteam/oneplay_storage.py:40-70`, `:209-217`). Con la medición «Aislada» se añade el dispositivo Generador (ver [Medición de red](#medición-de-red)). Solo se crean las entidades de los componentes elegidos en el alta. ADR [0015](../decisions/0015-device-per-component.md).
 
 ## Sensores del STORAGE 1Play TL M
 
@@ -24,7 +24,7 @@ Todos son input registers. Dirección = registro − 30001 (`profiles/ingeteam/o
 
 ### Núcleo (activos)
 
-Definidos en `profiles/ingeteam/oneplay_storage.py:215-294`. Potencia, tensión, corriente, frecuencia y temperatura llevan `state_class=measurement`.
+Definidos en `profiles/ingeteam/oneplay_storage.py:219-298`. Potencia, tensión, corriente, frecuencia y temperatura llevan `state_class=measurement`.
 
 | Clave | Registro | Tipo | Escala | Unidad | Tier |
 |---|---|---|---|---|---|
@@ -45,7 +45,7 @@ Definidos en `profiles/ingeteam/oneplay_storage.py:215-294`. Potencia, tensión,
 | `grid_power` | 30072 | S16 | 1 | W | `instant` |
 | `load_power` | 30079 | U16 | 1 | W | `fast` |
 
-La red se lee del vatímetro externo (30070-30073) y va en el tier `instant`: es lo que más cambia y lo que se coteja antes con el equipo (`profiles/ingeteam/oneplay_storage.py:281-293`).
+La red se lee del vatímetro externo (30070-30073) y va en el tier `instant`: es lo que más cambia y lo que se coteja antes con el equipo (`profiles/ingeteam/oneplay_storage.py:285-297`).
 
 Componente de cada clave (`profiles/ingeteam/oneplay_storage.py:40-70`): `inverter_state` y `active_power` en el inversor; `pv1_*` y `pv2_*` en `pv`; `battery_*` en `battery`; `grid_*` en `grid`; `load_power` en `load`.
 
@@ -56,7 +56,7 @@ Estados:
 
 ### Extra
 
-Definidas en `profiles/ingeteam/oneplay_storage.py:295-404` con `_extra` (`profiles/ingeteam/oneplay_storage.py:130-154`). Por defecto son diagnóstico (`entity_category=diagnostic`, rol `diagnostic`), están deshabilitadas y van en `slow`; cada una ajusta tier, activación y categoría.
+Definidas en `profiles/ingeteam/oneplay_storage.py:299-408` con `_extra` (`profiles/ingeteam/oneplay_storage.py:130-154`). Por defecto son diagnóstico (`entity_category=diagnostic`, rol `diagnostic`), están deshabilitadas y van en `slow`; cada una ajusta tier, activación y categoría.
 
 | Clave | Registro | Tier | Componente | Por defecto |
 |---|---|---|---|---|
@@ -75,13 +75,13 @@ Definidas en `profiles/ingeteam/oneplay_storage.py:295-404` con `_extra` (`profi
 | `external_pv_power` | 30080 | `fast` | `pv` | deshabilitada |
 | `ev_charger_power` | 30081 (S16) | `fast` | `ev_charger` | activa |
 
-Las que van activas por defecto (`critical_load_*`, `internal_meter_*`, `ev_charger_power`) no son diagnóstico: son entidades de primer nivel de su componente (`profiles/ingeteam/oneplay_storage.py:313-404`). El resto se activa desde la UI de HA.
+Las que van activas por defecto (`critical_load_*`, `internal_meter_*`, `ev_charger_power`) no son diagnóstico: son entidades de primer nivel de su componente (`profiles/ingeteam/oneplay_storage.py:317-408`). El resto se activa desde la UI de HA.
 
 Los motivos de las Notas 7 y 9 (`*_limit_reason`, `power_reduction_reason`) salen como valor numérico crudo.
 
 ### Batería: alarmas y estados del BMS
 
-Catorce `binary_sensor` en el componente `battery`, uno por bit de dos registros (`ABH2010IMB08` págs. 6-8; `profiles/ingeteam/oneplay_storage.py:157-169`, `:405-419`). Van en el tier `fast`, con `entity_category=diagnostic` y activados por defecto. Cada uno se decodifica con `decode` sobre el bit (`domain/decode.py:27-28`) y se publica en `adapters/inbound/entities/binary_sensor.py:11-23`.
+Catorce `binary_sensor` en el componente `battery`, uno por bit de dos registros (`ABH2010IMB08` págs. 6-8; `profiles/ingeteam/oneplay_storage.py:157-169`, `:409-423`). Van en el tier `fast`, con `entity_category=diagnostic` y activados por defecto. Cada uno se decodifica con `decode` sobre el bit (`domain/decode.py:27-28`) y se publica en `adapters/inbound/entities/binary_sensor.py:11-23`.
 
 | Registro | Bits | Claves | Rol | Clase de HA |
 |---|---|---|---|---|
@@ -92,7 +92,7 @@ Un bit a 1 enciende la entidad. Los bits no listados no se publican.
 
 ### Medición de red
 
-El usuario elige en el alta qué vatímetro mide el intercambio con la red: ver [device-setup](device-setup.md) y ADR [0017](../decisions/0017-metering-mode.md). El modo decide la potencia leída que se usa como fuente, las entidades calculadas y su dispositivo (`profiles/ingeteam/oneplay_storage.py:173-188`, `:446-467`).
+El usuario elige en el alta qué vatímetro mide el intercambio con la red: ver [device-setup](device-setup.md) y ADR [0017](../decisions/0017-metering-mode.md). El modo decide la potencia leída que se usa como fuente, las entidades calculadas y su dispositivo (`profiles/ingeteam/oneplay_storage.py:173-192`, `:450-471`). Los sensores de coste: ver [Costes de red](#costes-de-red).
 
 | Modo | Fuente (registro, tier) | Entidades | Dispositivo |
 |---|---|---|---|
@@ -109,17 +109,39 @@ El usuario elige en el alta qué vatímetro mide el intercambio con la red: ver 
 | `grid_export_energy` | Energía exportada | integral de la fuente < 0, en valor absoluto |
 | `generator_energy` | Energía del generador | integral de la fuente > 0 |
 
-- Las potencias son sensores en W, `device_class=power`, `state_class=measurement`, activos por defecto y sin categoría (`adapters/inbound/entities/derived.py:13-16`, `domain/metering.py:37`). Nunca muestran `-0.0` (`domain/energy.py:16-20`).
-- Una fuente sin valor deja la potencia sin valor (`adapters/inbound/entities/derived.py:24-31`). Cada potencia se actualiza con el tier de su fuente (`adapters/inbound/entities/factory.py:50-53`).
-- La fuente se lee aunque su sensor esté deshabilitado, si la potencia calculada está activa (`adapters/inbound/runtime.py:62-66`).
+- Las potencias son sensores en W, `device_class=power`, `state_class=measurement`, activos por defecto y sin categoría (`adapters/inbound/entities/derived.py:13-16`, `domain/metering.py:40`). Nunca muestran `-0.0` (`domain/energy.py:16-20`).
+- Una fuente sin valor deja la potencia sin valor (`adapters/inbound/entities/derived.py:24-31`). Cada potencia se actualiza con el tier de su fuente (`adapters/inbound/entities/factory.py:51-54`).
+- La fuente se lee aunque su sensor esté deshabilitado, si la potencia calculada está activa (`adapters/inbound/runtime.py:64-68`).
 - Las energías de red conservan clave, `unique_id` y total entre «Consumos en Grid» y «Consumos en Cargas Críticas»: solo cambian de fuente y de dispositivo.
 - En «Aislada» las bornas de red pueden llevar un grupo electrógeno (`ABH2014IQM01`, apdo. 11, pág. 32): por eso las entidades son del generador y no de red.
 
-**Signos supuestos.** El PDF no documenta el signo de 30072 ni de 30052. Se asume > 0 = entra potencia por las bornas de red (`profiles/ingeteam/oneplay_storage.py:446-447`). Pendiente en la VM: los dos signos, qué leen 30070-30072 sin vatímetro externo, y que 30052 da la potencia del grupo en aislada.
+**Signos supuestos.** El PDF no documenta el signo de 30072 ni de 30052. Se asume > 0 = entra potencia por las bornas de red (`profiles/ingeteam/oneplay_storage.py:450-451`). Pendiente en la VM: los dos signos, qué leen 30070-30072 sin vatímetro externo, y que 30052 da la potencia del grupo en aislada.
+
+### Costes de red
+
+Opcional. El usuario activa el seguimiento en el alta o en reconfigure: ver [device-setup](device-setup.md). Sin activarlo no se crea ningún sensor de coste (`application/selection.py:79`). Solo los flujos de red llevan coste; el del generador no (`profiles/ingeteam/oneplay_storage.py:173-192`, `:462-468`), así que en «Aislada» no hay costes.
+
+| Clave | Nombre | Cuenta |
+|---|---|---|
+| `grid_import_cost` | Coste de la energía importada | energía importada × precio de importación |
+| `grid_export_cost` | Coste de la energía exportada | energía exportada × precio de exportación |
+
+Nombres en `translations/es.json:469-474`.
+
+- Sensores en euros: unidad `EUR`, `device_class=monetary`, `state_class=total`, precisión sugerida 2 (`adapters/inbound/entities/cost.py:22-26`). Es `total` y no `total_increasing` porque HA no admite `total_increasing` con `monetary` y porque un precio negativo resta (`adapters/inbound/entities/cost.py:23`). Activos por defecto y sin categoría (`domain/metering.py:53`, `adapters/inbound/entities/base.py:56-58`).
+- Dispositivo: el del modo de medición, Red en «Consumos en Grid» y Vatímetro interno en «Consumos en Cargas Críticas» (`application/selection.py:87`). Como las energías de red, conservan clave, `unique_id` y total al cambiar entre esos dos modos (`profiles/ingeteam/oneplay_storage.py:172-192`).
+- Cálculo: la energía de cada tramo, la misma que integra el sensor de energía del sentido (regla del trapecio sobre la fuente ya filtrada por signo), por el precio de esa muestra (`domain/cost.py:39`, `:48-54`). No se cuenta un tramo de más de 3 intervalos del tier, ni uno con lectura fallida o fuente sin valor (`adapters/inbound/entities/cost.py:34-36`, `:71-77`).
+- Precio fijo: el valor guardado, en €/kWh (`adapters/inbound/entities/cost.py:64-65`).
+- Precio dinámico: el estado de una entidad `sensor` de HA. Admite `€/kWh` y `EUR/kWh`, o `€/MWh` y `EUR/MWh`, que se convierten a €/kWh multiplicando por 0,001 (`domain/cost.py:8`, `:11-28`, `adapters/inbound/entities/cost.py:66-69`). El sensor lee la unidad en cada muestra, no solo al configurar.
+- Un precio negativo es válido: el total puede bajar (`domain/cost.py:35`).
+- Precio no disponible (la entidad no existe, está `unknown` o `unavailable`, no es un número o cambió a otra unidad): el total se queda como está y la energía de ese tramo queda pendiente. Se cobra con el siguiente precio válido (`domain/cost.py:34`, `:52-54`, `adapters/inbound/entities/cost.py:63-69`). Un `warning` en el log al caer el precio, una vez, y un `info` al volver (`adapters/inbound/entities/cost.py:54-60`).
+- Tras reiniciar o recargar, siguen desde el último total guardado. Lo que pasa con HA apagado no se cuenta (`adapters/inbound/entities/cost.py:39-44`). La energía pendiente no se guarda: si HA se reinicia con el precio caído, ese tramo queda sin coste (`domain/cost.py:41`).
+- La fuente se lee aunque estén deshabilitados el sensor de potencia y el de energía, si el coste está activo (`adapters/inbound/runtime.py:69-73`). Cada coste se actualiza con el tier de su fuente (`adapters/inbound/entities/factory.py:55-59`): `instant` en «Consumos en Grid» y `fast` en «Consumos en Cargas Críticas».
+- Si se quita el seguimiento en reconfigure, los dos sensores se borran del registro (`__init__.py:51`, `:55-58`).
 
 ### Energía calculada
 
-`ABH2010IMB08` no trae contadores de energía. La integración integra la potencia (`profiles/ingeteam/oneplay_storage.py:421-445`). Las energías de red y del generador las da el modo de medición (ver arriba). Decisión: [ADR 0009](../decisions/0009-computed-energy.md).
+`ABH2010IMB08` no trae contadores de energía. La integración integra la potencia (`profiles/ingeteam/oneplay_storage.py:425-449`). Las energías de red y del generador las da el modo de medición (ver arriba). Decisión: [ADR 0009](../decisions/0009-computed-energy.md).
 
 | Clave | Fuentes | Cuenta |
 |---|---|---|
@@ -132,10 +154,10 @@ El usuario elige en el alta qué vatímetro mide el intercambio con la red: ver 
 - Regla del trapecio sobre la suma de las fuentes, ya filtrada por signo (`domain/energy.py:46-58`).
 - No se integra: un tramo con una lectura fallida o una fuente sin valor (`adapters/inbound/entities/energy.py:43-51`), ni un tramo de más de 3 intervalos del tier (`adapters/inbound/entities/energy.py:26`).
 - Tras reiniciar o recargar, siguen desde el último total guardado. Lo que pasa con HA apagado no se cuenta (`adapters/inbound/entities/energy.py:27-33`).
-- Las fuentes se leen aunque su sensor de potencia esté deshabilitado (`adapters/inbound/runtime.py:51-67`).
+- Las fuentes se leen aunque su sensor de potencia esté deshabilitado (`adapters/inbound/runtime.py:53-74`).
 - `solar_energy` integra la potencia DC de los MPPT, antes de las pérdidas del inversor.
 
-**Signos supuestos.** El PDF no documenta el signo de `battery_power`. Se asume `battery_power` > 0 = descarga (`profiles/ingeteam/oneplay_storage.py:422`). Se verifica en la VM con diagnostics. Si el equipo dice otra cosa, se invierte el `sign` de las energías afectadas en el perfil.
+**Signos supuestos.** El PDF no documenta el signo de `battery_power`. Se asume `battery_power` > 0 = descarga (`profiles/ingeteam/oneplay_storage.py:426`). Se verifica en la VM con diagnostics. Si el equipo dice otra cosa, se invierte el `sign` de las energías afectadas en el perfil.
 
 Las escalas del PDF tampoco están verificadas en equipo, sobre todo `[A x100]`, `[Hz x10]` y `[V x 10]`.
 
@@ -176,7 +198,7 @@ Definido en `profiles/mencke_tegtmeyer/si_rs485.py:7-68`. Modbus RTU tras una pa
 
 - Cada tier lee todos sus registros o falla entero. Si la lectura falla (`DeviceUnavailable` o `DeviceProtocolError`), el coordinator lanza `UpdateFailed` y las entidades del tier pasan a `unavailable` (`adapters/inbound/coordinator.py:56-60`).
 - Vuelven en la siguiente lectura correcta, sin intervención. El log de pérdida (`error`) y de recuperación (`info`) lo emite `DataUpdateCoordinator`, una vez por cambio de estado y no en cada tick (`adapters/inbound/coordinator.py:59`).
-- Un equipo caído al arrancar no bloquea la entry: no se lanza `ConfigEntryNotReady` y el primer refresh va en segundo plano (`__init__.py:84-86`). Las entidades nacen `unavailable` hasta su primera lectura correcta (`adapters/inbound/entities/base.py:75-78`).
+- Un equipo caído al arrancar no bloquea la entry: no se lanza `ConfigEntryNotReady` y el primer refresh va en segundo plano (`__init__.py:86-88`). Las entidades nacen `unavailable` hasta su primera lectura correcta (`adapters/inbound/entities/base.py:75-78`).
 - Un segundo cliente Modbus (por ejemplo, el EMS) va contra la recomendación de Ingeteam y su efecto no está verificado. Ver [setup](../guides/setup.md).
 
 ## Valor fuera del enum
@@ -196,7 +218,7 @@ Contenido (`adapters/inbound/diagnostics.py:15-44`):
 
 - `profile` e `intervals`;
 - `tiers`: `last_update_success`, `last_error` y `last_error_at` de cada tier;
-- `entities`: por clave, `address`, `dtype`, `word_order`, `scale`, `raw` (palabras sin decodificar) y `value` decodificado (`adapters/inbound/diagnostics.py:30-37`);
-- `entry`: los datos de la entry con `host` y `serial_number` ocultos por `async_redact_data` (`adapters/inbound/diagnostics.py:12`, `:39`).
+- `entities`: por clave, `address`, `dtype`, `word_order`, `scale`, `raw` (palabras sin decodificar) y `value` decodificado (`adapters/inbound/diagnostics.py:30-37`). Solo las entidades leídas: las energías, potencias y costes calculados no salen (`adapters/inbound/diagnostics.py:25`);
+- `entry`: los datos de la entry con `host` y `serial_number` ocultos por `async_redact_data` (`adapters/inbound/diagnostics.py:12`, `:39`). `costs` sale sin ocultar: los precios fijos y los `entity_id` de las entidades de precio.
 
 Uso: en la VM, comparar `raw`, `scale` y `word_order` con el valor real del equipo para verificar escalas, orden de palabras y signos.

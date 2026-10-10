@@ -87,7 +87,12 @@ def _metering_problems(profile: DeviceProfile, seen: set[str]) -> list[str]:
             problems.append(f"metering {mode.key}: source {mode.source} is not power")
         mode_keys: set[str] = set()
         for flow in mode.flows:
-            for key, role in ((flow.power_key, flow.power_role), (flow.energy_key, flow.energy_role)):
+            if (flow.cost_key is None) != (flow.cost_role is None):
+                problems.append(f"metering {mode.key}: cost_key and cost_role go together")
+            keys = [(flow.power_key, flow.power_role), (flow.energy_key, flow.energy_role)]
+            if flow.cost_key is not None and flow.cost_role is not None:
+                keys.append((flow.cost_key, flow.cost_role))
+            for key, role in keys:
                 if key in seen or key in mode_keys:
                     problems.append(f"duplicate key: {key}")
                 mode_keys.add(key)

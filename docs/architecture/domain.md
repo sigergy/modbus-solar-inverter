@@ -11,10 +11,10 @@ Enumeraciones del dominio. Sus valores se guardan en config y diagnostics: no se
 | `DataType` | `u16`, `s16`, `u32`, `s32`, `ascii` (texto de N registros; N en `RegisterSpec.length`); propiedades `words` y `signed` | `types.py:6-22` |
 | `RegisterKind` | `holding`, `input` | `types.py:25` |
 | `PollTier` | `instant`, `fast`, `normal`, `slow`; `instant` va primero porque el formulario de intervalos recorre el enum en orden (ADR [0016](../decisions/0016-instant-tier.md)) | `types.py:30-34` |
-| `Role` | `inverter_state`, `ac_power`, `energy_produced_total`; roles por magnitud del STORAGE (`pv_*`, `battery_*`, `grid_*`, `load_power`), `diagnostic` para entidades sin significado común entre marcas, `bms_alarm` y `bms_flag` para los bits del BMS, cinco `energy_*` para energías calculadas, `export_limit` y `export_enabled` para el control del vertido, `irradiance`, `wind_speed`, `cell_temperature` y `external_temperature` para el sensor de irradiancia, y `grid_import_power`, `grid_export_power`, `generator_power` y `energy_generator` para la medición de red | `types.py:37-75` |
-| `Component` | la parte física del equipo a la que pertenece una entidad, y con ella su dispositivo de HA (ADR [0015](../decisions/0015-device-per-component.md)). `generator` solo lo crea el modo de medición «Aislada» | `types.py:78-89` |
-| `Platform` | `sensor`, `binary_sensor` | `types.py:92-94` |
-| `WordOrder` | `big` (palabra alta primero), `little` | `types.py:97-101` |
+| `Role` | `inverter_state`, `ac_power`, `energy_produced_total`; roles por magnitud del STORAGE (`pv_*`, `battery_*`, `grid_*`, `load_power`), `diagnostic` para entidades sin significado común entre marcas, `bms_alarm` y `bms_flag` para los bits del BMS, cinco `energy_*` para energías calculadas, `export_limit` y `export_enabled` para el control del vertido, `irradiance`, `wind_speed`, `cell_temperature` y `external_temperature` para el sensor de irradiancia, `grid_import_power`, `grid_export_power`, `generator_power` y `energy_generator` para la medición de red, y `cost_grid_import` y `cost_grid_export` para el coste de la energía de red | `types.py:37-78` |
+| `Component` | la parte física del equipo a la que pertenece una entidad, y con ella su dispositivo de HA (ADR [0015](../decisions/0015-device-per-component.md)). `generator` solo lo crea el modo de medición «Aislada» | `types.py:81-92` |
+| `Platform` | `sensor`, `binary_sensor` | `types.py:95-97` |
+| `WordOrder` | `big` (palabra alta primero), `little` | `types.py:100-104` |
 
 ## `profile.py`
 
@@ -38,13 +38,27 @@ Energía calculada: integra la potencia leída cuando el equipo no da contadores
   - Un tramo de más de `max_gap_s` o con `t` que retrocede no se integra (`energy.py:55-56`). El total nunca baja.
   - `total_kwh`: propiedad de solo lectura (`energy.py:42-44`).
 
+## `cost.py`
+
+Coste de la energía: el precio en €/kWh y los euros acumulados sobre la energía integrada (`cost.py:1`). Solo stdlib y `energy.py`.
+
+- `PRICE_UNITS`: unidades de precio aceptadas y su factor a €/kWh. `€/kWh` y `EUR/kWh` valen 1; `€/MWh` y `EUR/MWh` valen 0,001 (`cost.py:8`).
+- `price_per_kwh(value, unit) -> float | None` (`cost.py:11-28`): el precio en €/kWh. Devuelve `None` si la unidad es `None` o no está en `PRICE_UNITS` (`cost.py:13-16`), si el valor es un `bool` (`cost.py:14-16`), si es una cadena que no es un número (`cost.py:19-23`), si es de otro tipo (`cost.py:24-25`) o si no es finito (`cost.py:26-27`). Acepta `int`, `float` y cadenas numéricas (`cost.py:17-21`). Un precio negativo es válido.
+- `CostAccumulator(sign, max_gap_s, total_eur=0.0)` (`cost.py:31-42`). Integra con un `EnergyAccumulator` interno (`cost.py:39`): mismo signo y mismo hueco máximo que la energía del sentido.
+  - `add(t, power_w, price)` suma la energía del tramo (`cost.py:49-51`) y la cobra al precio de la muestra (`cost.py:52-54`).
+  - `price = None` deja la energía pendiente (`pending_kwh`): se cobra con el siguiente precio válido (`cost.py:34`, `:52-54`).
+  - `pending_kwh` no se persiste: si HA se reinicia con el precio caído, ese tramo queda sin coste (`cost.py:41`).
+  - El total puede bajar: un precio negativo resta euros (`cost.py:35`). Un `total_eur` inicial se acepta tal cual, sin recortar a 0 (`cost.py:40`), a diferencia de `EnergyAccumulator`.
+  - `total_eur`: propiedad de solo lectura (`cost.py:44-46`).
+
 ## `metering.py`
 
 Medición de red: el modo elige la potencia leída que mide el intercambio y el dispositivo de sus entidades (`metering.py:1`). ADR [0017](../decisions/0017-metering-mode.md).
 
-- `FlowSpec(power_key, power_role, energy_key, energy_role, sign)` (`metering.py:9-17`): un sentido del intercambio, con su potencia derivada y la energía que la integra.
-- `MeteringModeSpec(key, source, component, flows)` (`metering.py:20-25`). `key` es el valor guardado en la entry y la clave de traducción. `source` es la clave de la entidad de potencia leída en W. `component` es el dispositivo de las entidades del modo.
-- `DerivedPowerSpec(key, role, source, sign, component, enabled_default=True)` (`metering.py:28-37`): potencia calculada, la fuente filtrada por signo con `filter_power`. La construye `select` a partir de un `FlowSpec`.
+- `FlowSpec(power_key, power_role, energy_key, energy_role, sign, cost_key=None, cost_role=None)` (`metering.py:9-20`): un sentido del intercambio, con su potencia derivada, la energía que la integra y, si lo tiene, su coste. Sin coste (`None`), el sentido no tiene sensor de coste: el generador no lo tiene (`metering.py:18`, `custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:462-468`). Los dos sentidos de la red sí (`custom_components/modbus_solar/profiles/ingeteam/oneplay_storage.py:173-192`). `cost_key` y `cost_role` van juntos o ninguno (`validate.py:90-91`).
+- `MeteringModeSpec(key, source, component, flows)` (`metering.py:23-28`). `key` es el valor guardado en la entry y la clave de traducción. `source` es la clave de la entidad de potencia leída en W. `component` es el dispositivo de las entidades del modo.
+- `DerivedPowerSpec(key, role, source, sign, component, enabled_default=True)` (`metering.py:31-40`): potencia calculada, la fuente filtrada por signo con `filter_power`. La construye `select` a partir de un `FlowSpec`.
+- `DerivedCostSpec(key, role, source, sign, component, direction, enabled_default=True)` (`metering.py:43-53`): coste calculado, la energía de la fuente filtrada por signo por el precio de su sentido. `source` es la misma fuente que la energía del flujo (`metering.py:49`). `direction` es `import` o `export` y es la clave de su precio en `entry.data["costs"]` (`metering.py:52`). La construye `select` a partir de un `FlowSpec` con `cost_key` (`selection.py:81-92`).
 - Todas son `dataclass` inmutables y `kw_only`.
 
 ## `control.py`
@@ -102,22 +116,22 @@ Agrupado de registros en bloques de lectura (una petición Modbus por bloque).
 
 Comprobaciones estáticas de un perfil. Lista vacía = perfil válido (`validate.py:1`).
 
-`validate_profile(profile: DeviceProfile) -> list[str]` (`validate.py:99`). Informa de:
+`validate_profile(profile: DeviceProfile) -> list[str]` (`validate.py:104`). Informa de:
 
-- claves duplicadas (`validate.py:103-106`);
-- `probe_key` que no existe (`validate.py:107-108`);
-- energía con clave duplicada, también contra las entidades (`validate.py:111-114`);
-- energía con una fuente que no existe o que no es de potencia, `device_class != "power"` (`validate.py:115-120`);
-- energía en un componente distinto del de sus fuentes (`validate.py:121-123`);
-- energía con fuentes en tiers distintos: su sensor se suscribe a un solo coordinator (`validate.py:124-126`);
-- control con la clave del number o la del switch duplicada, también contra las entidades y las energías (`validate.py:128-132`);
-- control mal formado, `_control_problems` (`validate.py:18-46`, llamada en `:133`): `min_value` mayor que `max_value`, `step` no positivo, `default` u `off_value` fuera de rango, `scale == 0`, tipo de más de 16 bits, trama más larga que `max_block_registers`, palabra del prefijo fuera de `0..0xFFFF`, y extremos del rango u `off_value` que no codifican;
-- modos de medición mal declarados, `_metering_problems` (`validate.py:70-96`, llamada en `:135`): clave de modo repetida, modo sin flujos, fuente que no existe o que no es de potencia, clave de flujo que choca con una entidad, energía o control, o que se repite dentro del modo, y clave de flujo compartida entre modos con distinto rol o signo. Compartir clave entre modos vale: es el mismo `unique_id`;
-- componentes mal declarados, `_component_problems` (`validate.py:49-67`, llamada en `:136`): `main` declarado, componente repetido, entidad con un componente sin declarar y componente declarado sin entidades;
-- registros solapados del mismo tipo, salvo dos bits del mismo registro (`validate.py:138-143`, `:13-15`);
-- `enum` sin `device_class == "enum"` y al revés (`validate.py:148-151`);
-- `ascii` en una entidad: solo vale para `serial` (`validate.py:152-154`);
-- `bit` en una entidad que no es `binary_sensor` ni `u16`, o fuera de 0-15, y `binary_sensor` sin `bit` (`validate.py:155-163`);
-- `scale == 0` (`validate.py:164-165`);
-- `word_order` distinto de `BIG` en un tipo de 16 bits (`validate.py:166-167`);
-- `serial` que no es `ascii` o con `length < 1` (`validate.py:168-172`).
+- claves duplicadas (`validate.py:108-111`);
+- `probe_key` que no existe (`validate.py:112-113`);
+- energía con clave duplicada, también contra las entidades (`validate.py:116-119`);
+- energía con una fuente que no existe o que no es de potencia, `device_class != "power"` (`validate.py:120-125`);
+- energía en un componente distinto del de sus fuentes (`validate.py:126-128`);
+- energía con fuentes en tiers distintos: su sensor se suscribe a un solo coordinator (`validate.py:129-131`);
+- control con la clave del number o la del switch duplicada, también contra las entidades y las energías (`validate.py:133-137`);
+- control mal formado, `_control_problems` (`validate.py:18-46`, llamada en `:138`): `min_value` mayor que `max_value`, `step` no positivo, `default` u `off_value` fuera de rango, `scale == 0`, tipo de más de 16 bits, trama más larga que `max_block_registers`, palabra del prefijo fuera de `0..0xFFFF`, y extremos del rango u `off_value` que no codifican;
+- modos de medición mal declarados, `_metering_problems` (`validate.py:70-101`, llamada en `:140`): clave de modo repetida, modo sin flujos, fuente que no existe o que no es de potencia, clave de flujo que choca con una entidad, energía o control, o que se repite dentro del modo, y clave de flujo compartida entre modos con distinto rol o signo. Compartir clave entre modos vale: es el mismo `unique_id`. La clave de coste de un flujo (`cost_key`) cuenta como una clave de flujo más: se comprueba igual (`validate.py:93-100`). Además, un flujo con `cost_key` y sin `cost_role`, o al revés, es un problema (`validate.py:90-91`);
+- componentes mal declarados, `_component_problems` (`validate.py:49-67`, llamada en `:141`): `main` declarado, componente repetido, entidad con un componente sin declarar y componente declarado sin entidades;
+- registros solapados del mismo tipo, salvo dos bits del mismo registro (`validate.py:143-148`, `:13-15`);
+- `enum` sin `device_class == "enum"` y al revés (`validate.py:153-156`);
+- `ascii` en una entidad: solo vale para `serial` (`validate.py:157-159`);
+- `bit` en una entidad que no es `binary_sensor` ni `u16`, o fuera de 0-15, y `binary_sensor` sin `bit` (`validate.py:160-168`);
+- `scale == 0` (`validate.py:169-170`);
+- `word_order` distinto de `BIG` en un tipo de 16 bits (`validate.py:171-172`);
+- `serial` que no es `ascii` o con `length < 1` (`validate.py:173-177`).

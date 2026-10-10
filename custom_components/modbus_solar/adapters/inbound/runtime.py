@@ -1,14 +1,15 @@
 """Estado en memoria de un equipo mientras su entry está cargada."""
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from ...application.selection import Selection, select
-from ...const import CONF_DEVICE_ID, CONF_INTERVALS, CONF_SERIAL_NUMBER, DEFAULT_INTERVALS, DOMAIN
+from ...const import CONF_COSTS, CONF_DEVICE_ID, CONF_INTERVALS, CONF_SERIAL_NUMBER, DEFAULT_INTERVALS, DOMAIN
 from ...domain.control import GatedState
 from ...domain.profile import DeviceProfile
 from ...domain.types import Platform, PollTier
@@ -29,6 +30,7 @@ class DeviceRuntime:
     control_states: dict[str, GatedState]
     device_id: int | None = None  # Device ID del alta; None si el equipo no lo usa
     serial_number: str | None = None
+    costs: Mapping[str, Any] | None = None  # precios de entry.data["costs"]; None sin seguimiento
 
 
 type ModbusSolarConfigEntry = ConfigEntry[DeviceRuntime]
@@ -64,6 +66,11 @@ def enabled_keys(registry: er.EntityRegistry, entry_id: str, selection: Selectio
         # una potencia derivada activa necesita leer su fuente
         if _is_enabled(registry, Platform.SENSOR, entry_id, power.key, power.enabled_default):
             keys.add(power.source)
+    costs = selection.costs if isinstance(selection, Selection) else ()
+    for cost in costs:
+        # un coste activo necesita leer su fuente aunque su potencia y su energía estén deshabilitadas
+        if _is_enabled(registry, Platform.SENSOR, entry_id, cost.key, cost.enabled_default):
+            keys.add(cost.source)
     return frozenset(keys)
 
 
@@ -82,6 +89,8 @@ def build_runtime(
     intervals = DEFAULT_INTERVALS | entry.data.get(CONF_INTERVALS, {})
     poll_of = {e.key: e.poll for e in selection.entities}
     energy_tiers = {poll_of[source] for energy in selection.energies for source in energy.sources}
+    # el coste integra como la energía: su tier se actualiza aunque la potencia no cambie
+    energy_tiers |= {poll_of[cost.source] for cost in selection.costs}
     coordinators = {
         tier: TierCoordinator(
             hass,
@@ -110,4 +119,5 @@ def build_runtime(
         control_states={control.key: GatedState(limit=control.default) for control in selection.controls},
         device_id=entry.data.get(CONF_DEVICE_ID),
         serial_number=entry.data.get(CONF_SERIAL_NUMBER),
+        costs=entry.data.get(CONF_COSTS),
     )

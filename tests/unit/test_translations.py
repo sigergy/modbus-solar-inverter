@@ -50,6 +50,8 @@ def test_every_entity_and_enum_state_is_translated() -> None:
             for flow in mode.flows:
                 assert "name" in entities["sensor"][flow.power_key], flow.power_key
                 assert "name" in entities["sensor"][flow.energy_key], flow.energy_key
+                if flow.cost_key is not None:
+                    assert "name" in entities["sensor"][flow.cost_key], flow.cost_key
     # la clave es translation_key en todos los perfiles: state lleva la unión de sus opciones
     for key, values in options.items():
         assert set(entities["sensor"][key]["state"]) == values, key
@@ -99,6 +101,19 @@ def test_metering_entity_names() -> None:
         assert {key: sensors[key]["name"] for key in names} == names, name
 
 
+def test_cost_entity_names() -> None:
+    expected = {
+        "strings.json": {"grid_import_cost": "Grid import cost", "grid_export_cost": "Grid export cost"},
+        "translations/es.json": {
+            "grid_import_cost": "Coste de la energía importada",
+            "grid_export_cost": "Coste de la energía exportada",
+        },
+    }
+    for name, names in expected.items():
+        sensors = load(name)["entity"]["sensor"]
+        assert {key: sensors[key]["name"] for key in names} == names, name
+
+
 def test_flow_steps_errors_and_aborts_are_translated() -> None:
     strings = load("strings.json")
     config = strings["config"]
@@ -107,12 +122,16 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "model",
         "connection",
         "metering",
+        "costs",
+        "cost_prices",
         "components",
         "readings",
         "name",
         "intervals",
         "reconfigure",
         "reconfigure_metering",
+        "reconfigure_costs",
+        "reconfigure_cost_prices",
         "reconfigure_components",
         "reconfigure_intervals",
         "reconfigure_rename",
@@ -127,9 +146,26 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "device_id_in_use",
         "invalid_serial_number",
         "metering_component_required",
+        "price_unit_invalid",
     }
     assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
     assert "config_subentries" not in strings
+
+
+def test_cost_steps_and_modes_are_translated() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        data = load(name)
+        steps = data["config"]["step"]
+        assert set(steps["costs"]["data"]) == {"enabled", "import_mode", "export_mode"}, name
+        assert set(steps["cost_prices"]["data"]) == {"import_price", "export_price", "import_entity", "export_entity"}
+        assert set(data["selector"]["cost_mode"]["options"]) == {"fixed", "dynamic"}, name
+        assert data["config"]["error"]["price_unit_invalid"], name
+        assert steps["reconfigure_costs"]["data"] == steps["costs"]["data"], name
+        assert steps["reconfigure_cost_prices"]["data"] == steps["cost_prices"]["data"], name
+    assert load("translations/es.json")["selector"]["cost_mode"]["options"] == {
+        "fixed": "Precio fijo",
+        "dynamic": "Precio dinámico (entidad)",
+    }
 
 
 def test_metering_step_and_modes_are_translated() -> None:

@@ -8,6 +8,8 @@ CONF_INTERVALS = "intervals"
 CONF_COMPONENTS = "components"
 # modo de medición de red; ausente = el primero del perfil
 CONF_METERING = "metering"
+# seguimiento de costes de red; ausente = sin costes
+CONF_COSTS = "costs"
 CONF_DEVICE_ID = "device_id"
 CONF_SERIAL_NUMBER = "serial_number"
 
