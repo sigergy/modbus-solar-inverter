@@ -49,6 +49,8 @@ def metered():
             energy_key="in_e",
             energy_role=Role.ENERGY_GRID_IMPORT,
             sign=SignFilter.POSITIVE,
+            cost_key="in_c",
+            cost_role=Role.COST_GRID_IMPORT,
         ),
         FlowSpec(
             power_key="out_p",
@@ -56,6 +58,8 @@ def metered():
             energy_key="out_e",
             energy_role=Role.ENERGY_GRID_EXPORT,
             sign=SignFilter.NEGATIVE,
+            cost_key="out_c",
+            cost_role=Role.COST_GRID_EXPORT,
         ),
     )
     generator = FlowSpec(
@@ -121,3 +125,24 @@ def test_select_internal_and_island() -> None:
 
 def test_profile_without_modes_has_no_powers() -> None:
     assert select(two_components(), None).powers == ()
+
+
+COSTS = {"import": {"mode": "fixed", "price": 0.15}, "export": {"mode": "fixed", "price": 0.05}}
+
+
+def test_select_without_costs_has_no_costs() -> None:
+    assert select(metered(), [], None).costs == ()
+    assert select(metered(), [], None, None).costs == ()
+
+
+def test_select_adds_costs_of_the_mode() -> None:
+    selection = select(metered(), [], "internal", COSTS)
+    assert [(c.key, c.role, c.source, c.sign, c.component, c.direction) for c in selection.costs] == [
+        ("in_c", Role.COST_GRID_IMPORT, "m", SignFilter.POSITIVE, Component.INTERNAL_METER, "import"),
+        ("out_c", Role.COST_GRID_EXPORT, "m", SignFilter.NEGATIVE, Component.INTERNAL_METER, "export"),
+    ]
+
+
+def test_island_has_no_costs() -> None:
+    # el flujo del generador no declara coste
+    assert select(metered(), [], "island", COSTS).costs == ()
