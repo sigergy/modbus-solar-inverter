@@ -50,6 +50,8 @@ def test_every_entity_and_enum_state_is_translated() -> None:
             for flow in mode.flows:
                 assert "name" in entities["sensor"][flow.power_key], flow.power_key
                 assert "name" in entities["sensor"][flow.energy_key], flow.energy_key
+                if flow.cost_key is not None:
+                    assert "name" in entities["sensor"][flow.cost_key], flow.cost_key
     # la clave es translation_key en todos los perfiles: state lleva la unión de sus opciones
     for key, values in options.items():
         assert set(entities["sensor"][key]["state"]) == values, key
@@ -92,6 +94,19 @@ def test_metering_entity_names() -> None:
             "grid_export_power": "Potencia a la red",
             "generator_power": "Potencia del generador",
             "generator_energy": "Energía del generador",
+        },
+    }
+    for name, names in expected.items():
+        sensors = load(name)["entity"]["sensor"]
+        assert {key: sensors[key]["name"] for key in names} == names, name
+
+
+def test_cost_entity_names() -> None:
+    expected = {
+        "strings.json": {"grid_import_cost": "Grid import cost", "grid_export_cost": "Grid export cost"},
+        "translations/es.json": {
+            "grid_import_cost": "Coste de la energía importada",
+            "grid_export_cost": "Coste de la energía exportada",
         },
     }
     for name, names in expected.items():
