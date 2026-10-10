@@ -1,10 +1,10 @@
 ---
 title: Costes de red
-status: planned
+status: shipped
 version: 0.3.0
 tag: v0.3.0
-date:
-url:
+date: 2026-10-11
+url: https://github.com/sigergy/ha-modbus-solar/releases/tag/v0.3.0
 ---
 
 # Costes de red
