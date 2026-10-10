@@ -171,6 +171,27 @@
         },
         "submit": "Next"
       },
+      "reconfigure_costs": {
+        "title": "Grid costs",
+        "description": "{model}. Unticking it removes both cost sensors with their history.",
+        "data": {
+          "enabled": "Track costs",
+          "import_mode": "Import price",
+          "export_mode": "Export price"
+        },
+        "submit": "Next"
+      },
+      "reconfigure_cost_prices": {
+        "title": "Prices",
+        "description": "Fixed prices in €/kWh. A price entity must be in €/kWh or €/MWh.",
+        "data": {
+          "import_price": "Import price",
+          "export_price": "Export price",
+          "import_entity": "Import price entity",
+          "export_entity": "Export price entity"
+        },
+        "submit": "Next"
+      },
       "reconfigure_components": {
         "title": "What does your installation have?",
         "description": "{model}. {main} is always added. What you untick is removed from Home Assistant with its history.",

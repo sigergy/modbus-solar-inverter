@@ -167,7 +167,10 @@ def present_tiers(selection: Selection) -> list[PollTier]:
 
 
 def entity_list(profile: DeviceProfile, selection: Selection, tier: PollTier, translations: Mapping[str, str]) -> str:
-    """Entidades de un tier con su dispositivo: leídas, potencias y energías calculadas y controles (spec 4.4)."""
+    """Entidades de un tier con su dispositivo (spec 4.4).
+
+    Leídas, potencias, energías y costes calculados y controles.
+    """
     prefix = f"component.{DOMAIN}"
     # el dispositivo de un modo (Generador) va detrás de los opcionales
     order = (
@@ -191,14 +194,16 @@ def entity_list(profile: DeviceProfile, selection: Selection, tier: PollTier, tr
     energies = sorted(
         (e for e in selection.energies if poll_of[e.sources[0]] is tier), key=lambda e: order.index(e.component)
     )
+    costs = sorted((c for c in selection.costs if poll_of[c.source] is tier), key=lambda c: order.index(c.component))
     # los controles cuelgan del tier de la entidad de prueba
     controls = sorted(
         (c for c in selection.controls if poll_of[profile.probe_key] is tier), key=lambda c: order.index(c.component)
     )
     parts = ["\n".join(line(e.component, e.platform.value, e.key, e.enabled_default) for e in read)]
-    if powers or energies:
+    if powers or energies or costs:
         lines = [line(p.component, "sensor", p.key, p.enabled_default) for p in powers]
         lines += [line(e.component, "sensor", e.key, e.enabled_default) for e in energies]
+        lines += [line(c.component, "sensor", c.key, c.enabled_default) for c in costs]
         parts.append("\n".join([calculated, *lines]))
     if controls:
         # cada control son dos entidades: el number y su switch
@@ -903,12 +908,38 @@ class DeviceConfigFlow(ConfigFlow):
         profile = self._profile
         if user_input is not None:
             self._metering = user_input[CONF_METERING]
-            if profile.components:
-                return await self.async_step_reconfigure_components()
-            self._components = []
-            return await self.async_step_reconfigure_intervals()
+            if has_costs(profile, self._metering):
+                return await self.async_step_reconfigure_costs()
+            self._costs = None
+            return await self._after_reconfigure_metering()
         # sin modo guardado (entry anterior), el primero del perfil
         return self._show_metering("reconfigure_metering", profile, entry.data.get(CONF_METERING))
+
+    async def _after_reconfigure_metering(self) -> ConfigFlowResult:
+        if self._profile.components:
+            return await self.async_step_reconfigure_components()
+        self._components = []
+        return await self.async_step_reconfigure_intervals()
+
+    async def async_step_reconfigure_costs(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        if user_input is not None:
+            if not user_input[CONF_ENABLED]:
+                self._costs = None
+                return await self._after_reconfigure_metering()
+            self._cost_modes = {d: user_input[f"{d}_mode"] for d in COST_DIRECTIONS}
+            return await self.async_step_reconfigure_cost_prices()
+        return self._show_costs("reconfigure_costs", entry.data.get(CONF_COSTS))
+
+    async def async_step_reconfigure_cost_prices(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = price_errors(self.hass, self._cost_modes, user_input)
+            if not errors:
+                self._costs = costs_data(self._cost_modes, user_input)
+                return await self._after_reconfigure_metering()
+        return self._show_cost_prices("reconfigure_cost_prices", entry.data.get(CONF_COSTS), errors, user_input)
 
     async def async_step_reconfigure_components(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
@@ -935,7 +966,7 @@ class DeviceConfigFlow(ConfigFlow):
         errors: dict[str, str] = {}
         rate: float | None = None
         if user_input is not None:
-            tiers = present_tiers(select(profile, components, self._metering))
+            tiers = present_tiers(select(profile, components, self._metering, self._costs))
             shown, errors, rate = check_intervals(profile, tiers, user_input)
             if not errors:
                 data: dict[str, Any] = {
@@ -947,7 +978,11 @@ class DeviceConfigFlow(ConfigFlow):
                 mode = metering_mode(profile, self._metering)
                 if mode is not None:
                     data[CONF_METERING] = mode.key
-                for key, value in ((CONF_DEVICE_ID, self._device_id), (CONF_SERIAL_NUMBER, self._serial)):
+                for key, value in (
+                    (CONF_DEVICE_ID, self._device_id),
+                    (CONF_SERIAL_NUMBER, self._serial),
+                    (CONF_COSTS, self._costs),
+                ):
                     if value is None:
                         data.pop(key, None)
                     else:
