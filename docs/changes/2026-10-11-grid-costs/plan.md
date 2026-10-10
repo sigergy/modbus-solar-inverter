@@ -1151,7 +1151,7 @@ COST_DIRECTIONS = ("import", "export")
 MODE_FIXED = "fixed"
 MODE_DYNAMIC = "dynamic"
 PRICE = NumberSelector(
-    NumberSelectorConfig(min=0, max=10, step=0.0001, unit_of_measurement="€/kWh", mode=NumberSelectorMode.BOX)
+    NumberSelectorConfig(min=0, max=10, step="any", unit_of_measurement="€/kWh", mode=NumberSelectorMode.BOX)
 )
 ```
 

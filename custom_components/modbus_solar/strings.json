@@ -46,6 +46,27 @@
           "metering": "Loads on Grid: external meter at the connection point. Loads on Critical Loads: every load on the backup output; the internal meter measures the grid. Off-grid: no grid; the grid terminals may feed a generator."
         }
       },
+      "costs": {
+        "title": "Grid costs",
+        "description": "{model}. Track what the energy bought from and sold to the grid costs. Each direction has its own price: fixed, or read from a Home Assistant entity.",
+        "data": {
+          "enabled": "Track costs",
+          "import_mode": "Import price",
+          "export_mode": "Export price"
+        },
+        "submit": "Next"
+      },
+      "cost_prices": {
+        "title": "Prices",
+        "description": "Fixed prices in €/kWh. A price entity must be in €/kWh or €/MWh.",
+        "data": {
+          "import_price": "Import price",
+          "export_price": "Export price",
+          "import_entity": "Import price entity",
+          "export_entity": "Export price entity"
+        },
+        "submit": "Next"
+      },
       "components": {
         "title": "What does your installation have?",
         "description": "{model}. {main} is always added. Select the other parts of your installation: each one shows up in Home Assistant as its own device. You can change this later in «Reconfigure».",
@@ -215,7 +236,8 @@
       "device_id_in_use": "There is already a {device_type} with ID {device_id}.",
       "invalid_serial_number": "Use only letters and numbers, with no spaces.",
       "interval_budget_exceeded": "These intervals request {rate} reads per second, but the device allows 1. Raise one of them.",
-      "metering_component_required": "{component} is needed for «{mode}». Tick it or change the grid metering."
+      "metering_component_required": "{component} is needed for «{mode}». Tick it or change the grid metering.",
+      "price_unit_invalid": "The entity must be in €/kWh or €/MWh."
     },
     "abort": {
       "already_configured": "This device is already added.",
@@ -557,6 +579,12 @@
       "options": {
         "disabled": "(disabled)",
         "calculated": "Calculated from these powers"
+      }
+    },
+    "cost_mode": {
+      "options": {
+        "fixed": "Fixed price",
+        "dynamic": "Dynamic price (entity)"
       }
     }
   }

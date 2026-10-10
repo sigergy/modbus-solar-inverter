@@ -14,6 +14,9 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
+    BooleanSelector,
+    EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -33,6 +36,7 @@ from ...application.selection import Selection, metering_mode, required_componen
 from ...const import (
     BRAND_TITLES,
     CONF_COMPONENTS,
+    CONF_COSTS,
     CONF_DEVICE_ID,
     CONF_INTERVALS,
     CONF_METERING,
@@ -42,6 +46,7 @@ from ...const import (
     DEFAULT_INTERVALS,
     DOMAIN,
 )
+from ...domain.cost import PRICE_UNITS
 from ...domain.errors import DecodeError, DeviceProtocolError, DeviceUnavailable, EndpointInUse
 from ...domain.profile import DeviceProfile
 from ...domain.types import Component, Platform, PollTier
@@ -60,6 +65,14 @@ CONF_ADVANCED = "advanced"
 CONF_BRAND = "brand"
 # segundos máximos de la sonda: un equipo que no contesta no deja el formulario cargando
 PROBE_TIMEOUT_S = 20
+# seguimiento de costes de red (spec 7.3)
+CONF_ENABLED = "enabled"
+COST_DIRECTIONS = ("import", "export")
+MODE_FIXED = "fixed"
+MODE_DYNAMIC = "dynamic"
+PRICE = NumberSelector(
+    NumberSelectorConfig(min=0, max=10, step="any", unit_of_measurement="€/kWh", mode=NumberSelectorMode.BOX)
+)
 
 
 def device_unique_id(host: str, port: int, unit_id: int) -> str:
@@ -239,6 +252,75 @@ def check_intervals(
     return intervals, errors, rate
 
 
+def has_costs(profile: DeviceProfile, metering: str | None) -> bool:
+    """El modo tiene algún flujo con coste: «Aislada» no."""
+    mode = metering_mode(profile, metering)
+    return mode is not None and any(flow.cost_key is not None for flow in mode.flows)
+
+
+def costs_schema(stored: Mapping[str, Any] | None) -> vol.Schema:
+    """Casilla y modo de cada sentido. Por defecto, lo guardado; sin nada, desactivado y fijo."""
+    selector = SelectSelector(
+        SelectSelectorConfig(
+            options=[MODE_FIXED, MODE_DYNAMIC], mode=SelectSelectorMode.DROPDOWN, translation_key="cost_mode"
+        )
+    )
+    fields: dict[Any, Any] = {vol.Required(CONF_ENABLED, default=stored is not None): BooleanSelector()}
+    for direction in COST_DIRECTIONS:
+        default = MODE_FIXED if stored is None else stored[direction]["mode"]
+        fields[vol.Required(f"{direction}_mode", default=default)] = selector
+    return vol.Schema(fields)
+
+
+def cost_prices_schema(modes: Mapping[str, str]) -> vol.Schema:
+    """Un campo por sentido: precio si es fijo, entidad si es dinámico."""
+    fields: dict[Any, Any] = {}
+    for direction in COST_DIRECTIONS:
+        if modes[direction] == MODE_FIXED:
+            fields[vol.Required(f"{direction}_price")] = PRICE
+        else:
+            fields[vol.Required(f"{direction}_entity")] = EntitySelector(EntitySelectorConfig(domain="sensor"))
+    return vol.Schema(fields)
+
+
+def cost_prices_suggested(modes: Mapping[str, str], stored: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Valores guardados de los sentidos que conservan su modo."""
+    suggested: dict[str, Any] = {}
+    for direction in COST_DIRECTIONS:
+        saved = (stored or {}).get(direction, {})
+        if saved.get("mode") != modes[direction]:
+            continue
+        if modes[direction] == MODE_FIXED:
+            suggested[f"{direction}_price"] = saved["price"]
+        else:
+            suggested[f"{direction}_entity"] = saved["entity_id"]
+    return suggested
+
+
+def price_errors(hass: HomeAssistant, modes: Mapping[str, str], user_input: Mapping[str, Any]) -> dict[str, str]:
+    """Cada entidad dinámica debe existir con unidad €/kWh o €/MWh. Su estado no se mira: puede estar caído."""
+    errors: dict[str, str] = {}
+    for direction in COST_DIRECTIONS:
+        if modes[direction] != MODE_DYNAMIC:
+            continue
+        key = f"{direction}_entity"
+        state = hass.states.get(user_input[key])
+        if state is None or state.attributes.get("unit_of_measurement") not in PRICE_UNITS:
+            errors[key] = "price_unit_invalid"
+    return errors
+
+
+def costs_data(modes: Mapping[str, str], user_input: Mapping[str, Any]) -> dict[str, Any]:
+    """Lo que se guarda en entry.data["costs"]."""
+    data: dict[str, Any] = {}
+    for direction in COST_DIRECTIONS:
+        if modes[direction] == MODE_FIXED:
+            data[direction] = {"mode": MODE_FIXED, "price": float(user_input[f"{direction}_price"])}
+        else:
+            data[direction] = {"mode": MODE_DYNAMIC, "entity_id": user_input[f"{direction}_entity"]}
+    return data
+
+
 def missing_meter(profile: DeviceProfile, metering: str | None, chosen: Collection[str]) -> bool:
     """El vatímetro del modo no está entre los componentes marcados."""
     mode = metering_mode(profile, metering)
@@ -317,6 +399,10 @@ class DeviceConfigFlow(ConfigFlow):
     _components: list[Component] | None = None
     # modo de medición elegido; None = aún sin elegir (el primero del perfil)
     _metering: str | None = None
+    # costes elegidos (entry.data["costs"]); None = sin seguimiento
+    _costs: dict[str, Any] | None = None
+    # modo (fixed o dynamic) de cada sentido, entre el paso de costes y el de precios
+    _cost_modes: dict[str, str]
     # nombre, Device ID y número de serie ya resueltos; los usa el último paso
     _title: str = ""
     _device_id: int | None = None
@@ -342,6 +428,7 @@ class DeviceConfigFlow(ConfigFlow):
         self._probe = None
         self._components = None
         self._metering = None
+        self._costs = None
         return self.async_show_form(
             step_id="model",
             data_schema=vol.Schema({vol.Required(CONF_PROFILE): self._profile_selector()}),
@@ -368,9 +455,10 @@ class DeviceConfigFlow(ConfigFlow):
         advanced = user_input[CONF_ADVANCED]
         untouched = (advanced[CONF_PORT], advanced[CONF_UNIT_ID]) == (old.default_port, old.default_unit_id)
         self._profile = new
-        # los componentes y el modo elegidos eran de otro modelo
+        # los componentes, el modo y los costes elegidos eran de otro modelo
         self._components = None
         self._metering = None
+        self._costs = None
         if untouched:
             return {**user_input, CONF_ADVANCED: {CONF_PORT: new.default_port, CONF_UNIT_ID: new.default_unit_id}}
         return user_input
@@ -461,11 +549,58 @@ class DeviceConfigFlow(ConfigFlow):
         profile = self._profile
         if user_input is not None:
             self._metering = user_input[CONF_METERING]
-            if profile.components:
-                return await self.async_step_components()
-            self._components = []
-            return await self.async_step_readings()
+            if has_costs(profile, self._metering):
+                return await self.async_step_costs()
+            self._costs = None
+            return await self._after_metering()
         return self._show_metering("metering", profile, self._metering)
+
+    async def _after_metering(self) -> ConfigFlowResult:
+        if self._profile.components:
+            return await self.async_step_components()
+        self._components = []
+        return await self.async_step_readings()
+
+    async def async_step_costs(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            if not user_input[CONF_ENABLED]:
+                self._costs = None
+                return await self._after_metering()
+            self._cost_modes = {d: user_input[f"{d}_mode"] for d in COST_DIRECTIONS}
+            return await self.async_step_cost_prices()
+        return self._show_costs("costs", self._costs)
+
+    async def async_step_cost_prices(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = price_errors(self.hass, self._cost_modes, user_input)
+            if not errors:
+                self._costs = costs_data(self._cost_modes, user_input)
+                return await self._after_metering()
+        return self._show_cost_prices("cost_prices", self._costs, errors, user_input)
+
+    def _show_costs(self, step_id: str, stored: Mapping[str, Any] | None) -> ConfigFlowResult:
+        """Casilla y modos. Lo comparten el alta y reconfigure."""
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=costs_schema(stored),
+            description_placeholders={"model": self._profile.models[0]},
+        )
+
+    def _show_cost_prices(
+        self,
+        step_id: str,
+        stored: Mapping[str, Any] | None,
+        errors: dict[str, str],
+        typed: Mapping[str, Any] | None,
+    ) -> ConfigFlowResult:
+        """Precios según el modo de cada sentido. Tras un error conserva lo escrito."""
+        suggested = dict(typed) if typed is not None else cost_prices_suggested(self._cost_modes, stored)
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=self.add_suggested_values_to_schema(cost_prices_schema(self._cost_modes), suggested),
+            errors=errors,
+        )
 
     def _show_metering(self, step_id: str, profile: DeviceProfile, default: str | None) -> ConfigFlowResult:
         """Desplegable de modos de medición. Lo comparten el alta y reconfigure."""
@@ -542,7 +677,7 @@ class DeviceConfigFlow(ConfigFlow):
         probe, connection = self._probe, self._connection
         if probe is None or connection is None:
             raise RuntimeError("readings step without a successful probe")
-        selection = select(self._profile, self._components or [], self._metering)
+        selection = select(self._profile, self._components or [], self._metering, self._costs)
         readings = format_readings(
             self._profile, selection, probe, await self._translations(), self.hass.config.language
         )
@@ -613,13 +748,14 @@ class DeviceConfigFlow(ConfigFlow):
         profile: DeviceProfile,
         components: list[Component],
         metering: str | None,
+        costs: Mapping[str, Any] | None,
         defaults: Mapping[str, int],
         errors: dict[str, str],
         rate: float | None,
         typed: Mapping[str, Any] | None,
     ) -> ConfigFlowResult:
         """Formulario de intervalos: un campo por tier con entidades. Lo comparten el alta y reconfigure."""
-        selection = select(profile, components, metering)
+        selection = select(profile, components, metering, costs)
         tiers = present_tiers(selection)
         translations = await self._translations()
         placeholders = intervals_placeholders(profile, selection, tiers, translations)
@@ -643,7 +779,7 @@ class DeviceConfigFlow(ConfigFlow):
         errors: dict[str, str] = {}
         rate: float | None = None
         if user_input is not None:
-            tiers = present_tiers(select(profile, components, self._metering))
+            tiers = present_tiers(select(profile, components, self._metering, self._costs))
             shown, errors, rate = check_intervals(profile, tiers, user_input)
             if not errors:
                 data: dict[str, Any] = {
@@ -656,6 +792,8 @@ class DeviceConfigFlow(ConfigFlow):
                 mode = metering_mode(profile, self._metering)
                 if mode is not None:
                     data[CONF_METERING] = mode.key
+                if self._costs is not None:
+                    data[CONF_COSTS] = self._costs
                 if self._device_id is not None:
                     data[CONF_DEVICE_ID] = self._device_id
                 if self._serial:
@@ -666,6 +804,7 @@ class DeviceConfigFlow(ConfigFlow):
             profile,
             components,
             self._metering,
+            self._costs,
             DEFAULT_INTERVALS,
             errors,
             rate if "base" in errors else None,
@@ -826,6 +965,7 @@ class DeviceConfigFlow(ConfigFlow):
             profile,
             components,
             self._metering,
+            self._costs,
             defaults,
             errors,
             rate if "base" in errors else None,

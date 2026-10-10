@@ -198,7 +198,7 @@ Paso `cost_prices`, con un campo por sentido según su modo:
 
 | Modo | Campo | Selector |
 |---|---|---|
-| `fixed` | `import_price` / `export_price` | `NumberSelector`, 0 a 10, paso 0,0001, unidad €/kWh, modo caja |
+| `fixed` | `import_price` / `export_price` | `NumberSelector`, 0 a 10, paso libre (`"any"`: HA exige paso ≥ 0,001 y las tarifas llevan 4 decimales), unidad €/kWh, modo caja |
 | `dynamic` | `import_entity` / `export_entity` | `EntitySelector`, dominio `sensor` |
 
 Al enviar, cada entidad dinámica se valida: debe existir y su `unit_of_measurement` debe ser una de las de §5.2.
