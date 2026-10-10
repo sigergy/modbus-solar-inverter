@@ -130,6 +130,8 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "intervals",
         "reconfigure",
         "reconfigure_metering",
+        "reconfigure_costs",
+        "reconfigure_cost_prices",
         "reconfigure_components",
         "reconfigure_intervals",
         "reconfigure_rename",
@@ -158,6 +160,8 @@ def test_cost_steps_and_modes_are_translated() -> None:
         assert set(steps["cost_prices"]["data"]) == {"import_price", "export_price", "import_entity", "export_entity"}
         assert set(data["selector"]["cost_mode"]["options"]) == {"fixed", "dynamic"}, name
         assert data["config"]["error"]["price_unit_invalid"], name
+        assert steps["reconfigure_costs"]["data"] == steps["costs"]["data"], name
+        assert steps["reconfigure_cost_prices"]["data"] == steps["cost_prices"]["data"], name
     assert load("translations/es.json")["selector"]["cost_mode"]["options"] == {
         "fixed": "Precio fijo",
         "dynamic": "Precio dinámico (entidad)",

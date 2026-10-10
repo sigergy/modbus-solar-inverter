@@ -629,6 +629,8 @@ async def test_reconfigure_four_steps(hass: HomeAssistant, storage_temp_unit: Ma
     result = await reconfigure(hass, entry)
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_metering")
     result = await configure(hass, result, {"metering": "grid_loads"})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_costs")
+    result = await configure(hass, result, {"enabled": False})
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_components")
     # la Red sale marcada: es el vatímetro del modo
     assert field(result, "components").default() == ["battery", "grid"]
@@ -658,6 +660,60 @@ async def test_reconfigure_four_steps(hass: HomeAssistant, storage_temp_unit: Ma
     assert (params, unit_id) == (ModbusTcpParams(host="192.168.1.60", port=1502), 2)
 
 
+async def test_reconfigure_costs_start_from_saved(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry(costs=FIXED_COSTS)
+    result = await reconfigure(hass, entry)
+    result = await configure(hass, result, {"metering": "grid_loads"})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_costs")
+    assert field(result, "enabled").default() is True
+    result = await configure(hass, result, {"enabled": True, "import_mode": "fixed", "export_mode": "fixed"})
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_cost_prices")
+    assert field(result, "import_price").description == {"suggested_value": 0.15}
+    result = await configure(hass, result, {"import_price": 0.2, "export_price": 0.05})
+    assert result["step_id"] == "reconfigure_components"
+    result = await configure(hass, result, {"components": ["grid", "battery"]})
+    result = await configure(hass, result, STORAGE_INTERVALS)
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["costs"] == {
+        "import": {"mode": "fixed", "price": 0.2},
+        "export": {"mode": "fixed", "price": 0.05},
+    }
+
+
+async def test_reconfigure_disabling_costs_drops_the_key(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry(costs=FIXED_COSTS)
+    result = await reconfigure(hass, entry)
+    result = await configure(hass, result, {"metering": "grid_loads"})
+    result = await configure(hass, result, {"enabled": False})
+    result = await configure(hass, result, {"components": ["grid", "battery"]})
+    result = await configure(hass, result, STORAGE_INTERVALS)
+    assert result["reason"] == "reconfigure_successful"
+    assert "costs" not in entry.data
+
+
+async def test_reconfigure_off_grid_drops_costs(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    entry = storage_entry(costs=FIXED_COSTS)
+    result = await reconfigure(hass, entry)
+    result = await configure(hass, result, {"metering": "off_grid"})
+    assert result["step_id"] == "reconfigure_components"
+    result = await configure(hass, result, {"components": ["battery", "internal_meter"]})
+    result = await configure(hass, result, {k: v for k, v in STORAGE_INTERVALS.items() if k != "instant"})
+    assert result["reason"] == "reconfigure_successful"
+    assert "costs" not in entry.data
+
+
+async def test_intervals_list_cost_sensors(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
+    result = await to_costs(hass)
+    result = await configure(hass, result, {"enabled": True, "import_mode": "fixed", "export_mode": "fixed"})
+    result = await configure(hass, result, {"import_price": 0.15, "export_price": 0.05})
+    result = await configure(hass, result, {"components": ["grid", "battery"]})
+    result = await choose(hass, result, "name")
+    result = await configure(hass, result, {"name": "House", "device_id": 0})
+    assert result["step_id"] == "intervals"
+    assert "- Grid · Grid import cost" in result["description_placeholders"]["instant_entities"]
+    assert "- Grid · Grid export cost" in result["description_placeholders"]["instant_entities"]
+
+
 async def test_reconfigure_metering_then_components(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
     entry = storage_entry()
     result = await reconfigure(hass, entry)
@@ -665,6 +721,7 @@ async def test_reconfigure_metering_then_components(hass: HomeAssistant, storage
     # entry sin modo guardado: el primero
     assert field(result, "metering").default() == "grid_loads"
     result = await configure(hass, result, {"metering": "critical_loads"})
+    result = await configure(hass, result, {"enabled": False})
     assert result["step_id"] == "reconfigure_components"
     assert field(result, "components").default() == ["battery", "internal_meter"]
     result = await configure(hass, result, {"components": ["battery"]})
@@ -727,6 +784,7 @@ async def test_reconfigure_rejects_interval_shorter_than_blocks(hass: HomeAssist
 async def test_reconfigure_interval_budget_exceeded(hass: HomeAssistant, storage_temp_unit: MagicMock) -> None:
     result = await reconfigure(hass, storage_entry())
     result = await configure(hass, result, {"metering": "grid_loads"})
+    result = await configure(hass, result, {"enabled": False})
     # el tier instant solo existe con la red
     result = await configure(hass, result, {"components": ["grid", "battery"]})
     result = await configure(hass, result, {**STORAGE_INTERVALS, "instant": {"interval": 1}})
@@ -741,6 +799,7 @@ async def test_reconfigure_entry_without_components_defaults_to_all_optional(
     result = await reconfigure(hass, device_entry(STORAGE_DATA))
     assert result["step_id"] == "reconfigure_metering"
     result = await configure(hass, result, {"metering": "grid_loads"})
+    result = await configure(hass, result, {"enabled": False})
     assert result["step_id"] == "reconfigure_components"
     assert field(result, "components").default() == [
         "pv",
@@ -887,6 +946,7 @@ async def to_rename(hass: HomeAssistant, entry: MockConfigEntry, new_id: int = 2
     result = await entry.start_reconfigure_flow(hass)
     result = await configure(hass, result, {**CONNECTION, "device_id": new_id})
     result = await configure(hass, result, {"metering": "grid_loads"})
+    result = await configure(hass, result, {"enabled": False})
     result = await configure(hass, result, {"components": ["grid", "battery"]})
     result = await configure(hass, result, STORAGE_INTERVALS)
     assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "reconfigure_rename")
