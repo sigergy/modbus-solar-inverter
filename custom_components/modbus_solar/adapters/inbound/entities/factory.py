@@ -11,6 +11,7 @@ from ..coordinator import TierCoordinator
 from ..runtime import DeviceRuntime
 from .base import ModbusSolarEntity
 from .binary_sensor import ModbusSolarBinarySensor
+from .cost import ModbusSolarCostSensor
 from .derived import ModbusSolarDerivedPowerSensor
 from .energy import ModbusSolarEnergySensor
 from .number import ModbusSolarNumber
@@ -51,6 +52,11 @@ def build_sensors(runtime: DeviceRuntime) -> list[SensorEntity]:
         # la potencia derivada se actualiza con el coordinator de su fuente
         coordinator = runtime.coordinators[by_key[power.source].poll]
         sensors.append(ModbusSolarDerivedPowerSensor(coordinator, runtime, power))
+    prices = runtime.costs or {}
+    for cost in runtime.selection.costs:
+        # el coste se actualiza con el coordinator de su fuente, como la potencia derivada
+        coordinator = runtime.coordinators[by_key[cost.source].poll]
+        sensors.append(ModbusSolarCostSensor(coordinator, runtime, cost, prices[cost.direction]))
     return sensors
 
 

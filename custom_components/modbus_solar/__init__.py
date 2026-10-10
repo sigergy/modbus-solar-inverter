@@ -14,7 +14,7 @@ from .adapters.inbound.runtime import ModbusSolarConfigEntry, build_runtime, ena
 from .adapters.outbound.modbus_gateway import ModbusGateway
 from .application.catalog import Catalog
 from .application.selection import Selection, chosen_components, select
-from .const import CONF_COMPONENTS, CONF_METERING, CONF_PROFILE, CONF_UNIT_ID, DOMAIN
+from .const import CONF_COMPONENTS, CONF_COSTS, CONF_METERING, CONF_PROFILE, CONF_UNIT_ID, DOMAIN
 from .domain.profile import DeviceProfile
 from .domain.types import Component
 from .profiles import ALL_PROFILES
@@ -36,6 +36,7 @@ def _remove_unselected(
     modes = profile.metering_modes
     # las claves de todos los modos son de la integración aunque el modo actual no las use
     flow_keys = {key for mode in modes for flow in mode.flows for key in (flow.power_key, flow.energy_key)}
+    flow_keys |= {flow.cost_key for mode in modes for flow in mode.flows if flow.cost_key is not None}
     all_keys = (
         {e.key for e in profile.entities}
         | {e.key for e in profile.energies}
@@ -47,6 +48,7 @@ def _remove_unselected(
         | {e.key for e in selection.energies}
         | {c.key for c in selection.controls}
         | {p.key for p in selection.powers}
+        | {c.key for c in selection.costs}
     )
     registry = er.async_get(hass)
     prefix = f"{entry.entry_id}_"
@@ -73,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ModbusSolarConfigEntry) 
     components = data.get(CONF_COMPONENTS)  # None: entry anterior a v2, todos los opcionales
     requested = None if components is None else {Component(c) for c in components}
     metering = data.get(CONF_METERING)  # None: entry sin modo, el primero del perfil
-    selection = select(profile, requested, metering)
+    selection = select(profile, requested, metering, data.get(CONF_COSTS))
     chosen = chosen_components(profile, requested, metering)
     _remove_unselected(hass, entry, profile, selection, chosen)
     keys = enabled_keys(er.async_get(hass), entry.entry_id, selection)

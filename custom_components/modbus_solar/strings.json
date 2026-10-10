@@ -423,6 +423,12 @@
       "generator_energy": {
         "name": "Generator energy"
       },
+      "grid_import_cost": {
+        "name": "Grid import cost"
+      },
+      "grid_export_cost": {
+        "name": "Grid export cost"
+      },
       "grid_import_energy": {
         "name": "Import energy"
       },
