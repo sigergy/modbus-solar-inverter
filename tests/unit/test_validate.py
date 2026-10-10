@@ -320,3 +320,27 @@ def test_metering_key_same_role_and_sign_across_modes() -> None:
         "metering: p_in differs between modes",
         "metering: e_in differs between modes",
     ]
+
+
+def costed(cost_key: str = "c_in", role: Role = Role.COST_GRID_IMPORT) -> FlowSpec:
+    return replace(flow(), cost_key=cost_key, cost_role=role)
+
+
+def test_metering_cost_key_is_a_flow_key() -> None:
+    assert validate_profile(with_modes(mode("x", flows=(costed(),)))) == []
+    # choca con la potencia del mismo flujo
+    assert validate_profile(with_modes(mode("x", flows=(costed("p_in"),)))) == [
+        "duplicate key: p_in",
+        "metering: p_in differs between modes",
+    ]
+    other = mode("y", flows=(costed(role=Role.COST_GRID_EXPORT),))
+    assert validate_profile(with_modes(mode("x", flows=(costed(),)), other)) == ["metering: c_in differs between modes"]
+
+
+def test_metering_cost_key_and_role_go_together() -> None:
+    assert validate_profile(with_modes(mode("x", flows=(replace(flow(), cost_key="c_in"),)))) == [
+        "metering x: cost_key and cost_role go together"
+    ]
+    assert validate_profile(with_modes(mode("x", flows=(replace(flow(), cost_role=Role.COST_GRID_IMPORT),)))) == [
+        "metering x: cost_key and cost_role go together"
+    ]
