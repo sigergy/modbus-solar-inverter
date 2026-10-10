@@ -122,6 +122,8 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "model",
         "connection",
         "metering",
+        "costs",
+        "cost_prices",
         "components",
         "readings",
         "name",
@@ -142,9 +144,24 @@ def test_flow_steps_errors_and_aborts_are_translated() -> None:
         "device_id_in_use",
         "invalid_serial_number",
         "metering_component_required",
+        "price_unit_invalid",
     }
     assert set(config["abort"]) == {"already_configured", "reconfigure_successful"}
     assert "config_subentries" not in strings
+
+
+def test_cost_steps_and_modes_are_translated() -> None:
+    for name in ("strings.json", "translations/en.json", "translations/es.json"):
+        data = load(name)
+        steps = data["config"]["step"]
+        assert set(steps["costs"]["data"]) == {"enabled", "import_mode", "export_mode"}, name
+        assert set(steps["cost_prices"]["data"]) == {"import_price", "export_price", "import_entity", "export_entity"}
+        assert set(data["selector"]["cost_mode"]["options"]) == {"fixed", "dynamic"}, name
+        assert data["config"]["error"]["price_unit_invalid"], name
+    assert load("translations/es.json")["selector"]["cost_mode"]["options"] == {
+        "fixed": "Precio fijo",
+        "dynamic": "Precio dinámico (entidad)",
+    }
 
 
 def test_metering_step_and_modes_are_translated() -> None:
