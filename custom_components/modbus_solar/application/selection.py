@@ -1,13 +1,17 @@
 """Entidades, energías y controles de los componentes elegidos. La usan runtime, flujo y diagnóstico."""
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from ..domain.control import GatedLimitSpec
-from ..domain.energy import EnergySpec
-from ..domain.metering import DerivedPowerSpec, MeteringModeSpec
+from ..domain.energy import EnergySpec, SignFilter
+from ..domain.metering import DerivedCostSpec, DerivedPowerSpec, MeteringModeSpec
 from ..domain.profile import DeviceProfile, EntitySpec
 from ..domain.types import Component
+
+# sentido del precio de cada signo: lo que entra se compra, lo que sale se vende
+COST_DIRECTIONS = {SignFilter.POSITIVE: "import", SignFilter.NEGATIVE: "export"}
 
 
 @dataclass(frozen=True)
@@ -16,6 +20,7 @@ class Selection:
     energies: tuple[EnergySpec, ...]
     controls: tuple[GatedLimitSpec, ...]
     powers: tuple[DerivedPowerSpec, ...] = ()  # potencias derivadas del modo de medición
+    costs: tuple[DerivedCostSpec, ...] = ()  # costes del modo; vacío sin seguimiento de costes
 
 
 def metering_mode(profile: DeviceProfile, metering: str | None) -> MeteringModeSpec | None:
@@ -45,11 +50,18 @@ def chosen_components(
     return chosen
 
 
-def select(profile: DeviceProfile, components: Collection[Component] | None, metering: str | None = None) -> Selection:
+def select(
+    profile: DeviceProfile,
+    components: Collection[Component] | None,
+    metering: str | None = None,
+    costs: Mapping[str, Any] | None = None,
+) -> Selection:
+    """costs es entry.data["costs"]; None o vacío = sin seguimiento de costes."""
     chosen = chosen_components(profile, components, metering)
     mode = metering_mode(profile, metering)
     powers: tuple[DerivedPowerSpec, ...] = ()
     mode_energies: tuple[EnergySpec, ...] = ()
+    mode_costs: tuple[DerivedCostSpec, ...] = ()
     if mode is not None:
         powers = tuple(
             DerivedPowerSpec(
@@ -64,9 +76,24 @@ def select(profile: DeviceProfile, components: Collection[Component] | None, met
             )
             for f in mode.flows
         )
+        if costs:
+            # el coste integra la misma fuente y signo que su energía
+            mode_costs = tuple(
+                DerivedCostSpec(
+                    key=f.cost_key,
+                    role=f.cost_role,
+                    source=mode.source,
+                    sign=f.sign,
+                    component=mode.component,
+                    direction=COST_DIRECTIONS[f.sign],
+                )
+                for f in mode.flows
+                if f.cost_key is not None and f.cost_role is not None
+            )
     return Selection(
         entities=tuple(e for e in profile.entities if e.component in chosen),
         energies=tuple(e for e in profile.energies if e.component in chosen) + mode_energies,
         controls=tuple(c for c in profile.controls if c.component in chosen),
         powers=powers,
+        costs=mode_costs,
     )

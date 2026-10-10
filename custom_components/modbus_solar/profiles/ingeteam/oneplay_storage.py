@@ -177,6 +177,8 @@ GRID_FLOWS = (
         energy_key="grid_import_energy",
         energy_role=Role.ENERGY_GRID_IMPORT,
         sign=SignFilter.POSITIVE,
+        cost_key="grid_import_cost",
+        cost_role=Role.COST_GRID_IMPORT,
     ),
     FlowSpec(
         power_key="grid_export_power",
@@ -184,6 +186,8 @@ GRID_FLOWS = (
         energy_key="grid_export_energy",
         energy_role=Role.ENERGY_GRID_EXPORT,
         sign=SignFilter.NEGATIVE,
+        cost_key="grid_export_cost",
+        cost_role=Role.COST_GRID_EXPORT,
     ),
 )
 
