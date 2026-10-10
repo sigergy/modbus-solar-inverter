@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
+Versión estable. Mismo código que 0.2.0b1.
+
 ## [0.2.0b1] - 2026-10-06
 
 ### Añadido
