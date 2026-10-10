@@ -73,6 +73,9 @@ class Role(StrEnum):
     GRID_EXPORT_POWER = "grid_export_power"
     GENERATOR_POWER = "generator_power"
     ENERGY_GENERATOR = "energy_generator"
+    # coste de la energía de red (seguimiento de costes)
+    COST_GRID_IMPORT = "cost_grid_import"
+    COST_GRID_EXPORT = "cost_grid_export"
 
 
 class Component(StrEnum):
