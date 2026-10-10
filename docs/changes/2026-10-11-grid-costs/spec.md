@@ -156,7 +156,6 @@ Perfil: `GRID_FLOWS` declara `cost_key="grid_import_cost"`, `cost_role=Role.COST
 `cost_key="grid_export_cost"`, `cost_role=Role.COST_GRID_EXPORT`.
 
 Llamadores de `select` que pasan el dict guardado: `__init__.py:76` y `adapters/inbound/flow.py:545`, `:622`, `:646`, `:799`.
-flujo.
 
 ## 7. Adaptadores
 
